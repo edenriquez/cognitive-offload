@@ -16,7 +16,8 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "paths": { "@/*": ["./src/*"] },
-    "baseUrl": "."
+    "baseUrl": ".",
+    "types": ["vitest/globals", "node"],
   },
-  "include": ["src"]
+  "include": ["src", "*.config.ts"],
 }

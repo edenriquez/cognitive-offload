@@ -1,74 +1,79 @@
-import { useAppStore } from './app-store'
-import type { SignalSnapshot } from '../types'
+import { useAppStore } from "./app-store";
+import type { SignalSnapshot } from "../types";
 
-let ws: WebSocket | null = null
-let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let ws: WebSocket | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 function getWsUrl(): string {
-  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const host = window.location.host
-  return `${proto}//${host}/ws/signals`
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const host = window.location.host;
+  return `${proto}//${host}/ws/signals`;
 }
 
 function connect() {
-  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-    return
+  if (
+    ws &&
+    (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)
+  ) {
+    return;
   }
 
   try {
-    ws = new WebSocket(getWsUrl())
+    ws = new WebSocket(getWsUrl());
   } catch {
-    scheduleReconnect()
-    return
+    scheduleReconnect();
+    return;
   }
 
   ws.onopen = () => {
-    console.log('[ws] connected')
+    console.log("[ws] connected");
     if (reconnectTimer) {
-      clearTimeout(reconnectTimer)
-      reconnectTimer = null
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
     }
-  }
+  };
 
   ws.onmessage = (event) => {
     try {
-      const snapshot: SignalSnapshot = JSON.parse(event.data)
-      useAppStore.getState().setSignals(snapshot)
+      const snapshot: SignalSnapshot = JSON.parse(event.data);
+      useAppStore.getState().setSignals(snapshot);
     } catch (err) {
-      console.warn('[ws] failed to parse message', err)
+      console.warn("[ws] failed to parse message", err);
     }
-  }
+  };
 
   ws.onclose = () => {
-    console.log('[ws] disconnected')
-    ws = null
-    scheduleReconnect()
-  }
+    console.log("[ws] disconnected");
+    ws = null;
+    scheduleReconnect();
+  };
 
-  ws.onerror = () => {
-    ws?.close()
-  }
+  ws.onerror = (event) => {
+    // Silently handle — reconnect logic handles recovery
+    console.debug("[ws] error, will reconnect");
+    ws?.close();
+  };
 }
 
 function scheduleReconnect() {
-  if (reconnectTimer) return
+  if (reconnectTimer) return;
   reconnectTimer = setTimeout(() => {
-    reconnectTimer = null
-    connect()
-  }, 3000)
+    reconnectTimer = null;
+    connect();
+  }, 5000);
 }
 
 export function startSignalStream() {
-  connect()
+  connect();
 }
 
 export function stopSignalStream() {
   if (reconnectTimer) {
-    clearTimeout(reconnectTimer)
-    reconnectTimer = null
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
   }
   if (ws) {
-    ws.close()
-    ws = null
+    ws.close();
+    ws = null;
   }
 }

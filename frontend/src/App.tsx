@@ -7,6 +7,7 @@ import CaptureMode from "./components/modes/CaptureMode";
 import ReviewMode from "./components/modes/ReviewMode";
 import TomorrowMode from "./components/modes/TomorrowMode";
 import { startSignalStream, stopSignalStream } from "./store/ws-client";
+import ErrorBoundary from "./components/shared/ErrorBoundary";
 import { api } from "./api/client";
 import "./styles/desktop.css";
 import "./styles/modes.css";
@@ -165,7 +166,7 @@ export default function App() {
             className={`sd ${sig.error_rate > 2 ? "danger" : sig.error_rate > 1.3 ? "warn" : ""}`}
           ></span>
           <span className="signal-label">Errors</span>
-          <b>{sig.error_rate.toFixed(1)}×</b>
+          <b>{(sig.error_rate ?? 0).toFixed(1)}×</b>
           <span style={{ color: "var(--color-overcast)" }}>baseline</span>
         </div>
         <div className="signal">
@@ -200,20 +201,22 @@ export default function App() {
       {/* Main content */}
       <div className="content-area">
         <div className="stage">
-          {mode === "focus" && (
-            <FocusMode
-              task={
-                activeFocusTask ||
-                tasks.find((t) => !t.done && t.kind === "must")?.text ||
-                "Pick a task"
-              }
-              onExit={exitFocus}
-            />
-          )}
-          {mode === "today" && <TodayMode />}
-          {mode === "capture" && <CaptureMode />}
-          {mode === "review" && <ReviewMode />}
-          {mode === "tomorrow" && <TomorrowMode />}
+          <ErrorBoundary key={mode}>
+            {mode === "focus" && (
+              <FocusMode
+                task={
+                  activeFocusTask ||
+                  tasks.find((t) => !t.done && t.kind === "must")?.text ||
+                  "Pick a task"
+                }
+                onExit={exitFocus}
+              />
+            )}
+            {mode === "today" && <TodayMode />}
+            {mode === "capture" && <CaptureMode />}
+            {mode === "review" && <ReviewMode />}
+            {mode === "tomorrow" && <TomorrowMode />}
+          </ErrorBoundary>
         </div>
       </div>
 
@@ -227,7 +230,7 @@ export default function App() {
           Sessions · <b>{sig.active_threads}</b>
         </span>
         <span>
-          Errors · <b>{sig.error_rate.toFixed(1)}×</b>
+          Errors · <b>{(sig.error_rate ?? 0).toFixed(1)}×</b>
         </span>
         <span>
           Cutoff ·{" "}
