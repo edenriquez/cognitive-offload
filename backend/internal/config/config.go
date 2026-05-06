@@ -8,23 +8,32 @@ import (
 )
 
 type Config struct {
-	WatchPaths []string `json:"watch_paths"`
-	IgnoreDirs []string `json:"ignore_dirs"`
-	CutoffHour float64  `json:"cutoff_hour"`
-	ThreadCap  int      `json:"thread_cap"`
+	WatchPaths   []string `json:"watch_paths"`
+	IgnoreDirs   []string `json:"ignore_dirs"`
+	MaxWatchDirs int      `json:"max_watch_dirs"`
+	CutoffHour   float64  `json:"cutoff_hour"`
+	ThreadCap    int      `json:"thread_cap"`
 }
 
 func DefaultConfig() Config {
-	home, _ := os.UserHomeDir()
+	// Default: watch the current working directory, not all of ~/dev
+	cwd, err := os.Getwd()
+	if err != nil {
+		home, _ := os.UserHomeDir()
+		cwd = home
+	}
+
 	return Config{
-		WatchPaths: []string{filepath.Join(home, "dev")},
+		WatchPaths: []string{cwd},
 		IgnoreDirs: []string{
 			"node_modules", ".git", "target", "dist", "build",
 			".next", "__pycache__", ".venv", "vendor", ".cache",
-			".turbo", ".nuxt", ".output",
+			".turbo", ".nuxt", ".output", ".svelte-kit",
+			"coverage", ".nyc_output", "tmp", "temp",
 		},
-		CutoffHour: 16.5,
-		ThreadCap:  1,
+		MaxWatchDirs: 500,
+		CutoffHour:   16.5,
+		ThreadCap:    1,
 	}
 }
 
@@ -36,7 +45,6 @@ func Load() Config {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		// No config file yet — write defaults
 		Save(cfg)
 		return cfg
 	}
@@ -45,6 +53,12 @@ func Load() Config {
 		slog.Warn("failed to parse config, using defaults", "error", err)
 		return DefaultConfig()
 	}
+
+	// Ensure sane limits
+	if cfg.MaxWatchDirs <= 0 {
+		cfg.MaxWatchDirs = 500
+	}
+
 	return cfg
 }
 

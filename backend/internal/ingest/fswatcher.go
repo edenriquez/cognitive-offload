@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -16,17 +17,19 @@ import (
 )
 
 type FSWatcher struct {
-	db         *store.DB
-	paths      []string
-	ignoreDirs map[string]bool
-	watcher    *fsnotify.Watcher
+	db           *store.DB
+	paths        []string
+	ignoreDirs   map[string]bool
+	maxDirs      int
+	watcher      *fsnotify.Watcher
+	watchedCount atomic.Int32
 
 	mu     sync.Mutex
 	batch  []models.RawEvent
 	stopCh chan struct{}
 }
 
-func NewFSWatcher(db *store.DB, watchPaths []string, ignoreDirs []string) (*FSWatcher, error) {
+func NewFSWatcher(db *store.DB, watchPaths []string, ignoreDirs []string, maxDirs int) (*FSWatcher, error) {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -37,27 +40,29 @@ func NewFSWatcher(db *store.DB, watchPaths []string, ignoreDirs []string) (*FSWa
 		ignore[d] = true
 	}
 
+	if maxDirs <= 0 {
+		maxDirs = 500
+	}
+
 	return &FSWatcher{
 		db:         db,
 		paths:      watchPaths,
 		ignoreDirs: ignore,
+		maxDirs:    maxDirs,
 		watcher:    w,
 		stopCh:     make(chan struct{}),
 	}, nil
 }
 
 func (f *FSWatcher) Start(ctx context.Context) error {
-	// Add all watch paths recursively
 	for _, root := range f.paths {
 		if err := f.addRecursive(root); err != nil {
 			slog.Warn("failed to watch path", "path", root, "error", err)
 		}
 	}
 
-	// Flush batch every 3 seconds
 	go f.flushLoop(ctx)
 
-	// Event loop
 	go func() {
 		for {
 			select {
@@ -79,22 +84,19 @@ func (f *FSWatcher) Start(ctx context.Context) error {
 		}
 	}()
 
-	count := len(f.watcher.WatchList())
-	slog.Info("file watcher started", "directories", count, "roots", f.paths)
+	count := f.watchedCount.Load()
+	slog.Info("file watcher started", "directories", count, "max", f.maxDirs, "roots", f.paths)
 	return nil
 }
 
 func (f *FSWatcher) Stop() {
 	close(f.stopCh)
 	f.watcher.Close()
-	// Flush remaining events
 	f.flush(context.Background())
 }
 
 func (f *FSWatcher) handleEvent(event fsnotify.Event) {
-	// Skip directories themselves (we only care about file operations)
 	if info, err := os.Stat(event.Name); err == nil && info.IsDir() {
-		// If a new directory is created, watch it too
 		if event.Has(fsnotify.Create) && !f.shouldIgnore(event.Name) {
 			f.addRecursive(event.Name)
 		}
@@ -179,10 +181,15 @@ func (f *FSWatcher) addRecursive(root string) error {
 		if f.shouldIgnore(path) {
 			return filepath.SkipDir
 		}
+		// Respect max directory limit
+		if int(f.watchedCount.Load()) >= f.maxDirs {
+			return filepath.SkipDir
+		}
 		if err := f.watcher.Add(path); err != nil {
 			slog.Debug("fswatcher skip dir", "path", path, "error", err)
 			return filepath.SkipDir
 		}
+		f.watchedCount.Add(1)
 		return nil
 	})
 }
@@ -194,7 +201,6 @@ func (f *FSWatcher) shouldIgnore(path string) bool {
 			return true
 		}
 	}
-	// Also ignore hidden directories (except .cogload)
 	base := filepath.Base(path)
 	if strings.HasPrefix(base, ".") && base != ".cogload" {
 		return true

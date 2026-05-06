@@ -69,7 +69,7 @@ func main() {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	defer ctxCancel()
 
-	fsw, err := ingest.NewFSWatcher(db, cfg.WatchPaths, cfg.IgnoreDirs)
+	fsw, err := ingest.NewFSWatcher(db, cfg.WatchPaths, cfg.IgnoreDirs, cfg.MaxWatchDirs)
 	if err != nil {
 		slog.Error("failed to create file watcher", "error", err)
 	} else {
