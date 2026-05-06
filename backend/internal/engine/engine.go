@@ -20,42 +20,42 @@ func New(db *store.DB) *Engine {
 
 // Signals holds real-time state derived from data.
 type Signals struct {
-	ActiveThreads      int
-	NewThreadsLast10m  int
-	OrphanThreads      int
-	ErrorRate          float64
-	ErrorRateFirst15   float64
-	Baseline           float64
-	InactivityMin      int
-	PostLunchDrop      float64
-	StuckTaskMin       int
-	TaskProgress       float64
-	OpenLoops          int
-	CutoffHour         float64
-	InPeak             bool
-	HasDailyPlan       bool
-	WorkActualPct      int
-	WorkPlannedPct     int
+	ActiveThreads     int
+	NewThreadsLast10m int
+	OrphanThreads     int
+	ErrorRate         float64
+	ErrorRateFirst15  float64
+	Baseline          float64
+	InactivityMin     int
+	PostLunchDrop     float64
+	StuckTaskMin      int
+	TaskProgress      float64
+	OpenLoops         int
+	CutoffHour        float64
+	InPeak            bool
+	HasDailyPlan      bool
+	WorkActualPct     int
+	WorkPlannedPct    int
 }
 
-// DefaultSignals returns a baseline signal set for demo/cold-start.
+// DefaultSignals returns a clean baseline when no data exists yet.
 func DefaultSignals() Signals {
 	return Signals{
-		ActiveThreads:     3,
-		NewThreadsLast10m: 5,
-		OrphanThreads:     4,
-		ErrorRate:         2.8,
-		ErrorRateFirst15:  0.7,
+		ActiveThreads:     0,
+		NewThreadsLast10m: 0,
+		OrphanThreads:     0,
+		ErrorRate:         0,
+		ErrorRateFirst15:  0,
 		Baseline:          1.0,
 		InactivityMin:     0,
-		PostLunchDrop:     0.65,
-		StuckTaskMin:      252,
-		TaskProgress:      0.08,
-		OpenLoops:         4,
+		PostLunchDrop:     0,
+		StuckTaskMin:      0,
+		TaskProgress:      0,
+		OpenLoops:         0,
 		CutoffHour:        16.5,
 		InPeak:            false,
-		HasDailyPlan:      true,
-		WorkActualPct:     78,
+		HasDailyPlan:      false,
+		WorkActualPct:     0,
 		WorkPlannedPct:    60,
 	}
 }

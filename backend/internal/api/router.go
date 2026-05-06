@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -122,9 +121,9 @@ func (h *handler) getToday(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Seed demo tasks if empty
-	if len(tasks) == 0 {
-		tasks = seedDemoTasks(ctx, h.db, day)
+	// Return empty list if no tasks — user creates their own
+	if tasks == nil {
+		tasks = []models.Task{}
 	}
 
 	bw := models.Bandwidth{Work: 60, Personal: 15, Admin: 15, Learning: 10}
@@ -163,19 +162,6 @@ func (h *handler) getToday(w http.ResponseWriter, r *http.Request) {
 		Completed:    completed,
 		Total:        len(tasks),
 	})
-}
-
-func seedDemoTasks(ctx context.Context, db *store.DB, day string) []models.Task {
-	demo := []models.Task{
-		{ID: "m1", Day: day, Kind: "must", Idx: 1, Text: "Ship retry-logic v2 behind a feature flag", Done: false},
-		{ID: "m2", Day: day, Kind: "must", Idx: 2, Text: "Tune p99 latency alerts — drop noise from on-call", Done: false},
-		{ID: "m3", Day: day, Kind: "must", Idx: 3, Text: "Draft post-mortem for Tuesday outage", Done: true},
-		{ID: "p1", Day: day, Kind: "personal", Idx: 1, Text: "Outline chapter 3 of side-project (45m)", Done: false},
-	}
-	for _, t := range demo {
-		db.UpsertTask(ctx, t)
-	}
-	return demo
 }
 
 func (h *handler) toggleTask(w http.ResponseWriter, r *http.Request) {

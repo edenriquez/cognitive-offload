@@ -102,13 +102,13 @@ export default function App() {
 
   // Signals from WebSocket or defaults
   const sig = signals ?? {
-    focus_state: "thrashing" as const,
-    active_threads: 3,
-    error_rate: 2.8,
+    focus_state: "stable" as const,
+    active_threads: 0,
+    error_rate: 0,
     error_baseline: 1.0,
-    open_loops: 4,
+    open_loops: 0,
     cutoff_hour: 16.5,
-    cognitive_threshold_pct: 87,
+    cognitive_threshold_pct: 0,
     interventions: [],
   };
 
