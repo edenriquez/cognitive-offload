@@ -1,0 +1,102 @@
+import type {
+  Task, Capture, TodayResponse, ReviewSummary,
+  Plan, Session, SignalSnapshot, FocusSession,
+} from '../types'
+
+const BASE = '' // Vite proxy handles /api → backend
+
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const opts: RequestInit = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  }
+  if (body) opts.body = JSON.stringify(body)
+  const res = await fetch(`${BASE}${path}`, opts)
+  if (!res.ok) {
+    const text = await res.text().catch(() => 'Unknown error')
+    throw new Error(`${method} ${path} → ${res.status}: ${text}`)
+  }
+  return res.json()
+}
+
+// ---------- Today ----------
+export const api = {
+  getToday: () => request<TodayResponse>('GET', '/api/v1/today'),
+
+  // ---------- Tasks ----------
+  createTask: (kind: string, text: string) =>
+    request<Task>('POST', '/api/v1/tasks', { kind, text }),
+
+  updateTask: (id: string, text: string, kind: string, idx: number) =>
+    request<{ status: string }>('PUT', `/api/v1/tasks/${id}`, { text, kind, idx }),
+
+  deleteTask: (id: string) =>
+    request<{ status: string }>('DELETE', `/api/v1/tasks/${id}`),
+
+  toggleTask: (id: string) =>
+    request<{ status: string }>('PATCH', `/api/v1/today/tasks/${id}`),
+
+  reorderTasks: (orders: { id: string; idx: number }[]) =>
+    request<{ status: string }>('POST', '/api/v1/tasks/reorder', { orders }),
+
+  // ---------- Focus ----------
+  startFocus: (taskId: string) =>
+    request<FocusSession>('POST', '/api/v1/focus/start', { task_id: taskId }),
+
+  stopFocus: (outcome: string = 'done') =>
+    request<{ status: string; outcome: string }>('POST', '/api/v1/focus/stop', { outcome }),
+
+  currentFocus: () =>
+    request<FocusSession | { active: false }>('GET', '/api/v1/focus/current'),
+
+  focusHistory: (day?: string) =>
+    request<FocusSession[]>('GET', `/api/v1/focus/history${day ? `?day=${day}` : ''}`),
+
+  // ---------- Captures ----------
+  createCapture: (text: string) =>
+    request<Capture>('POST', '/api/v1/captures', { text }),
+
+  listCaptures: () =>
+    request<Capture[]>('GET', '/api/v1/captures'),
+
+  deleteCapture: (id: string) =>
+    request<{ status: string }>('DELETE', `/api/v1/captures/${id}`),
+
+  promoteCapture: (id: string) =>
+    request<Task>('POST', `/api/v1/captures/${id}/promote`),
+
+  // ---------- Review ----------
+  getReview: (day: string) =>
+    request<ReviewSummary>('GET', `/api/v1/review/${day}`),
+
+  // ---------- Tomorrow ----------
+  getTomorrow: () =>
+    request<Plan>('GET', '/api/v1/tomorrow'),
+
+  lockTomorrow: () =>
+    request<Plan>('POST', '/api/v1/tomorrow/lock'),
+
+  updateTomorrow: (plan: Partial<Plan>) =>
+    request<Plan>('PUT', '/api/v1/tomorrow', plan),
+
+  // ---------- Sessions ----------
+  listSessions: (day?: string) =>
+    request<Session[]>('GET', `/api/v1/sessions${day ? `?day=${day}` : ''}`),
+
+  createSession: (label: string) =>
+    request<Session>('POST', '/api/v1/sessions', { label }),
+
+  closeSession: (id: string) =>
+    request<{ status: string }>('POST', `/api/v1/sessions/${id}/close`),
+
+  updateSession: (id: string, label: string, status: string) =>
+    request<{ status: string }>('PUT', `/api/v1/sessions/${id}`, { label, status }),
+
+  // ---------- Signals ----------
+  currentSignals: () =>
+    request<SignalSnapshot>('GET', '/api/v1/signals/current'),
+
+  // ---------- Interventions ----------
+  listInterventions: () =>
+    request<import('../types').Intervention[]>('GET', '/api/v1/interventions'),
+}

@@ -1,41 +1,126 @@
-import { useAppStore } from '../../store/app-store'
+import { useState, useEffect } from "react";
+import { useAppStore } from "../../store/app-store";
+import { api } from "../../api/client";
+import type { Plan } from "../../types";
 
 export default function TomorrowMode() {
-  const setMode = useAppStore(s => s.setMode)
+  const setMode = useAppStore((s) => s.setMode);
+  const [plan, setPlan] = useState<Plan | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api
+      .getTomorrow()
+      .then((data) => setPlan(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleLock = async () => {
+    try {
+      const locked = await api.lockTomorrow();
+      setPlan(locked);
+    } catch {}
+  };
+
+  if (loading) {
+    return (
+      <div className="tomorrow">
+        <div className="tomorrow-inner">
+          <div className="tom-h">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!plan) {
+    return (
+      <div className="tomorrow">
+        <div className="tomorrow-inner">
+          <div className="tom-h">No plan generated yet</div>
+          <h1 className="tom-headline">
+            Start the backend to generate tomorrow's plan.
+          </h1>
+        </div>
+      </div>
+    );
+  }
+
+  const dayLabel = plan.day
+    ? new Date(plan.day + "T12:00:00").toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      })
+    : "Tomorrow";
 
   return (
     <div className="tomorrow">
       <div className="tomorrow-inner">
-        <div className="tom-h">Wed · May 6 · auto-generated</div>
-        <h1 className="tom-headline">Recovery day. One thread, one cutoff, no fatigue work.</h1>
-        <div className="tom-list">
-          <div className="tom-item">
-            <span className="tom-rank locked">01 ◆</span>
-            <div>
-              <div className="tom-task">Close out retry-logic v2 — checkpoint, ship behind flag, or archive.</div>
-              <div className="tom-meta">continues yesterday's open thread · 90m · <b>auth-success +8%</b> projected</div>
-            </div>
-          </div>
-          <div className="tom-item">
-            <span className="tom-rank">02</span>
-            <div>
-              <div className="tom-task">Tune p99 latency alerts — drop noise from on-call.</div>
-              <div className="tom-meta">60m · alerts/wk 21 → 12 target · <b>−4 alerts</b> projected</div>
-            </div>
-          </div>
-          <div className="tom-item">
-            <span className="tom-rank">03</span>
-            <div>
-              <div className="tom-task">Outline chapter 3 of side-project.</div>
-              <div className="tom-meta">protected window · 45m · before 13:00</div>
-            </div>
-          </div>
+        <div className="tom-h">
+          {dayLabel} · auto-generated
+          {plan.status === "locked" ? " · locked ✓" : ""}
         </div>
+        <h1 className="tom-headline">{plan.headline}</h1>
+
+        {plan.constraints.length > 0 && (
+          <div style={{ marginBottom: 32 }}>
+            {plan.constraints.map((c, i) => (
+              <div
+                key={i}
+                style={{
+                  fontSize: 13,
+                  color: "var(--color-metal)",
+                  padding: "6px 0",
+                  borderBottom: "1px solid var(--color-stone)",
+                }}
+              >
+                {c.locked && (
+                  <span
+                    style={{
+                      color: "var(--color-action-blue)",
+                      marginRight: 8,
+                    }}
+                  >
+                    ⌷
+                  </span>
+                )}
+                <b style={{ color: "var(--color-ink)" }}>{c.title}</b>{" "}
+                <span>{c.description}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="tom-list">
+          {plan.tasks.map((t, i) => (
+            <div key={t.id || i} className="tom-item">
+              <span className={`tom-rank ${i === 0 ? "locked" : ""}`}>
+                {String(i + 1).padStart(2, "0")}
+                {i === 0 ? " ◆" : ""}
+              </span>
+              <div>
+                <div className="tom-task">{t.text}</div>
+                <div className="tom-meta">
+                  {t.kind === "personal" ? "protected window · " : ""}
+                  {t.kind} task
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div className="tom-cta">
-          <button className="btn-secondary">Adjust</button>
-          <button className="btn-primary" onClick={() => setMode('today')}>Lock in plan</button>
+          <button className="btn-secondary" onClick={() => setMode("today")}>
+            Back to today
+          </button>
+          {plan.status !== "locked" && (
+            <button className="btn-primary" onClick={handleLock}>
+              Lock in plan
+            </button>
+          )}
         </div>
       </div>
     </div>
-  )
+  );
 }
