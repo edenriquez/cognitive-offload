@@ -16,6 +16,7 @@ type Coordinator struct {
 	git        *GitMonitor
 	idle       *IdleDetector
 	claude     *ClaudeWatcher
+	zed        *ZedWatcher
 	aggregator *Aggregator
 }
 
@@ -33,6 +34,7 @@ func NewCoordinator(db *store.DB, cfg config.Config) (*Coordinator, error) {
 
 	git := NewGitMonitor(db, cfg.WatchPaths)
 	claude := NewClaudeWatcher(db, idle.RecordActivity)
+	zed := NewZedWatcher(db, idle.RecordActivity)
 	agg := NewAggregator(db)
 
 	return &Coordinator{
@@ -42,6 +44,7 @@ func NewCoordinator(db *store.DB, cfg config.Config) (*Coordinator, error) {
 		git:        git,
 		idle:       idle,
 		claude:     claude,
+		zed:        zed,
 		aggregator: agg,
 	}, nil
 }
@@ -60,6 +63,9 @@ func (c *Coordinator) Start(ctx context.Context) error {
 
 	// Start Claude Code watcher
 	c.claude.Start(ctx)
+
+	// Start Zed AI thread watcher
+	c.zed.Start(ctx)
 
 	// Start aggregator
 	c.aggregator.Start(ctx)
@@ -81,6 +87,9 @@ func (c *Coordinator) Stop() {
 	}
 	if c.claude != nil {
 		c.claude.Stop()
+	}
+	if c.zed != nil {
+		c.zed.Stop()
 	}
 	if c.aggregator != nil {
 		c.aggregator.Stop()
