@@ -59,10 +59,13 @@ export default function App() {
   // Drive toast from interventions
   useEffect(() => {
     if (!signals) return;
-    const warn = signals.interventions.find(
-      (i) => i.severity === "warn" || i.severity === "info",
+    const interventions = Array.isArray(signals.interventions)
+      ? signals.interventions
+      : [];
+    const warn = interventions.find(
+      (i) => i && (i.severity === "warn" || i.severity === "info"),
     );
-    if (warn && !toast) {
+    if (warn?.title && warn?.action?.label && !toast) {
       setToast({ msg: warn.title, action: warn.action.label });
     }
   }, [signals, toast, setToast]);
@@ -193,8 +196,8 @@ export default function App() {
           className="signal"
           style={{ marginLeft: "auto", color: "var(--color-overcast)" }}
         >
-          {sig.interventions.length} active rule
-          {sig.interventions.length === 1 ? "" : "s"}
+          {(sig.interventions ?? []).length} active rule
+          {(sig.interventions ?? []).length === 1 ? "" : "s"}
         </div>
       </div>
 
