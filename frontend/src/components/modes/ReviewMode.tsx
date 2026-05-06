@@ -4,7 +4,7 @@ import { api } from "../../api/client";
 import type { ReviewSummary, Bucket } from "../../types";
 
 function EnergyMapFromData({ buckets }: { buckets: Bucket[] }) {
-  if (buckets.length === 0)
+  if (!buckets || buckets.length === 0) {
     return (
       <div className="em">
         <div
@@ -17,8 +17,10 @@ function EnergyMapFromData({ buckets }: { buckets: Bucket[] }) {
         >
           No energy data yet
         </div>
+        <div className="em-x"></div>
       </div>
     );
+  }
   const w = 100 / buckets.length;
   const hours = [7, 9, 11, 13, 15, 17, 19, 21];
 
@@ -55,8 +57,8 @@ function EnergyMapFromData({ buckets }: { buckets: Bucket[] }) {
         {buckets.map((b, i) => (
           <span
             key={i}
-            className={`em-bar ${b.activity > 65 ? "peak" : b.errors > 0 ? "warn" : ""}`}
-            style={{ left: `${i * w + w / 2}%`, height: `${b.activity}%` }}
+            className={`em-bar ${(b.activity ?? 0) > 65 ? "peak" : (b.errors ?? 0) > 0 ? "warn" : ""}`}
+            style={{ left: `${i * w + w / 2}%`, height: `${b.activity ?? 0}%` }}
           />
         ))}
         <span
@@ -77,9 +79,10 @@ function EnergyMapFromData({ buckets }: { buckets: Bucket[] }) {
   );
 }
 
-function fmtMin(mins: number): string {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
+function fmtMin(mins: unknown): string {
+  const n = typeof mins === "number" && !isNaN(mins) ? mins : 0;
+  const h = Math.floor(n / 60);
+  const m = n % 60;
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
@@ -87,13 +90,18 @@ export default function ReviewMode() {
   const setMode = useAppStore((s) => s.setMode);
   const [review, setReview] = useState<ReviewSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const day = new Date().toISOString().slice(0, 10);
     api
       .getReview(day)
-      .then((data) => setReview(data))
-      .catch(() => {})
+      .then((data) => {
+        if (data) setReview(data);
+      })
+      .catch((err) => {
+        setError(err?.message ?? "Failed to load review");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -108,20 +116,29 @@ export default function ReviewMode() {
     );
   }
 
-  if (!review) {
+  if (error || !review) {
     return (
       <div className="review">
         <div className="review-inner">
           <h1 className="review-h">Today's review</h1>
           <div className="review-sub">
-            No review data available. Start the backend to generate a review.
+            {error ??
+              "No review data available. Start the backend to generate a review."}
           </div>
         </div>
       </div>
     );
   }
 
-  const { summary, energy_map, patterns, leaks, sessions } = review;
+  const summary = review.summary ?? {
+    deep_work_min: 0,
+    leaked_min: 0,
+    open_loops: 0,
+    sessions_count: 0,
+  };
+  const energy_map = review.energy_map ?? [];
+  const patterns = review.patterns ?? [];
+  const leaks = review.leaks ?? [];
 
   return (
     <div className="review">
@@ -141,11 +158,11 @@ export default function ReviewMode() {
             <div className="rs-l">Leaked time</div>
           </div>
           <div className="rs-cell">
-            <div className="rs-v">{summary.open_loops}</div>
+            <div className="rs-v">{summary.open_loops ?? 0}</div>
             <div className="rs-l">Open loops</div>
           </div>
           <div className="rs-cell">
-            <div className="rs-v">{summary.sessions_count}</div>
+            <div className="rs-v">{summary.sessions_count ?? 0}</div>
             <div className="rs-l">Sessions</div>
           </div>
         </div>
@@ -161,18 +178,18 @@ export default function ReviewMode() {
           <div className="section">
             <h2 className="section-h">What pulled you off</h2>
             <div className="patterns">
-              {patterns.map((p) => (
-                <div key={p.id} className="pat">
+              {patterns.map((p, i) => (
+                <div key={p.id ?? i} className="pat">
                   <span
                     className={`pat-tag ${p.severity === "high" ? "high" : ""}`}
                   >
-                    {p.kind}
+                    {p.kind ?? "unknown"}
                   </span>
                   <div>
-                    <div className="pat-title">{p.title}</div>
-                    <div className="pat-detail">{p.detail}</div>
+                    <div className="pat-title">{p.title ?? ""}</div>
+                    <div className="pat-detail">{p.detail ?? ""}</div>
                   </div>
-                  <span className="pat-window">{p.window}</span>
+                  <span className="pat-window">{p.window ?? ""}</span>
                 </div>
               ))}
             </div>
@@ -185,10 +202,10 @@ export default function ReviewMode() {
             <div className="leaks">
               {leaks.map((l, i) => (
                 <div key={i} className="leak">
-                  <span className="leak-time">{l.time}</span>
-                  <span className="leak-cost">{l.cost}</span>
-                  <span className="leak-cause">{l.cause}</span>
-                  <span className="leak-fix">{l.fix} →</span>
+                  <span className="leak-time">{l.time ?? ""}</span>
+                  <span className="leak-cost">{l.cost ?? ""}</span>
+                  <span className="leak-cause">{l.cause ?? ""}</span>
+                  <span className="leak-fix">{l.fix ?? ""} →</span>
                 </div>
               ))}
             </div>

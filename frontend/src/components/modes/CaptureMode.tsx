@@ -10,7 +10,9 @@ export default function CaptureMode() {
   useEffect(() => {
     api
       .listCaptures()
-      .then((caps) => setCaptures(caps))
+      .then((caps) => {
+        if (Array.isArray(caps)) setCaptures(caps);
+      })
       .catch(() => {});
   }, [setCaptures]);
 
@@ -22,7 +24,7 @@ export default function CaptureMode() {
     if (!draft.trim()) return;
     try {
       const cap = await api.createCapture(draft.trim());
-      addCapture(cap);
+      if (cap?.id) addCapture(cap);
     } catch {
       addCapture({
         id: Math.random().toString(36).slice(2),
@@ -34,30 +36,42 @@ export default function CaptureMode() {
   };
 
   const handleDelete = async (id: string) => {
-    setCaptures(captures.filter((c) => c.id !== id));
+    if (!id) return;
+    setCaptures((captures ?? []).filter((c) => c.id !== id));
     try {
       await api.deleteCapture(id);
     } catch {}
   };
 
   const handlePromote = async (id: string) => {
+    if (!id) return;
     try {
       const task = await api.promoteCapture(id);
-      setCaptures(captures.filter((c) => c.id !== id));
-      setTasks([...tasks, task]);
+      if (task?.id) {
+        setCaptures((captures ?? []).filter((c) => c.id !== id));
+        setTasks([...(tasks ?? []), task]);
+      }
     } catch {}
   };
 
   const timeAgo = (iso: string): string => {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    return `${days}d ago`;
+    if (!iso) return "";
+    try {
+      const diff = Date.now() - new Date(iso).getTime();
+      if (isNaN(diff)) return "";
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return "just now";
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      const days = Math.floor(hrs / 24);
+      return `${days}d ago`;
+    } catch {
+      return "";
+    }
   };
+
+  const safeCaptures = Array.isArray(captures) ? captures : [];
 
   return (
     <div className="capture">
@@ -77,14 +91,14 @@ export default function CaptureMode() {
           <kbd>↵</kbd> to capture &nbsp; <kbd>esc</kbd> to leave
         </div>
         <div className="capture-recent">
-          {captures.slice(0, 10).map((c, i) => (
+          {safeCaptures.slice(0, 10).map((c, i) => (
             <div
-              key={c.id}
+              key={c?.id ?? i}
               className={`capture-recent-row ${i === 0 ? "fresh" : ""}`}
             >
               <div className="capture-row">
-                <span className="capture-row-text">{c.text}</span>
-                <span className="age">· {timeAgo(c.created_at)}</span>
+                <span className="capture-row-text">{c?.text ?? ""}</span>
+                <span className="age">· {timeAgo(c?.created_at)}</span>
                 <div className="capture-row-actions">
                   <button
                     className="capture-action-btn promote"

@@ -7,19 +7,22 @@ export default function TomorrowMode() {
   const setMode = useAppStore((s) => s.setMode);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api
       .getTomorrow()
-      .then((data) => setPlan(data))
-      .catch(() => {})
+      .then((data) => {
+        if (data) setPlan(data);
+      })
+      .catch((err) => setError(err?.message ?? "Failed to load plan"))
       .finally(() => setLoading(false));
   }, []);
 
   const handleLock = async () => {
     try {
       const locked = await api.lockTomorrow();
-      setPlan(locked);
+      if (locked) setPlan(locked);
     } catch {}
   };
 
@@ -33,26 +36,40 @@ export default function TomorrowMode() {
     );
   }
 
-  if (!plan) {
+  if (error || !plan) {
     return (
       <div className="tomorrow">
         <div className="tomorrow-inner">
           <div className="tom-h">No plan generated yet</div>
           <h1 className="tom-headline">
-            Start the backend to generate tomorrow's plan.
+            {error ?? "Start the backend to generate tomorrow's plan."}
           </h1>
+          <div className="tom-cta">
+            <button className="btn-secondary" onClick={() => setMode("today")}>
+              Back to today
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  const dayLabel = plan.day
-    ? new Date(plan.day + "T12:00:00").toLocaleDateString("en-US", {
+  let dayLabel = "Tomorrow";
+  try {
+    if (plan.day) {
+      dayLabel = new Date(plan.day + "T12:00:00").toLocaleDateString("en-US", {
         weekday: "short",
         month: "short",
         day: "numeric",
-      })
-    : "Tomorrow";
+      });
+    }
+  } catch {
+    dayLabel = plan.day ?? "Tomorrow";
+  }
+
+  const constraints = plan.constraints ?? [];
+  const tasks = plan.tasks ?? [];
+  const headline = plan.headline ?? "Your plan for tomorrow";
 
   return (
     <div className="tomorrow">
@@ -61,11 +78,11 @@ export default function TomorrowMode() {
           {dayLabel} · auto-generated
           {plan.status === "locked" ? " · locked ✓" : ""}
         </div>
-        <h1 className="tom-headline">{plan.headline}</h1>
+        <h1 className="tom-headline">{headline}</h1>
 
-        {plan.constraints.length > 0 && (
+        {constraints.length > 0 && (
           <div style={{ marginBottom: 32 }}>
-            {plan.constraints.map((c, i) => (
+            {constraints.map((c, i) => (
               <div
                 key={i}
                 style={{
@@ -85,30 +102,42 @@ export default function TomorrowMode() {
                     ⌷
                   </span>
                 )}
-                <b style={{ color: "var(--color-ink)" }}>{c.title}</b>{" "}
-                <span>{c.description}</span>
+                <b style={{ color: "var(--color-ink)" }}>{c.title ?? ""}</b>{" "}
+                <span>{c.description ?? ""}</span>
               </div>
             ))}
           </div>
         )}
 
-        <div className="tom-list">
-          {plan.tasks.map((t, i) => (
-            <div key={t.id || i} className="tom-item">
-              <span className={`tom-rank ${i === 0 ? "locked" : ""}`}>
-                {String(i + 1).padStart(2, "0")}
-                {i === 0 ? " ◆" : ""}
-              </span>
-              <div>
-                <div className="tom-task">{t.text}</div>
-                <div className="tom-meta">
-                  {t.kind === "personal" ? "protected window · " : ""}
-                  {t.kind} task
+        {tasks.length > 0 ? (
+          <div className="tom-list">
+            {tasks.map((t, i) => (
+              <div key={t.id ?? i} className="tom-item">
+                <span className={`tom-rank ${i === 0 ? "locked" : ""}`}>
+                  {String(i + 1).padStart(2, "0")}
+                  {i === 0 ? " ◆" : ""}
+                </span>
+                <div>
+                  <div className="tom-task">{t.text ?? ""}</div>
+                  <div className="tom-meta">
+                    {t.kind === "personal" ? "protected window · " : ""}
+                    {t.kind ?? "must"} task
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            style={{
+              textAlign: "center",
+              color: "var(--color-overcast)",
+              padding: "32px 0",
+            }}
+          >
+            No tasks pre-selected yet.
+          </div>
+        )}
 
         <div className="tom-cta">
           <button className="btn-secondary" onClick={() => setMode("today")}>

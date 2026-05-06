@@ -32,10 +32,10 @@ export default function TodayMode() {
   const total =
     bandwidth.work + bandwidth.personal + bandwidth.admin + bandwidth.learning;
 
-  const activeThread = signals?.active_session;
-  const warnIntervention = signals?.interventions.find(
-    (i) => i.severity === "warn",
-  );
+  const activeThread = signals?.active_session ?? null;
+  const interventions = signals?.interventions ?? [];
+  const warnIntervention =
+    interventions.find((i) => i.severity === "warn") ?? null;
 
   // Refresh tasks from API
   useEffect(() => {
@@ -350,8 +350,8 @@ export default function TodayMode() {
               fontSize: 13,
             }}
           >
-            {tasks
-              .filter((t) => t.kind === "must")
+            {(tasks ?? [])
+              .filter((t) => t?.kind === "must")
               .map((t, i) => (
                 <span key={t.id}>
                   Must {i + 1} → {t.text}
