@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../../api/client";
 
 interface Props {
@@ -7,13 +7,22 @@ interface Props {
 }
 
 export default function FocusMode({ task, onExit }: Props) {
-  const [secs, setSecs] = useState(90 * 60); // 90 min block
+  const [secs, setSecs] = useState(90 * 60);
   const [showWhy, setShowWhy] = useState(false);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
+    mountedRef.current = true;
     document.body.classList.add("in-focus");
-    const t = setInterval(() => setSecs((s) => Math.max(0, s - 1)), 1000);
+
+    const t = setInterval(() => {
+      if (mountedRef.current) {
+        setSecs((s) => Math.max(0, s - 1));
+      }
+    }, 1000);
+
     return () => {
+      mountedRef.current = false;
       clearInterval(t);
       document.body.classList.remove("in-focus");
     };
@@ -24,33 +33,39 @@ export default function FocusMode({ task, onExit }: Props) {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
 
-  const handleDone = () => {
-    api.stopFocus("done").catch(() => {});
-    onExit();
-  };
-
-  const handlePause = () => {
-    api.stopFocus("paused").catch(() => {});
-    onExit();
-  };
+  const handleExit = useCallback(
+    (outcome: string) => {
+      // Fire-and-forget — never let API errors block exit
+      try {
+        api.stopFocus(outcome).catch(() => {});
+      } catch {
+        // ignore
+      }
+      onExit();
+    },
+    [onExit],
+  );
 
   return (
     <div className="focus">
       <div className="focus-inner">
         <div className="focus-eye">Focus · 90-minute block</div>
-        <div className="focus-task">{task}</div>
+        <div className="focus-task">{task || "Pick a task"}</div>
         <div className="focus-timer">
-          {m.toString().padStart(2, "0")}:{s.toString().padStart(2, "0")}
+          {String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}
         </div>
         <div className="focus-meta">remaining of 90-minute block</div>
         <div className="focus-progress">
           <span style={{ width: `${progressPct}%` }}></span>
         </div>
         <div className="focus-actions">
-          <button className="btn-secondary" onClick={handlePause}>
+          <button
+            className="btn-secondary"
+            onClick={() => handleExit("paused")}
+          >
             Pause
           </button>
-          <button className="btn-primary" onClick={handleDone}>
+          <button className="btn-primary" onClick={() => handleExit("done")}>
             Done
           </button>
         </div>

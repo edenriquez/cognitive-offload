@@ -62,10 +62,17 @@ export default function TodayMode() {
     }
   };
 
-  const handleFocus = (task: string) => {
-    const t = tasks.find((t) => t.text === task);
-    if (t) api.startFocus(t.id).catch(() => {});
-    startFocus(task);
+  const handleFocus = (taskText: string) => {
+    if (!taskText) return;
+    const t = tasks.find((t) => t.text === taskText);
+    if (t) {
+      try {
+        api.startFocus(t.id).catch(() => {});
+      } catch {
+        /* ignore */
+      }
+    }
+    startFocus(taskText);
   };
 
   const handleCreate = async () => {
