@@ -82,6 +82,9 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine) http.Handler {
 
 		// Signals snapshot (HTTP fallback)
 		r.Get("/signals/current", h.currentSignals)
+
+		// Reset
+		r.Post("/reset", h.resetDB)
 	})
 
 	return r
@@ -710,6 +713,19 @@ func (h *handler) ingestEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]int{"ingested": len(req.Events)})
+}
+
+// ---------- Reset ----------
+
+func (h *handler) resetDB(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if err := h.db.ResetAll(ctx); err != nil {
+		slog.Error("reset failed", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	slog.Info("database reset via API")
+	writeJSON(w, 200, map[string]string{"status": "reset"})
 }
 
 // Suppress unused import warning

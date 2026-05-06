@@ -596,6 +596,18 @@ func (d *DB) UpdatePlan(ctx context.Context, p models.Plan) error {
 	return err
 }
 
+// ---------- Reset ----------
+
+func (d *DB) ResetAll(ctx context.Context) error {
+	tables := []string{"raw_events", "sessions", "buckets", "patterns", "tasks", "captures", "plans", "focus_sessions"}
+	for _, t := range tables {
+		if _, err := d.db.ExecContext(ctx, "DELETE FROM "+t); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ---------- Helpers ----------
 
 func nilTime(t *time.Time) any {
