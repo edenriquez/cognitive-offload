@@ -7,8 +7,17 @@ import type { Task } from "../../types";
 type TaskKind = "must" | "personal" | "small";
 
 export default function TodayMode() {
-  const { tasks, setTasks, toggleTask, bandwidth, startFocus, now, signals } =
-    useAppStore();
+  const {
+    tasks,
+    setTasks,
+    toggleTask,
+    bandwidth,
+    startFocus,
+    resumeFocus,
+    focus,
+    now,
+    signals,
+  } = useAppStore();
   const [revealBw, setRevealBw] = useState(false);
   const [revealCtx, setRevealCtx] = useState(false);
   const [loading, setLoading] = useState(!tasks.length);
@@ -190,6 +199,22 @@ export default function TodayMode() {
                 Continue current thread →
               </span>
             )}
+          </div>
+        )}
+
+        {/* Paused focus session banner */}
+        {focus.isPaused && focus.task && focus.remainingSecs > 0 && (
+          <div className="gravity">
+            <div>
+              <div className="gravity-eye">
+                Paused · {Math.floor(focus.remainingSecs / 60)}m{" "}
+                {focus.remainingSecs % 60}s remaining
+              </div>
+              <div className="gravity-task">{focus.task}</div>
+            </div>
+            <button className="btn-primary" onClick={resumeFocus}>
+              Resume →
+            </button>
           </div>
         )}
 

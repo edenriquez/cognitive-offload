@@ -1,56 +1,61 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useAppStore } from "../../store/app-store";
 import { api } from "../../api/client";
 
-interface Props {
-  task: string;
-  onExit: () => void;
-}
-
-export default function FocusMode({ task, onExit }: Props) {
-  const [secs, setSecs] = useState(90 * 60);
+export default function FocusMode() {
+  const { focus, tickFocus, pauseFocus, exitFocus } = useAppStore();
   const [showWhy, setShowWhy] = useState(false);
-  const mountedRef = useRef(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Start/stop the tick interval based on pause state
   useEffect(() => {
-    mountedRef.current = true;
     document.body.classList.add("in-focus");
 
-    const t = setInterval(() => {
-      if (mountedRef.current) {
-        setSecs((s) => Math.max(0, s - 1));
-      }
-    }, 1000);
+    if (!focus.isPaused && focus.task) {
+      intervalRef.current = setInterval(() => {
+        tickFocus();
+      }, 1000);
+    }
 
     return () => {
-      mountedRef.current = false;
-      clearInterval(t);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       document.body.classList.remove("in-focus");
     };
-  }, []);
+  }, [focus.isPaused, focus.task, tickFocus]);
 
-  const elapsed = 90 * 60 - secs;
-  const progressPct = Math.min(100, (elapsed / (90 * 60)) * 100);
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
+  const totalSecs = 90 * 60;
+  const remaining = focus.remainingSecs;
+  const elapsed = totalSecs - remaining;
+  const progressPct = Math.min(100, (elapsed / totalSecs) * 100);
+  const m = Math.floor(remaining / 60);
+  const s = remaining % 60;
 
-  const handleExit = useCallback(
-    (outcome: string) => {
-      // Fire-and-forget — never let API errors block exit
-      try {
-        api.stopFocus(outcome).catch(() => {});
-      } catch {
-        // ignore
-      }
-      onExit();
-    },
-    [onExit],
-  );
+  const handlePause = () => {
+    try {
+      api.stopFocus("paused").catch(() => {});
+    } catch {
+      /* ignore */
+    }
+    pauseFocus();
+  };
+
+  const handleDone = () => {
+    try {
+      api.stopFocus("done").catch(() => {});
+    } catch {
+      /* ignore */
+    }
+    exitFocus("done");
+  };
 
   return (
     <div className="focus">
       <div className="focus-inner">
         <div className="focus-eye">Focus · 90-minute block</div>
-        <div className="focus-task">{task || "Pick a task"}</div>
+        <div className="focus-task">{focus.task || "Pick a task"}</div>
         <div className="focus-timer">
           {String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}
         </div>
@@ -59,13 +64,10 @@ export default function FocusMode({ task, onExit }: Props) {
           <span style={{ width: `${progressPct}%` }}></span>
         </div>
         <div className="focus-actions">
-          <button
-            className="btn-secondary"
-            onClick={() => handleExit("paused")}
-          >
+          <button className="btn-secondary" onClick={handlePause}>
             Pause
           </button>
-          <button className="btn-primary" onClick={() => handleExit("done")}>
+          <button className="btn-primary" onClick={handleDone}>
             Done
           </button>
         </div>

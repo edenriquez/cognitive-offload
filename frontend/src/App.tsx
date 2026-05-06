@@ -34,9 +34,7 @@ export default function App() {
     tasks,
     setTasks,
     setBandwidth,
-    activeFocusTask,
-    startFocus,
-    exitFocus,
+    focus,
     toast,
     setToast,
     now,
@@ -205,16 +203,7 @@ export default function App() {
       <div className="content-area">
         <div className="stage">
           <ErrorBoundary key={mode}>
-            {mode === "focus" && (
-              <FocusMode
-                task={
-                  activeFocusTask ||
-                  tasks.find((t) => !t.done && t.kind === "must")?.text ||
-                  "Pick a task"
-                }
-                onExit={exitFocus}
-              />
-            )}
+            {mode === "focus" && <FocusMode />}
             {mode === "today" && <TodayMode />}
             {mode === "capture" && <CaptureMode />}
             {mode === "review" && <ReviewMode />}

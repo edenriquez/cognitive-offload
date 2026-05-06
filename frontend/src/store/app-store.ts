@@ -1,13 +1,24 @@
 import { create } from "zustand";
 import type { Mode, Task, Bandwidth, SignalSnapshot, Capture } from "../types";
 
+interface FocusState {
+  task: string | null;
+  remainingSecs: number;
+  isPaused: boolean;
+  sessionId: string | null;
+}
+
 interface AppState {
   mode: Mode;
   setMode: (m: Mode) => void;
 
-  activeFocusTask: string | null;
+  // Focus
+  focus: FocusState;
   startFocus: (task: string) => void;
-  exitFocus: () => void;
+  pauseFocus: () => void;
+  resumeFocus: () => void;
+  exitFocus: (outcome: "done" | "paused") => void;
+  tickFocus: () => void;
 
   tasks: Task[];
   setTasks: (tasks: Task[]) => void;
@@ -30,13 +41,88 @@ interface AppState {
   setNow: (d: Date) => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+const FOCUS_BLOCK_SECS = 90 * 60; // 90 minutes
+
+export const useAppStore = create<AppState>((set, get) => ({
   mode: "today",
   setMode: (m) => set({ mode: m }),
 
-  activeFocusTask: null,
-  startFocus: (task) => set({ activeFocusTask: task, mode: "focus" }),
-  exitFocus: () => set({ activeFocusTask: null, mode: "today" }),
+  focus: {
+    task: null,
+    remainingSecs: FOCUS_BLOCK_SECS,
+    isPaused: false,
+    sessionId: null,
+  },
+  startFocus: (task) => {
+    const current = get().focus;
+    // If resuming the same task, keep the timer
+    if (
+      current.task === task &&
+      current.remainingSecs > 0 &&
+      current.remainingSecs < FOCUS_BLOCK_SECS
+    ) {
+      set({
+        focus: { ...current, isPaused: false },
+        mode: "focus",
+      });
+    } else {
+      // New task — reset timer
+      set({
+        focus: {
+          task,
+          remainingSecs: FOCUS_BLOCK_SECS,
+          isPaused: false,
+          sessionId: null,
+        },
+        mode: "focus",
+      });
+    }
+  },
+  pauseFocus: () => {
+    set((s) => ({
+      focus: { ...s.focus, isPaused: true },
+      mode: "today",
+    }));
+  },
+  resumeFocus: () => {
+    const f = get().focus;
+    if (f.task && f.remainingSecs > 0) {
+      set({
+        focus: { ...f, isPaused: false },
+        mode: "focus",
+      });
+    }
+  },
+  exitFocus: (outcome) => {
+    if (outcome === "done") {
+      // Reset fully
+      set({
+        focus: {
+          task: null,
+          remainingSecs: FOCUS_BLOCK_SECS,
+          isPaused: false,
+          sessionId: null,
+        },
+        mode: "today",
+      });
+    } else {
+      // Paused — keep timer state
+      set((s) => ({
+        focus: { ...s.focus, isPaused: true },
+        mode: "today",
+      }));
+    }
+  },
+  tickFocus: () => {
+    set((s) => {
+      if (s.focus.isPaused || !s.focus.task || s.focus.remainingSecs <= 0) {
+        return s;
+      }
+      return {
+        focus: { ...s.focus, remainingSecs: s.focus.remainingSecs - 1 },
+      };
+    });
+  },
 
   tasks: [],
   setTasks: (tasks) => set({ tasks }),
@@ -55,7 +141,6 @@ export const useAppStore = create<AppState>((set) => ({
   signals: null,
   setSignals: (s) =>
     set((state) => {
-      // Skip update if signals haven't changed (prevents re-render storm from WS)
       const prev = state.signals;
       if (
         prev &&
@@ -66,7 +151,7 @@ export const useAppStore = create<AppState>((set) => ({
         prev.cognitive_threshold_pct === s.cognitive_threshold_pct &&
         (prev.interventions?.length ?? 0) === (s.interventions?.length ?? 0)
       ) {
-        return state; // no change
+        return state;
       }
       return { signals: s };
     }),

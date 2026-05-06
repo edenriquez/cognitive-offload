@@ -12,7 +12,12 @@ beforeEach(() => {
     captures: [],
     signals: null,
     toast: null,
-    activeFocusTask: null,
+    focus: {
+      task: null,
+      remainingSecs: 90 * 60,
+      isPaused: false,
+      sessionId: null,
+    },
     now: new Date(2025, 4, 6, 14, 30),
     bandwidth: { work: 60, personal: 15, admin: 15, learning: 10 },
   });
@@ -88,7 +93,15 @@ describe("Mode rendering", () => {
   });
 
   it("renders Focus mode without crashing", () => {
-    useAppStore.setState({ mode: "focus", activeFocusTask: "Test task" });
+    useAppStore.setState({
+      mode: "focus",
+      focus: {
+        task: "Test task",
+        remainingSecs: 5000,
+        isPaused: false,
+        sessionId: null,
+      },
+    });
     render(<App />);
     expect(screen.getByText("Test task")).toBeInTheDocument();
   });
