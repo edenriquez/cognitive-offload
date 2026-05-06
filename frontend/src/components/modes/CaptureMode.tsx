@@ -3,11 +3,10 @@ import { useAppStore } from "../../store/app-store";
 import { api } from "../../api/client";
 
 export default function CaptureMode() {
-  const { captures, setCaptures, addCapture } = useAppStore();
+  const { captures, setCaptures, addCapture, setTasks, tasks } = useAppStore();
   const [draft, setDraft] = useState("");
   const ref = useRef<HTMLInputElement>(null);
 
-  // Fetch captures from backend on mount
   useEffect(() => {
     api
       .listCaptures()
@@ -25,7 +24,6 @@ export default function CaptureMode() {
       const cap = await api.createCapture(draft.trim());
       addCapture(cap);
     } catch {
-      // Fallback: add locally
       addCapture({
         id: Math.random().toString(36).slice(2),
         text: draft.trim(),
@@ -36,9 +34,17 @@ export default function CaptureMode() {
   };
 
   const handleDelete = async (id: string) => {
+    setCaptures(captures.filter((c) => c.id !== id));
     try {
       await api.deleteCapture(id);
+    } catch {}
+  };
+
+  const handlePromote = async (id: string) => {
+    try {
+      const task = await api.promoteCapture(id);
       setCaptures(captures.filter((c) => c.id !== id));
+      setTasks([...tasks, task]);
     } catch {}
   };
 
@@ -71,13 +77,31 @@ export default function CaptureMode() {
           <kbd>↵</kbd> to capture &nbsp; <kbd>esc</kbd> to leave
         </div>
         <div className="capture-recent">
-          {captures.slice(0, 8).map((c, i) => (
+          {captures.slice(0, 10).map((c, i) => (
             <div
               key={c.id}
               className={`capture-recent-row ${i === 0 ? "fresh" : ""}`}
             >
-              {c.text}
-              <span className="age">· {timeAgo(c.created_at)}</span>
+              <div className="capture-row">
+                <span className="capture-row-text">{c.text}</span>
+                <span className="age">· {timeAgo(c.created_at)}</span>
+                <div className="capture-row-actions">
+                  <button
+                    className="capture-action-btn promote"
+                    onClick={() => handlePromote(c.id)}
+                    title="Promote to task"
+                  >
+                    ↑ task
+                  </button>
+                  <button
+                    className="capture-action-btn delete"
+                    onClick={() => handleDelete(c.id)}
+                    title="Delete"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
             </div>
           ))}
         </div>
