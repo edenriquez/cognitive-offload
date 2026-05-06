@@ -327,12 +327,12 @@
 
 /* Task creation input */
 .ttask-create {
-    display: grid;
-    grid-template-columns: 90px 1fr auto;
-    gap: 20px;
-    align-items: center;
-    padding: 14px 4px;
-    border-bottom: 1px solid var(--color-stone);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px 4px;
+    border-top: 1px dashed var(--color-stone);
+    margin-top: 8px;
 }
 .ttask-create-input {
     width: 100%;
@@ -345,6 +345,12 @@
     letter-spacing: -0.24px;
     line-height: 1.5;
     font-family: var(--font-inter);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--color-stone);
+    transition: border-bottom-color 0.2s;
+}
+.ttask-create-input:focus {
+    border-bottom-color: var(--color-ink);
 }
 .ttask-create-input::placeholder {
     color: var(--color-lead);
@@ -353,7 +359,7 @@
 /* Kind selector pills */
 .kind-pills {
     display: flex;
-    gap: 2px;
+    gap: 4px;
 }
 .kind-pill {
     padding: 2px 8px;
