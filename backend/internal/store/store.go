@@ -636,6 +636,109 @@ func (d *DB) ResetAll(ctx context.Context) error {
 	return nil
 }
 
+// ---------- Queries for Signal Computation ----------
+
+// RecentEventCount returns the number of events of a given kind in the last N minutes.
+func (d *DB) RecentEventCount(ctx context.Context, day string, kind string, sinceMs int64) (int, error) {
+	var count int
+	err := d.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM raw_events WHERE day = ? AND kind = ? AND ts >= ?`,
+		day, kind, sinceMs).Scan(&count)
+	return count, err
+}
+
+// RecentEventCountBySource returns the number of events from a source in the last N minutes.
+func (d *DB) RecentEventCountBySource(ctx context.Context, day string, source string, sinceMs int64) (int, error) {
+	var count int
+	err := d.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM raw_events WHERE day = ? AND source = ? AND ts >= ?`,
+		day, source, sinceMs).Scan(&count)
+	return count, err
+}
+
+// LastEventTimestamp returns the most recent event timestamp (unix ms) for a day, or 0 if none.
+func (d *DB) LastEventTimestamp(ctx context.Context, day string) (int64, error) {
+	var ts sql.NullInt64
+	err := d.db.QueryRowContext(ctx,
+		`SELECT MAX(ts) FROM raw_events WHERE day = ?`, day).Scan(&ts)
+	if err != nil || !ts.Valid {
+		return 0, err
+	}
+	return ts.Int64, nil
+}
+
+// RecentBuckets returns the last N buckets for a day, ordered by bucket_idx descending.
+func (d *DB) RecentBuckets(ctx context.Context, day string, limit int) ([]models.Bucket, error) {
+	rows, err := d.db.QueryContext(ctx,
+		`SELECT day, bucket_idx, hour, activity, errors, sessions, file_saves, idle_sec
+		 FROM buckets WHERE day = ? ORDER BY bucket_idx DESC LIMIT ?`, day, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []models.Bucket
+	for rows.Next() {
+		var b models.Bucket
+		if err := rows.Scan(&b.Day, &b.BucketIdx, &b.Hour, &b.Activity, &b.Errors, &b.Sessions, &b.FileSaves, &b.IdleSec); err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, nil
+}
+
+// BucketsInRange returns buckets between two hours for a day.
+func (d *DB) BucketsInRange(ctx context.Context, day string, fromHour, toHour float64) ([]models.Bucket, error) {
+	rows, err := d.db.QueryContext(ctx,
+		`SELECT day, bucket_idx, hour, activity, errors, sessions, file_saves, idle_sec
+		 FROM buckets WHERE day = ? AND hour >= ? AND hour < ? ORDER BY bucket_idx`, day, fromHour, toHour)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []models.Bucket
+	for rows.Next() {
+		var b models.Bucket
+		if err := rows.Scan(&b.Day, &b.BucketIdx, &b.Hour, &b.Activity, &b.Errors, &b.Sessions, &b.FileSaves, &b.IdleSec); err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, nil
+}
+
+// SessionCountSince returns how many new sessions started since a timestamp.
+func (d *DB) SessionCountSince(ctx context.Context, day string, sinceUnix int64) (int, error) {
+	var count int
+	err := d.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM sessions WHERE day = ? AND started_at >= ?`,
+		day, sinceUnix).Scan(&count)
+	return count, err
+}
+
+// SingleMessageSessions returns sessions with exactly 1 message that are still open.
+func (d *DB) SingleMessageSessions(ctx context.Context, day string) (int, error) {
+	var count int
+	err := d.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM sessions WHERE day = ? AND message_count <= 1 AND status = 'open'`,
+		day).Scan(&count)
+	return count, err
+}
+
+// ActiveFocusMinutes returns how many minutes the current focus session has been running.
+func (d *DB) ActiveFocusMinutes(ctx context.Context) (int, error) {
+	var startedAt sql.NullInt64
+	err := d.db.QueryRowContext(ctx,
+		`SELECT started_at FROM focus_sessions WHERE outcome = 'active' ORDER BY started_at DESC LIMIT 1`).Scan(&startedAt)
+	if err != nil || !startedAt.Valid {
+		return 0, nil
+	}
+	elapsed := time.Since(time.Unix(startedAt.Int64, 0))
+	return int(elapsed.Minutes()), nil
+}
+
 // ---------- Helpers ----------
 
 func nilTime(t *time.Time) any {
