@@ -148,6 +148,28 @@ func (d *DB) InsertEvents(ctx context.Context, events []models.RawEvent) error {
 	return tx.Commit()
 }
 
+// QueryEventsInWindow returns event kind → count for a time window.
+func (d *DB) QueryEventsInWindow(ctx context.Context, day string, startMs, endMs int64) (map[string]int, error) {
+	rows, err := d.db.QueryContext(ctx,
+		`SELECT kind, COUNT(*) FROM raw_events WHERE day = ? AND ts >= ? AND ts < ? GROUP BY kind`,
+		day, startMs, endMs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[string]int)
+	for rows.Next() {
+		var kind string
+		var count int
+		if err := rows.Scan(&kind, &count); err != nil {
+			return nil, err
+		}
+		result[kind] = count
+	}
+	return result, nil
+}
+
 // ---------- Sessions ----------
 
 func (d *DB) UpsertSession(ctx context.Context, s models.Session) error {

@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/cogload/backend/internal/api"
+	"github.com/cogload/backend/internal/config"
 	"github.com/cogload/backend/internal/engine"
+	"github.com/cogload/backend/internal/ingest"
 	"github.com/cogload/backend/internal/store"
 	"github.com/cogload/backend/internal/ws"
 )
@@ -59,6 +61,29 @@ func main() {
 
 	eng := engine.New(db)
 
+	// Load config
+	cfg := config.Load()
+	slog.Info("config loaded", "watch_paths", cfg.WatchPaths, "ignore_dirs", len(cfg.IgnoreDirs))
+
+	// Start file watcher
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	defer ctxCancel()
+
+	fsw, err := ingest.NewFSWatcher(db, cfg.WatchPaths, cfg.IgnoreDirs)
+	if err != nil {
+		slog.Error("failed to create file watcher", "error", err)
+	} else {
+		if err := fsw.Start(ctx); err != nil {
+			slog.Error("failed to start file watcher", "error", err)
+		}
+		defer fsw.Stop()
+	}
+
+	// Start aggregator
+	agg := ingest.NewAggregator(db)
+	agg.Start(ctx)
+	defer agg.Stop()
+
 	router := api.NewRouter(db, hub, eng)
 
 	addr := os.Getenv("COGLOAD_ADDR")
@@ -79,7 +104,7 @@ func main() {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		for range ticker.C {
-			snapshot, err := eng.SignalSnapshot(context.Background())
+			snapshot, err := eng.SignalSnapshot(ctx)
 			if err != nil {
 				slog.Error("signal snapshot failed", "error", err)
 				continue
