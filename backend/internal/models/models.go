@@ -6,8 +6,8 @@ import "time"
 type RawEvent struct {
 	ID        int64          `json:"id"`
 	Timestamp time.Time      `json:"timestamp"`
-	Source    string         `json:"source"`   // editor | llm | git | terminal | system
-	Kind     string         `json:"kind"`     // file_save | session_start | error | etc.
+	Source    string         `json:"source"` // editor | llm | git | terminal | system
+	Kind      string         `json:"kind"`   // file_save | session_start | error | etc.
 	Metadata  map[string]any `json:"metadata"`
 	Day       string         `json:"day"` // YYYY-MM-DD
 }
@@ -61,14 +61,14 @@ type Task struct {
 
 // Plan is an auto-generated daily plan.
 type Plan struct {
-	Day         string         `json:"day"`
-	Status      string         `json:"status"` // draft | locked | completed
-	Headline    string         `json:"headline"`
-	Constraints []Constraint   `json:"constraints"`
-	Bandwidth   Bandwidth      `json:"bandwidth"`
-	Tasks       []Task         `json:"tasks"`
-	GeneratedAt *time.Time     `json:"generated_at,omitempty"`
-	LockedAt    *time.Time     `json:"locked_at,omitempty"`
+	Day         string       `json:"day"`
+	Status      string       `json:"status"` // draft | locked | completed
+	Headline    string       `json:"headline"`
+	Constraints []Constraint `json:"constraints"`
+	Bandwidth   Bandwidth    `json:"bandwidth"`
+	Tasks       []Task       `json:"tasks"`
+	GeneratedAt *time.Time   `json:"generated_at,omitempty"`
+	LockedAt    *time.Time   `json:"locked_at,omitempty"`
 }
 
 type Constraint struct {
@@ -83,6 +83,23 @@ type Bandwidth struct {
 	Personal int `json:"personal"`
 	Admin    int `json:"admin"`
 	Learning int `json:"learning"`
+}
+
+// TaskOrder is used for reordering tasks.
+type TaskOrder struct {
+	ID  string `json:"id"`
+	Idx int    `json:"idx"`
+}
+
+// FocusSession tracks a timed focus period on a task.
+type FocusSession struct {
+	ID          string     `json:"id"`
+	TaskID      string     `json:"task_id"`
+	TaskText    string     `json:"task_text"`
+	StartedAt   time.Time  `json:"started_at"`
+	EndedAt     *time.Time `json:"ended_at,omitempty"`
+	DurationSec int        `json:"duration_sec"`
+	Outcome     string     `json:"outcome"` // active | completed | cancelled | paused
 }
 
 // Capture is a brain-dump item.
@@ -126,15 +143,15 @@ type Action struct {
 
 // SignalSnapshot is pushed via WebSocket every 5s.
 type SignalSnapshot struct {
-	FocusState          string         `json:"focus_state"`
-	ActiveThreads       int            `json:"active_threads"`
-	ErrorRate           float64        `json:"error_rate"`
-	ErrorBaseline       float64        `json:"error_baseline"`
-	OpenLoops           int            `json:"open_loops"`
-	CutoffHour          float64        `json:"cutoff_hour"`
-	CogThresholdPct     int            `json:"cognitive_threshold_pct"`
-	Interventions       []Intervention `json:"interventions"`
-	ActiveSession       *SessionBrief  `json:"active_session,omitempty"`
+	FocusState      string         `json:"focus_state"`
+	ActiveThreads   int            `json:"active_threads"`
+	ErrorRate       float64        `json:"error_rate"`
+	ErrorBaseline   float64        `json:"error_baseline"`
+	OpenLoops       int            `json:"open_loops"`
+	CutoffHour      float64        `json:"cutoff_hour"`
+	CogThresholdPct int            `json:"cognitive_threshold_pct"`
+	Interventions   []Intervention `json:"interventions"`
+	ActiveSession   *SessionBrief  `json:"active_session,omitempty"`
 }
 
 type SessionBrief struct {
@@ -146,27 +163,27 @@ type SessionBrief struct {
 
 // ReviewSummary is a full daily audit payload.
 type ReviewSummary struct {
-	Summary    DaySummary `json:"summary"`
-	EnergyMap  []Bucket   `json:"energy_map"`
-	Patterns   []Pattern  `json:"patterns"`
-	Leaks      []Leak     `json:"leaks"`
+	Summary    DaySummary  `json:"summary"`
+	EnergyMap  []Bucket    `json:"energy_map"`
+	Patterns   []Pattern   `json:"patterns"`
+	Leaks      []Leak      `json:"leaks"`
 	RootCauses []RootCause `json:"root_causes"`
-	Sessions   []Session  `json:"sessions"`
+	Sessions   []Session   `json:"sessions"`
 }
 
 type DaySummary struct {
-	DeepWorkMin    int `json:"deep_work_min"`
-	LeakedMin      int `json:"leaked_min"`
-	OpenLoops      int `json:"open_loops"`
-	SessionsCount  int `json:"sessions_count"`
+	DeepWorkMin   int `json:"deep_work_min"`
+	LeakedMin     int `json:"leaked_min"`
+	OpenLoops     int `json:"open_loops"`
+	SessionsCount int `json:"sessions_count"`
 }
 
 // TodayResponse bundles everything the Today view needs.
 type TodayResponse struct {
-	Tasks         []Task        `json:"tasks"`
-	Bandwidth     Bandwidth     `json:"bandwidth"`
-	ActiveThread  *SessionBrief `json:"active_thread,omitempty"`
-	Greet         string        `json:"greet"`
-	Completed     int           `json:"completed"`
-	Total         int           `json:"total"`
+	Tasks        []Task        `json:"tasks"`
+	Bandwidth    Bandwidth     `json:"bandwidth"`
+	ActiveThread *SessionBrief `json:"active_thread,omitempty"`
+	Greet        string        `json:"greet"`
+	Completed    int           `json:"completed"`
+	Total        int           `json:"total"`
 }

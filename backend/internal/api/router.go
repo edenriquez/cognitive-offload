@@ -43,13 +43,23 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine) http.Handler {
 		r.Get("/today", h.getToday)
 		r.Patch("/today/tasks/{id}", h.toggleTask)
 
+		// Tasks CRUD
+		r.Post("/tasks", h.createTask)
+		r.Put("/tasks/{id}", h.updateTask)
+		r.Delete("/tasks/{id}", h.deleteTask)
+		r.Post("/tasks/reorder", h.reorderTasks)
+
 		// Focus
 		r.Post("/focus/start", h.startFocus)
 		r.Post("/focus/stop", h.stopFocus)
+		r.Get("/focus/current", h.currentFocus)
+		r.Get("/focus/history", h.focusHistory)
 
 		// Capture
 		r.Post("/captures", h.createCapture)
 		r.Get("/captures", h.listCaptures)
+		r.Delete("/captures/{id}", h.deleteCapture)
+		r.Post("/captures/{id}/promote", h.promoteCapture)
 
 		// Review
 		r.Get("/review/{day}", h.getReview)
@@ -57,10 +67,13 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine) http.Handler {
 		// Tomorrow
 		r.Get("/tomorrow", h.getTomorrow)
 		r.Post("/tomorrow/lock", h.lockTomorrow)
+		r.Put("/tomorrow", h.updateTomorrow)
 
 		// Sessions
 		r.Get("/sessions", h.listSessions)
 		r.Post("/sessions/{id}/close", h.closeSession)
+		r.Post("/sessions", h.createSession)
+		r.Put("/sessions/{id}", h.updateSession)
 
 		// Interventions
 		r.Get("/interventions", h.listInterventions)
@@ -175,7 +188,91 @@ func (h *handler) toggleTask(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]string{"status": "ok"})
 }
 
-// ---------- Focus ----------
+// ---------- Tasks CRUD ----------
+
+type createTaskReq struct {
+	Kind string `json:"kind"`
+	Text string `json:"text"`
+}
+
+func (h *handler) createTask(w http.ResponseWriter, r *http.Request) {
+	var req createTaskReq
+	if err := readJSON(r, &req); err != nil || req.Text == "" {
+		http.Error(w, "bad request", 400)
+		return
+	}
+	ctx := r.Context()
+	day := today()
+	if req.Kind == "" {
+		req.Kind = "must"
+	}
+	idx, _ := h.db.NextTaskIdx(ctx, day, req.Kind)
+	t := models.Task{
+		ID:   fmt.Sprintf("t-%d", time.Now().UnixNano()),
+		Day:  day,
+		Kind: req.Kind,
+		Idx:  idx,
+		Text: req.Text,
+		Done: false,
+	}
+	if err := h.db.CreateTask(ctx, t); err != nil {
+		slog.Error("create task", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 201, t)
+}
+
+type updateTaskReq struct {
+	Text string `json:"text"`
+	Kind string `json:"kind"`
+	Idx  int    `json:"idx"`
+}
+
+func (h *handler) updateTask(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var req updateTaskReq
+	if err := readJSON(r, &req); err != nil {
+		http.Error(w, "bad request", 400)
+		return
+	}
+	if err := h.db.UpdateTask(r.Context(), id, req.Text, req.Kind, req.Idx); err != nil {
+		slog.Error("update task", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "updated"})
+}
+
+func (h *handler) deleteTask(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.db.DeleteTask(r.Context(), id); err != nil {
+		slog.Error("delete task", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "deleted"})
+}
+
+type reorderReq struct {
+	Orders []models.TaskOrder `json:"orders"`
+}
+
+func (h *handler) reorderTasks(w http.ResponseWriter, r *http.Request) {
+	var req reorderReq
+	if err := readJSON(r, &req); err != nil {
+		http.Error(w, "bad request", 400)
+		return
+	}
+	if err := h.db.ReorderTasks(r.Context(), req.Orders); err != nil {
+		slog.Error("reorder tasks", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "reordered"})
+}
+
+// ---------- Focus (with persistence) ----------
 
 type focusReq struct {
 	TaskID string `json:"task_id"`
@@ -187,12 +284,87 @@ func (h *handler) startFocus(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", 400)
 		return
 	}
-	// In a real impl, we'd track the focus session in DB
-	writeJSON(w, 200, map[string]any{"status": "started", "task_id": req.TaskID, "started_at": time.Now()})
+	ctx := r.Context()
+
+	// Find task text
+	taskText := req.TaskID
+	tasks, _ := h.db.TasksByDay(ctx, today())
+	for _, t := range tasks {
+		if t.ID == req.TaskID {
+			taskText = t.Text
+			break
+		}
+	}
+
+	fs := models.FocusSession{
+		ID:        fmt.Sprintf("fs-%d", time.Now().UnixNano()),
+		TaskID:    req.TaskID,
+		TaskText:  taskText,
+		StartedAt: time.Now(),
+		Outcome:   "active",
+	}
+	if err := h.db.StartFocusSession(ctx, fs); err != nil {
+		slog.Error("start focus", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 200, fs)
+}
+
+type stopFocusReq struct {
+	Outcome string `json:"outcome"` // done | paused
 }
 
 func (h *handler) stopFocus(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, 200, map[string]string{"status": "stopped"})
+	ctx := r.Context()
+	active, err := h.db.ActiveFocusSession(ctx)
+	if err != nil || active == nil {
+		http.Error(w, "no active focus session", 404)
+		return
+	}
+	var req stopFocusReq
+	readJSON(r, &req)
+	outcome := req.Outcome
+	if outcome == "" {
+		outcome = "done"
+	}
+	if err := h.db.StopFocusSession(ctx, active.ID, outcome); err != nil {
+		slog.Error("stop focus", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "stopped", "outcome": outcome})
+}
+
+func (h *handler) currentFocus(w http.ResponseWriter, r *http.Request) {
+	fs, err := h.db.ActiveFocusSession(r.Context())
+	if err != nil {
+		slog.Error("current focus", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	if fs == nil {
+		writeJSON(w, 200, map[string]any{"active": false})
+		return
+	}
+	writeJSON(w, 200, fs)
+}
+
+func (h *handler) focusHistory(w http.ResponseWriter, r *http.Request) {
+	day := r.URL.Query().Get("day")
+	if day == "" {
+		day = today()
+	}
+	sessions, err := h.db.FocusSessionsByDay(r.Context(), day)
+	if err != nil {
+		slog.Error("focus history", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	if sessions == nil {
+		sessions = []models.FocusSession{}
+	}
+	writeJSON(w, 200, sessions)
 }
 
 // ---------- Capture ----------
@@ -231,6 +403,46 @@ func (h *handler) listCaptures(w http.ResponseWriter, r *http.Request) {
 		caps = []models.Capture{}
 	}
 	writeJSON(w, 200, caps)
+}
+
+func (h *handler) deleteCapture(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.db.DeleteCapture(r.Context(), id); err != nil {
+		slog.Error("delete capture", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "deleted"})
+}
+
+func (h *handler) promoteCapture(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	ctx := r.Context()
+
+	cap, err := h.db.GetCapture(ctx, id)
+	if err != nil || cap == nil {
+		http.Error(w, "capture not found", 404)
+		return
+	}
+
+	day := today()
+	idx, _ := h.db.NextTaskIdx(ctx, day, "must")
+	t := models.Task{
+		ID:   fmt.Sprintf("t-%d", time.Now().UnixNano()),
+		Day:  day,
+		Kind: "must",
+		Idx:  idx,
+		Text: cap.Text,
+		Done: false,
+	}
+	if err := h.db.CreateTask(ctx, t); err != nil {
+		slog.Error("promote capture", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	// Delete the capture after promotion
+	h.db.DeleteCapture(ctx, id)
+	writeJSON(w, 201, t)
 }
 
 // ---------- Review ----------
@@ -352,6 +564,48 @@ func (h *handler) lockTomorrow(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, plan)
 }
 
+func (h *handler) updateTomorrow(w http.ResponseWriter, r *http.Request) {
+	day := tomorrow()
+	ctx := r.Context()
+
+	plan, _ := h.db.PlanByDay(ctx, day)
+	if plan == nil {
+		http.Error(w, "no plan exists", 404)
+		return
+	}
+	if plan.Status == "locked" {
+		http.Error(w, "plan is already locked", 409)
+		return
+	}
+
+	var updates models.Plan
+	if err := readJSON(r, &updates); err != nil {
+		http.Error(w, "bad request", 400)
+		return
+	}
+
+	// Merge: only update fields that are provided
+	if updates.Headline != "" {
+		plan.Headline = updates.Headline
+	}
+	if len(updates.Constraints) > 0 {
+		plan.Constraints = updates.Constraints
+	}
+	if updates.Bandwidth.Work > 0 || updates.Bandwidth.Personal > 0 {
+		plan.Bandwidth = updates.Bandwidth
+	}
+	if len(updates.Tasks) > 0 {
+		plan.Tasks = updates.Tasks
+	}
+
+	if err := h.db.UpdatePlan(ctx, *plan); err != nil {
+		slog.Error("update plan", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 200, plan)
+}
+
 // ---------- Sessions ----------
 
 func (h *handler) listSessions(w http.ResponseWriter, r *http.Request) {
@@ -379,6 +633,51 @@ func (h *handler) closeSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]string{"status": "closed"})
+}
+
+type createSessionReq struct {
+	Label string `json:"label"`
+}
+
+func (h *handler) createSession(w http.ResponseWriter, r *http.Request) {
+	var req createSessionReq
+	if err := readJSON(r, &req); err != nil || req.Label == "" {
+		http.Error(w, "bad request", 400)
+		return
+	}
+	s := models.Session{
+		ID:        fmt.Sprintf("s-%d", time.Now().UnixNano()),
+		Label:     req.Label,
+		StartedAt: time.Now(),
+		Status:    "open",
+		Day:       today(),
+	}
+	if err := h.db.CreateSession(r.Context(), s); err != nil {
+		slog.Error("create session", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 201, s)
+}
+
+type updateSessionReq struct {
+	Label  string `json:"label"`
+	Status string `json:"status"`
+}
+
+func (h *handler) updateSession(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var req updateSessionReq
+	if err := readJSON(r, &req); err != nil {
+		http.Error(w, "bad request", 400)
+		return
+	}
+	if err := h.db.UpdateSession(r.Context(), id, req.Label, req.Status); err != nil {
+		slog.Error("update session", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "updated"})
 }
 
 // ---------- Interventions ----------

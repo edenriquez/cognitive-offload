@@ -106,6 +106,17 @@ func (d *DB) Migrate() error {
 		generated_at INTEGER,
 		locked_at    INTEGER
 	);
+
+	CREATE TABLE IF NOT EXISTS focus_sessions (
+		id         TEXT PRIMARY KEY,
+		task_id    TEXT NOT NULL,
+		task_text  TEXT NOT NULL DEFAULT '',
+		started_at INTEGER NOT NULL,
+		ended_at   INTEGER,
+		duration_sec INTEGER NOT NULL DEFAULT 0,
+		outcome    TEXT NOT NULL DEFAULT 'active'
+	);
+	CREATE INDEX IF NOT EXISTS idx_focus_day ON focus_sessions(started_at);
 	`
 	_, err := d.db.Exec(schema)
 	return err
@@ -404,6 +415,184 @@ func (d *DB) UpsertPlan(ctx context.Context, p models.Plan) error {
 			constraints=excluded.constraints, bandwidth=excluded.bandwidth,
 			tasks=excluded.tasks, generated_at=excluded.generated_at, locked_at=excluded.locked_at`,
 		p.Day, p.Status, p.Headline, string(constraints), string(bandwidth), string(tasks), genAt, lockAt)
+	return err
+}
+
+// ---------- Tasks (extended CRUD) ----------
+
+func (d *DB) CreateTask(ctx context.Context, t models.Task) error {
+	doneInt := 0
+	if t.Done {
+		doneInt = 1
+	}
+	_, err := d.db.ExecContext(ctx,
+		`INSERT INTO tasks (id, day, kind, idx, text, done) VALUES (?, ?, ?, ?, ?, ?)`,
+		t.ID, t.Day, t.Kind, t.Idx, t.Text, doneInt)
+	return err
+}
+
+func (d *DB) UpdateTask(ctx context.Context, id string, text string, kind string, idx int) error {
+	_, err := d.db.ExecContext(ctx,
+		`UPDATE tasks SET text = ?, kind = ?, idx = ? WHERE id = ?`,
+		text, kind, idx, id)
+	return err
+}
+
+func (d *DB) DeleteTask(ctx context.Context, id string) error {
+	_, err := d.db.ExecContext(ctx, `DELETE FROM tasks WHERE id = ?`, id)
+	return err
+}
+
+func (d *DB) ReorderTasks(ctx context.Context, orders []models.TaskOrder) error {
+	tx, err := d.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	stmt, err := tx.PrepareContext(ctx, `UPDATE tasks SET idx = ? WHERE id = ?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	for _, o := range orders {
+		if _, err := stmt.ExecContext(ctx, o.Idx, o.ID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (d *DB) NextTaskIdx(ctx context.Context, day string, kind string) (int, error) {
+	var maxIdx sql.NullInt64
+	err := d.db.QueryRowContext(ctx,
+		`SELECT MAX(idx) FROM tasks WHERE day = ? AND kind = ?`, day, kind).Scan(&maxIdx)
+	if err != nil {
+		return 1, err
+	}
+	if maxIdx.Valid {
+		return int(maxIdx.Int64) + 1, nil
+	}
+	return 1, nil
+}
+
+// ---------- Captures (extended) ----------
+
+func (d *DB) DeleteCapture(ctx context.Context, id string) error {
+	_, err := d.db.ExecContext(ctx, `DELETE FROM captures WHERE id = ?`, id)
+	return err
+}
+
+func (d *DB) GetCapture(ctx context.Context, id string) (*models.Capture, error) {
+	var c models.Capture
+	var createdAt int64
+	err := d.db.QueryRowContext(ctx,
+		`SELECT id, text, created_at FROM captures WHERE id = ?`, id).Scan(&c.ID, &c.Text, &createdAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	c.CreatedAt = time.UnixMilli(createdAt)
+	return &c, nil
+}
+
+// ---------- Focus Sessions ----------
+
+func (d *DB) StartFocusSession(ctx context.Context, fs models.FocusSession) error {
+	_, err := d.db.ExecContext(ctx,
+		`INSERT INTO focus_sessions (id, task_id, task_text, started_at, outcome) VALUES (?, ?, ?, ?, 'active')`,
+		fs.ID, fs.TaskID, fs.TaskText, fs.StartedAt.Unix())
+	return err
+}
+
+func (d *DB) StopFocusSession(ctx context.Context, id string, outcome string) error {
+	now := time.Now().Unix()
+	_, err := d.db.ExecContext(ctx,
+		`UPDATE focus_sessions SET ended_at = ?, duration_sec = (? - started_at), outcome = ? WHERE id = ?`,
+		now, now, outcome, id)
+	return err
+}
+
+func (d *DB) ActiveFocusSession(ctx context.Context) (*models.FocusSession, error) {
+	var fs models.FocusSession
+	var startedAt int64
+	var endedAt sql.NullInt64
+	err := d.db.QueryRowContext(ctx,
+		`SELECT id, task_id, task_text, started_at, ended_at, duration_sec, outcome
+		 FROM focus_sessions WHERE outcome = 'active' ORDER BY started_at DESC LIMIT 1`).
+		Scan(&fs.ID, &fs.TaskID, &fs.TaskText, &startedAt, &endedAt, &fs.DurationSec, &fs.Outcome)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	fs.StartedAt = time.Unix(startedAt, 0)
+	if endedAt.Valid {
+		t := time.Unix(endedAt.Int64, 0)
+		fs.EndedAt = &t
+	}
+	return &fs, nil
+}
+
+func (d *DB) FocusSessionsByDay(ctx context.Context, day string) ([]models.FocusSession, error) {
+	startOfDay, _ := time.Parse("2006-01-02", day)
+	endOfDay := startOfDay.AddDate(0, 0, 1)
+
+	rows, err := d.db.QueryContext(ctx,
+		`SELECT id, task_id, task_text, started_at, ended_at, duration_sec, outcome
+		 FROM focus_sessions WHERE started_at >= ? AND started_at < ? ORDER BY started_at`,
+		startOfDay.Unix(), endOfDay.Unix())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []models.FocusSession
+	for rows.Next() {
+		var fs models.FocusSession
+		var startedAt int64
+		var endedAt sql.NullInt64
+		if err := rows.Scan(&fs.ID, &fs.TaskID, &fs.TaskText, &startedAt, &endedAt, &fs.DurationSec, &fs.Outcome); err != nil {
+			return nil, err
+		}
+		fs.StartedAt = time.Unix(startedAt, 0)
+		if endedAt.Valid {
+			t := time.Unix(endedAt.Int64, 0)
+			fs.EndedAt = &t
+		}
+		out = append(out, fs)
+	}
+	return out, nil
+}
+
+// ---------- Sessions (extended) ----------
+
+func (d *DB) CreateSession(ctx context.Context, s models.Session) error {
+	_, err := d.db.ExecContext(ctx,
+		`INSERT INTO sessions (id, label, started_at, message_count, error_count, status, day)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		s.ID, s.Label, s.StartedAt.Unix(), s.MessageCount, s.ErrorCount, s.Status, s.Day)
+	return err
+}
+
+func (d *DB) UpdateSession(ctx context.Context, id string, label string, status string) error {
+	_, err := d.db.ExecContext(ctx,
+		`UPDATE sessions SET label = ?, status = ? WHERE id = ?`,
+		label, status, id)
+	return err
+}
+
+// ---------- Plans (extended) ----------
+
+func (d *DB) UpdatePlan(ctx context.Context, p models.Plan) error {
+	constraints, _ := json.Marshal(p.Constraints)
+	bandwidth, _ := json.Marshal(p.Bandwidth)
+	tasks, _ := json.Marshal(p.Tasks)
+	_, err := d.db.ExecContext(ctx,
+		`UPDATE plans SET headline = ?, constraints = ?, bandwidth = ?, tasks = ? WHERE day = ?`,
+		p.Headline, string(constraints), string(bandwidth), string(tasks), p.Day)
 	return err
 }
 
