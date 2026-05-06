@@ -1,0 +1,1330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cognitive Load — Modes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --color-white:#ffffff;
+    --color-ash:#f3f4f6;
+    --color-stone:#e4e7ec;
+    --color-slate:#d3d8df;
+    --color-lead:#b5bdc9;
+    --color-overcast:#8f99a8;
+    --color-metal:#6f7988;
+    --color-carbon:#505967;
+    --color-ink:#1c1d1f;
+    --color-abyss:#000000;
+    --color-action-blue:#407ff2;
+    --color-focus-blue:#94b9ff;
+    --color-success-green:#075a39;
+    --color-danger-red:#772322;
+    --color-warning-yellow:#705500;
+
+    --font-tiempos: 'Newsreader', ui-serif, Georgia, serif;
+    --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+    --radius-cards:8px;
+    --radius-inputs:7px;
+    --radius-buttons:10px;
+    --radius-tags:4px;
+
+    --shadow-subtle:rgb(238,239,241) 0 0 0 1px inset;
+    --shadow-subtle-2:rgba(28,40,64,0.1) 0 2px 3px -2px, rgba(28,40,64,0.04) 0 4px 6px -2px;
+
+    --ease:cubic-bezier(.2,.7,.2,1);
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;
+    background:#dfe3ea;
+    background-image:
+      radial-gradient(ellipse at 20% 10%, #e8edf3 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 90%, #d7dde6 0%, transparent 50%);
+    color:var(--color-ink);
+    font-family:var(--font-inter);
+    font-size:14px;line-height:1.43;
+    letter-spacing:-0.14px;
+    font-feature-settings:"ss03";
+    -webkit-font-smoothing:antialiased;
+    height:100vh;overflow:hidden;
+    transition:background .4s var(--ease);
+  }
+  body.immersive{background:var(--color-white);background-image:none;}
+    height:100vh;overflow:hidden;
+  }
+
+  /* ===== Desktop chrome ===== */
+  .desktop{
+    position:fixed;inset:0;
+    display:grid;grid-template-rows:24px 1fr;
+    overflow:hidden;
+    transition:padding .4s var(--ease);
+  }
+  body.immersive .desktop{grid-template-rows:0 1fr;}
+  body.immersive .menubar{display:none;}
+  body.immersive .window-wrap{padding:0;}
+  body.immersive .window{
+    max-width:none;max-height:none;
+    border-radius:0;
+    box-shadow:none;
+    grid-template-rows:0 1fr 0;
+  }
+  body.immersive .titlebar,
+  body.immersive .statusbar{display:none;}
+  body.immersive .rail{
+    background:transparent;
+    border-right:none;
+  }
+  body.immersive .window{background:var(--color-white);}
+  .menubar{
+    background:rgba(255,255,255,0.7);
+    backdrop-filter:blur(20px) saturate(180%);
+    -webkit-backdrop-filter:blur(20px) saturate(180%);
+    border-bottom:1px solid rgba(0,0,0,0.08);
+    display:flex;align-items:center;
+    padding:0 12px;gap:18px;
+    font-size:12px;color:var(--color-ink);
+    -webkit-app-region:drag;user-select:none;
+  }
+  .menubar .mb-logo{
+    display:flex;align-items:center;gap:6px;
+    font-weight:600;letter-spacing:-0.14px;
+  }
+  .menubar .mb-logo i{
+    width:12px;height:12px;border-radius:3px;
+    background:var(--color-ink);display:inline-block;
+  }
+  .menubar .mb-item{
+    color:var(--color-ink);font-weight:400;letter-spacing:-0.14px;
+    cursor:default;padding:0 4px;font-size:12px;
+  }
+  .menubar .mb-item:hover{background:rgba(0,0,0,0.06);border-radius:4px;}
+  .menubar .mb-spacer{flex:1;}
+  .menubar .mb-status{
+    color:var(--color-metal);font-size:11px;
+    display:flex;gap:14px;align-items:center;letter-spacing:-0.11px;
+  }
+  .menubar .mb-status b{color:var(--color-ink);font-weight:500;font-variant-numeric:tabular-nums;}
+  .menubar .mb-status .dot{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--color-success-green);
+    display:inline-block;margin-right:4px;
+  }
+
+  .window-wrap{
+    display:grid;place-items:center;
+    padding:32px;overflow:hidden;
+  }
+  .window{
+    width:100%;height:100%;max-width:1480px;max-height:920px;
+    background:var(--color-white);
+    border-radius:12px;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.08),
+      0 1px 0 rgba(255,255,255,0.6) inset,
+      0 24px 60px rgba(28,40,64,0.18),
+      0 8px 24px rgba(28,40,64,0.08);
+    display:grid;
+    grid-template-rows:38px 56px 1fr 28px;
+    grid-template-columns:1fr;
+    grid-template-areas:
+      "title"
+      "nav"
+      "content"
+      "status";
+    overflow:hidden;
+  }
+  .titlebar{
+    grid-area:title;
+    display:grid;grid-template-columns:120px 1fr 120px;
+    align-items:center;
+    padding:0 12px;
+    border-bottom:1px solid var(--color-stone);
+    background:linear-gradient(to bottom, #fafbfc, #f3f4f6);
+    -webkit-app-region:drag;user-select:none;
+  }
+  .traffic{display:flex;gap:8px;}
+  .traffic .tl{
+    width:12px;height:12px;border-radius:50%;
+    border:0.5px solid rgba(0,0,0,0.08);cursor:pointer;
+    -webkit-app-region:no-drag;
+  }
+  .tl.red{background:#ff5f57;}
+  .tl.yellow{background:#febc2e;}
+  .tl.green{background:#28c840;}
+  .title-center{
+    text-align:center;font-size:13px;font-weight:500;
+    color:var(--color-ink);letter-spacing:-0.14px;
+  }
+  .title-center span{color:var(--color-overcast);font-weight:400;margin-left:8px;}
+  .title-right{
+    display:flex;justify-content:flex-end;gap:6px;
+    -webkit-app-region:no-drag;
+  }
+  .icon-btn{
+    width:24px;height:24px;border-radius:6px;
+    display:grid;place-items:center;cursor:pointer;
+    color:var(--color-metal);
+    transition:background .15s,color .15s;
+  }
+  .icon-btn:hover{background:var(--color-ash);color:var(--color-ink);}
+
+  /* Top nav (mode bar) */
+  .topnav{
+    grid-area:nav;
+    border-bottom:1px solid var(--color-stone);
+    background:var(--color-white);
+    display:flex;align-items:center;justify-content:center;
+    padding:0 16px;position:relative;
+  }
+  .nav-brand{
+    position:absolute;left:18px;top:50%;transform:translateY(-50%);
+    display:flex;align-items:center;gap:8px;
+    font-size:13px;color:var(--color-metal);font-weight:500;
+    letter-spacing:-0.14px;
+  }
+  .nav-brand i{
+    width:18px;height:18px;border-radius:5px;
+    background:var(--color-ink);display:grid;place-items:center;
+    color:var(--color-white);font-family:var(--font-tiempos);
+    font-size:13px;font-style:italic;line-height:1;
+  }
+  .nav-pills{
+    display:flex;gap:2px;padding:4px;
+    background:var(--color-ash);
+    border:1px solid var(--color-stone);
+    border-radius:99px;
+  }
+  .nav-pills button{
+    padding:6px 16px;border-radius:99px;
+    color:var(--color-metal);
+    font-size:13px;font-weight:500;letter-spacing:-0.14px;
+    transition:color .2s var(--ease), background .2s var(--ease);
+  }
+  .nav-pills button:hover{color:var(--color-ink);}
+  .nav-pills button.on{background:var(--color-ink);color:var(--color-white);}
+  .nav-right{
+    position:absolute;right:18px;top:50%;transform:translateY(-50%);
+    display:flex;align-items:center;gap:14px;
+    font-size:12px;color:var(--color-overcast);letter-spacing:-0.14px;
+  }
+  .nav-right b{color:var(--color-ink);font-weight:500;font-variant-numeric:tabular-nums;}
+  .auto-hint{font-size:11px;color:var(--color-lead);}
+
+  body.immersive .topnav{
+    background:transparent;
+    border-bottom:none;
+    position:fixed;top:0;left:0;right:0;
+    z-index:50;
+    opacity:0;pointer-events:none;
+    transition:opacity .3s var(--ease);
+  }
+  body.immersive .topnav:hover,
+  body.immersive .topnav.peek{opacity:1;pointer-events:auto;}
+  body.immersive .desktop{grid-template-rows:0 0 1fr 0;}
+
+  /* immersive toggle in titlebar */
+  .immersive-toggle{
+    -webkit-app-region:no-drag;
+    display:flex;align-items:center;gap:6px;
+    font-size:11px;color:var(--color-overcast);
+    cursor:pointer;padding:3px 8px;border-radius:6px;
+    transition:background .15s,color .15s;letter-spacing:-0.11px;
+  }
+  .immersive-toggle:hover{background:var(--color-ash);color:var(--color-ink);}
+  .immersive-toggle.on{background:var(--color-ink);color:var(--color-white);}
+  .immersive-toggle kbd{
+    font-size:10px;font-family:var(--font-inter);
+    border:1px solid currentColor;opacity:0.6;
+    padding:0 4px;border-radius:3px;
+  }
+
+  /* peek hot zone in immersive mode */
+  .peek-zone{
+    position:fixed;top:0;left:0;right:0;height:8px;z-index:49;
+    display:none;
+  }
+  body.immersive .peek-zone{display:block;}
+  .rail{
+    grid-area:rail;
+    background:#fafbfc;
+    border-right:1px solid var(--color-stone);
+    display:flex;flex-direction:column;
+    padding:16px 10px 12px;
+    overflow:hidden;
+  }
+  .rail-section{
+    font-size:10px;font-weight:600;color:var(--color-overcast);
+    text-transform:uppercase;letter-spacing:0.06em;
+    padding:8px 10px 6px;
+  }
+  .rail-item{
+    display:grid;grid-template-columns:18px 1fr auto;gap:10px;
+    align-items:center;
+    padding:7px 10px;border-radius:6px;
+    font-size:13px;font-weight:500;
+    color:var(--color-carbon);letter-spacing:-0.14px;
+    cursor:pointer;
+    transition:background .15s,color .15s;
+  }
+  .rail-item:hover{background:var(--color-ash);color:var(--color-ink);}
+  .rail-item.on{background:var(--color-ink);color:var(--color-white);}
+  .rail-item.on .rail-icon{color:var(--color-white);}
+  .rail-item.on .rail-kbd{color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.1);border-color:transparent;}
+  .rail-icon{
+    color:var(--color-metal);display:grid;place-items:center;
+    width:18px;height:18px;
+  }
+  .rail-item.on .rail-icon{color:var(--color-white);}
+  .rail-kbd{
+    font-size:10px;font-weight:500;
+    color:var(--color-overcast);
+    border:1px solid var(--color-stone);
+    background:var(--color-white);
+    border-radius:3px;padding:1px 5px;
+    font-variant-numeric:tabular-nums;
+  }
+  .rail-spacer{flex:1;}
+  .rail-divider{height:1px;background:var(--color-stone);margin:8px 6px;}
+
+  .rail-card{
+    margin:8px 4px 0;
+    background:var(--color-white);
+    border:1px solid var(--color-stone);
+    border-radius:8px;
+    padding:12px;
+    box-shadow:var(--shadow-subtle-2);
+  }
+  .rail-card-h{
+    font-size:11px;font-weight:600;color:var(--color-overcast);
+    text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;
+  }
+  .rail-card-v{
+    font-family:var(--font-tiempos);font-feature-settings:normal;
+    font-size:24px;font-weight:400;letter-spacing:-0.36px;
+    color:var(--color-ink);font-variant-numeric:tabular-nums;
+  }
+  .rail-card-l{font-size:11px;color:var(--color-metal);margin-top:2px;letter-spacing:-0.11px;}
+  .rail-card-bar{
+    height:3px;background:var(--color-stone);border-radius:2px;
+    margin-top:8px;overflow:hidden;
+  }
+  .rail-card-bar span{
+    display:block;height:100%;background:var(--color-ink);border-radius:2px;
+  }
+
+  /* Content + status */
+  .content-area{
+    grid-area:content;
+    background:var(--color-white);
+    overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+  .statusbar{
+    grid-area:status;
+    border-top:1px solid var(--color-stone);
+    background:#fafbfc;
+    display:flex;align-items:center;
+    padding:0 14px;gap:18px;
+    font-size:11px;color:var(--color-metal);letter-spacing:-0.11px;
+  }
+  .statusbar b{color:var(--color-ink);font-weight:500;font-variant-numeric:tabular-nums;}
+  .statusbar .sb-dot{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--color-success-green);display:inline-block;
+  }
+  .statusbar .sb-dot.warn{background:var(--color-danger-red);animation:pulse 1.6s infinite;}
+  .statusbar .sb-spacer{flex:1;}
+  .statusbar .sb-link{color:var(--color-action-blue);font-weight:500;cursor:pointer;}
+  button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer;padding:0;font-feature-settings:"ss03";}
+  input,textarea{font-family:inherit;color:inherit;font-feature-settings:"ss03";}
+  ::selection{background:#dfeaff;}
+
+  .serif{font-family:var(--font-tiempos);font-feature-settings:normal;}
+  .mono-num{font-variant-numeric:tabular-nums;}
+
+  /* (mode-bar / clock / brand removed — moved into desktop chrome) */
+
+  /* ===== Stage ===== */
+  .stage{height:100%;width:100%;overflow-y:auto;overflow-x:hidden;}
+  .stage::-webkit-scrollbar{width:0;}
+
+  /* ============================================================
+     FOCUS MODE
+  ============================================================ */
+  .focus{min-height:100%;display:grid;place-items:center;padding:80px 40px;}
+  .focus-inner{text-align:center;max-width:780px;width:100%;}
+  .focus-eye{
+    font-size:12px;font-weight:500;color:var(--color-overcast);
+    letter-spacing:-0.14px;margin-bottom:32px;
+  }
+  .focus-task{
+    font-family:var(--font-tiempos);font-weight:400;
+    font-size:56px;line-height:1.1;letter-spacing:-1.12px;
+    color:var(--color-ink);text-wrap:balance;
+    margin-bottom:48px;
+    font-feature-settings:normal;
+  }
+  .focus-timer{
+    font-family:var(--font-inter);font-weight:500;
+    font-size:96px;line-height:1;letter-spacing:-2.5px;
+    color:var(--color-ink);font-variant-numeric:tabular-nums;
+    margin-bottom:8px;
+  }
+  .focus-meta{
+    font-size:12px;color:var(--color-overcast);font-weight:400;
+    letter-spacing:-0.14px;
+  }
+  .focus-progress{
+    width:360px;height:2px;background:var(--color-stone);
+    margin:32px auto 0;position:relative;border-radius:1px;overflow:hidden;
+  }
+  .focus-progress span{
+    position:absolute;left:0;top:0;bottom:0;width:38%;
+    background:var(--color-ink);border-radius:1px;
+  }
+  .focus-actions{display:flex;gap:8px;justify-content:center;margin-top:48px;}
+  .focus-reveal{
+    margin-top:80px;font-size:12px;color:var(--color-overcast);
+    cursor:pointer;letter-spacing:-0.14px;
+    border-bottom:1px dashed var(--color-stone);
+    padding-bottom:2px;display:inline-block;
+  }
+  .focus-reveal:hover{color:var(--color-ink);border-bottom-color:var(--color-slate);}
+  .focus-why{
+    margin-top:18px;font-size:14px;color:var(--color-metal);
+    max-width:480px;margin-left:auto;margin-right:auto;
+    letter-spacing:-0.14px;
+  }
+  .focus-why b{color:var(--color-ink);font-weight:500;}
+  .focus-why .blue{color:var(--color-action-blue);font-weight:500;}
+
+  /* ============================================================
+     TODAY MODE
+  ============================================================ */
+  .today{min-height:100%;display:grid;place-items:center;padding:80px 40px 60px;}
+  .today-inner{width:100%;max-width:660px;}
+  .today-greet{
+    font-size:13px;color:var(--color-overcast);font-weight:500;
+    letter-spacing:-0.14px;text-align:center;margin-bottom:12px;
+  }
+  .today-q{
+    font-family:var(--font-tiempos);font-weight:400;
+    font-size:40px;line-height:1.1;letter-spacing:-0.6px;
+    color:var(--color-ink);text-align:center;
+    text-wrap:balance;margin-bottom:64px;
+    font-feature-settings:normal;
+  }
+  .today-q em{font-style:italic;color:var(--color-metal);font-weight:400;}
+
+  .ttasks{display:flex;flex-direction:column;}
+  .ttask{
+    display:grid;grid-template-columns:90px 1fr auto;gap:20px;
+    align-items:center;padding:20px 4px;
+    border-bottom:1px solid var(--color-stone);
+  }
+  .ttask:first-child{border-top:1px solid var(--color-stone);}
+  .ttask-rank{
+    font-size:11px;color:var(--color-overcast);font-weight:500;
+    letter-spacing:-0.11px;text-transform:uppercase;
+  }
+  .ttask-rank.must{color:var(--color-ink);}
+  .ttask-rank.personal{color:var(--color-action-blue);}
+  .ttask-text{
+    font-size:16px;color:var(--color-ink);font-weight:400;
+    letter-spacing:-0.24px;line-height:1.5;
+  }
+  .ttask.done .ttask-text{color:var(--color-lead);text-decoration:line-through;}
+  .ttask-check{
+    width:18px;height:18px;border:1.5px solid var(--color-slate);
+    border-radius:50%;cursor:pointer;
+    display:grid;place-items:center;
+    transition:background .2s,border-color .2s;
+  }
+  .ttask.done .ttask-check{
+    background:var(--color-success-green);border-color:var(--color-success-green);
+  }
+  .ttask.done .ttask-check::after{
+    content:'';width:5px;height:8px;
+    border-right:1.5px solid var(--color-white);
+    border-bottom:1.5px solid var(--color-white);
+    transform:rotate(45deg) translate(-1px,-1px);
+  }
+
+  /* primary CTA, Attio style */
+  .btn-primary{
+    background:var(--color-ink);color:var(--color-white);
+    border:1px solid var(--color-ink);
+    padding:8px 12px;border-radius:var(--radius-buttons);
+    font-size:14px;font-weight:500;letter-spacing:-0.14px;
+    cursor:pointer;transition:background .15s, border-color .15s;
+  }
+  .btn-primary:hover{background:#000;border-color:#000;}
+  .btn-secondary{
+    background:var(--color-white);color:var(--color-ink);
+    border:1px solid var(--color-slate);
+    padding:8px 12px;border-radius:var(--radius-buttons);
+    font-size:14px;font-weight:500;letter-spacing:-0.14px;
+    cursor:pointer;transition:background .15s,border-color .15s;
+  }
+  .btn-secondary:hover{background:var(--color-ash);}
+
+  .ttask-go{
+    background:transparent;color:var(--color-metal);
+    border:1px solid var(--color-stone);
+    padding:6px 12px;border-radius:var(--radius-buttons);
+    font-size:13px;font-weight:500;letter-spacing:-0.14px;
+    cursor:pointer;
+    opacity:0;transition:opacity .2s,background .15s,color .15s,border-color .15s;
+  }
+  .ttask:hover .ttask-go{opacity:1;}
+  .ttask-go:hover{background:var(--color-ash);color:var(--color-ink);}
+  .ttask.active .ttask-go{
+    opacity:1;background:var(--color-ink);color:var(--color-white);
+    border-color:var(--color-ink);
+  }
+  .ttask.active .ttask-go:hover{background:#000;}
+
+  .reveal-row{display:flex;justify-content:center;gap:8px;margin-top:64px;}
+  .reveal-pill{
+    background:transparent;color:var(--color-metal);
+    border:1px solid var(--color-stone);
+    padding:6px 14px;border-radius:99px;
+    font-size:12px;font-weight:500;letter-spacing:-0.14px;
+    cursor:pointer;transition:background .15s, color .15s, border-color .15s;
+  }
+  .reveal-pill:hover{background:var(--color-ash);color:var(--color-ink);}
+  .reveal-pill.on{background:var(--color-ink);color:var(--color-white);border-color:var(--color-ink);}
+
+  .reveal-content{
+    max-height:0;overflow:hidden;opacity:0;
+    transition:max-height .4s var(--ease), opacity .3s var(--ease), margin .3s var(--ease);
+  }
+  .reveal-content.on{max-height:600px;opacity:1;margin-top:32px;}
+
+  .ring-row{
+    display:flex;gap:32px;align-items:center;justify-content:center;
+    background:var(--color-white);
+    border:1px solid var(--color-stone);
+    border-radius:var(--radius-cards);
+    padding:20px 28px;
+    box-shadow:var(--shadow-subtle-2);
+  }
+  .ring-legend{
+    display:grid;grid-template-columns:auto auto;gap:8px 16px;
+    font-size:13px;color:var(--color-metal);letter-spacing:-0.14px;
+  }
+  .ring-legend span{display:flex;align-items:center;gap:8px;}
+  .ring-legend i{width:8px;height:8px;border-radius:2px;}
+  .ring-legend b{color:var(--color-ink);font-weight:500;font-variant-numeric:tabular-nums;}
+
+  .ctx-line{
+    text-align:center;font-size:12px;color:var(--color-overcast);
+    margin-top:14px;letter-spacing:-0.14px;
+  }
+  .ctx-line .danger{color:var(--color-danger-red);font-weight:500;}
+
+  /* ============================================================
+     CAPTURE
+  ============================================================ */
+  .capture{min-height:100%;display:grid;place-items:center;padding:80px 40px 60px;}
+  .capture-inner{width:100%;max-width:680px;}
+  .capture-eye{
+    text-align:center;font-size:12px;color:var(--color-overcast);
+    font-weight:500;letter-spacing:-0.14px;margin-bottom:24px;
+  }
+  .capture-input{
+    width:100%;background:transparent;border:none;outline:none;
+    font-family:var(--font-tiempos);font-feature-settings:normal;
+    font-size:40px;font-weight:400;
+    color:var(--color-ink);text-align:center;
+    padding:14px 0;
+    border-bottom:1px solid var(--color-stone);
+    transition:border-bottom-color .2s;
+    letter-spacing:-0.6px;line-height:1.1;
+  }
+  .capture-input:focus{border-bottom-color:var(--color-ink);}
+  .capture-input::placeholder{color:var(--color-lead);font-style:italic;}
+  .capture-hint{
+    text-align:center;font-size:12px;color:var(--color-overcast);
+    margin-top:16px;letter-spacing:-0.14px;
+  }
+  .capture-hint kbd{
+    border:1px solid var(--color-stone);
+    background:var(--color-ash);
+    padding:1px 6px;border-radius:4px;
+    font-family:var(--font-inter);font-size:11px;
+    color:var(--color-carbon);
+  }
+  .capture-recent{margin-top:60px;display:flex;flex-direction:column;align-items:center;gap:12px;}
+  .capture-recent-row{
+    font-size:14px;color:var(--color-overcast);
+    transition:color .3s;letter-spacing:-0.14px;
+  }
+  .capture-recent-row:hover{color:var(--color-ink);}
+  .capture-recent-row.fresh{color:var(--color-ink);font-weight:500;}
+  .capture-recent-row .age{color:var(--color-lead);font-size:12px;margin-left:8px;}
+
+  /* ============================================================
+     REVIEW
+  ============================================================ */
+  .review{padding:60px 48px 80px;min-height:100%;}
+  .review-inner{max-width:1080px;margin:0 auto;}
+  .review-h{
+    font-family:var(--font-tiempos);font-feature-settings:normal;
+    font-weight:400;font-size:40px;line-height:1.1;letter-spacing:-0.6px;
+    color:var(--color-ink);margin-bottom:6px;
+  }
+  .review-sub{
+    font-size:14px;color:var(--color-overcast);font-weight:400;
+    letter-spacing:-0.14px;margin-bottom:40px;
+  }
+  .review-summary{
+    display:grid;grid-template-columns:repeat(4,1fr);
+    border:1px solid var(--color-stone);
+    border-radius:var(--radius-cards);
+    background:var(--color-white);
+    box-shadow:var(--shadow-subtle-2);
+    overflow:hidden;
+    margin-bottom:48px;
+  }
+  .rs-cell{padding:20px 24px;border-right:1px solid var(--color-stone);}
+  .rs-cell:last-child{border-right:none;}
+  .rs-v{
+    font-family:var(--font-tiempos);font-feature-settings:normal;
+    font-size:32px;line-height:1.1;letter-spacing:-0.6px;
+    color:var(--color-ink);font-variant-numeric:tabular-nums;
+  }
+  .rs-v.danger{color:var(--color-danger-red);}
+  .rs-l{font-size:13px;color:var(--color-overcast);margin-top:6px;letter-spacing:-0.14px;}
+
+  .section{margin-top:56px;}
+  .section-h{
+    font-family:var(--font-tiempos);font-feature-settings:normal;
+    font-size:28px;font-weight:400;letter-spacing:-0.42px;line-height:1.23;
+    color:var(--color-ink);margin-bottom:20px;
+  }
+
+  /* energy map */
+  .em-card{
+    background:var(--color-white);
+    border:1px solid var(--color-stone);
+    border-radius:var(--radius-cards);
+    padding:24px;
+    box-shadow:var(--shadow-subtle-2);
+  }
+  .em{display:grid;grid-template-rows:1fr 24px;height:200px;}
+  .em-area{position:relative;border-bottom:1px solid var(--color-stone);}
+  .em-region{
+    position:absolute;top:0;bottom:0;
+    background:rgba(119,35,34,0.05);
+    border-left:1px dashed rgba(119,35,34,0.3);
+    border-right:1px dashed rgba(119,35,34,0.3);
+  }
+  .em-region-label{
+    position:absolute;top:-18px;left:6px;
+    font-size:11px;color:var(--color-danger-red);
+    font-weight:500;letter-spacing:-0.11px;white-space:nowrap;
+  }
+  .em-bar{
+    position:absolute;bottom:0;width:4px;
+    background:var(--color-slate);border-radius:1px 1px 0 0;
+    transform:translateX(-50%);
+  }
+  .em-bar.peak{background:var(--color-ink);}
+  .em-bar.warn{background:var(--color-danger-red);}
+  .em-x{position:relative;}
+  .em-x span{
+    position:absolute;top:6px;font-size:11px;
+    color:var(--color-overcast);transform:translateX(-50%);
+    letter-spacing:-0.11px;
+  }
+  .em-now{
+    position:absolute;top:0;bottom:0;width:1px;
+    background:var(--color-action-blue);
+  }
+  .em-now::after{
+    content:'NOW';position:absolute;top:-16px;left:-15px;
+    font-size:10px;color:var(--color-action-blue);
+    font-weight:600;letter-spacing:0.04em;
+  }
+
+  /* patterns */
+  .patterns{border-top:1px solid var(--color-stone);}
+  .pat{
+    display:grid;grid-template-columns:120px 1fr 110px;
+    gap:20px;padding:20px 4px;
+    border-bottom:1px solid var(--color-stone);
+    align-items:baseline;
+  }
+  .pat-tag{
+    font-size:11px;color:var(--color-overcast);font-weight:500;
+    letter-spacing:-0.11px;text-transform:uppercase;
+  }
+  .pat-tag.high{color:var(--color-danger-red);}
+  .pat-title{
+    font-size:16px;color:var(--color-ink);font-weight:500;
+    letter-spacing:-0.24px;
+  }
+  .pat-detail{
+    font-size:14px;color:var(--color-metal);margin-top:4px;
+    letter-spacing:-0.14px;line-height:1.43;
+  }
+  .pat-window{
+    font-size:12px;color:var(--color-overcast);text-align:right;
+    font-variant-numeric:tabular-nums;letter-spacing:-0.14px;
+  }
+
+  /* leaks */
+  .leaks{border-top:1px solid var(--color-stone);}
+  .leak{
+    display:grid;grid-template-columns:130px 80px 1fr 1fr;
+    gap:20px;padding:14px 4px;
+    border-bottom:1px solid var(--color-stone);
+    font-size:14px;align-items:center;letter-spacing:-0.14px;
+  }
+  .leak-time{color:var(--color-overcast);font-variant-numeric:tabular-nums;}
+  .leak-cost{color:var(--color-danger-red);font-weight:500;font-variant-numeric:tabular-nums;}
+  .leak-cause{color:var(--color-ink);}
+  .leak-fix{color:var(--color-action-blue);font-weight:500;}
+
+  /* tomorrow CTA card on review */
+  .tom-card{
+    background:var(--color-ash);
+    border:1px solid var(--color-stone);
+    border-radius:var(--radius-cards);
+    padding:24px 28px;margin-top:48px;
+    display:grid;grid-template-columns:1fr auto;
+    gap:24px;align-items:center;
+  }
+  .tom-eye{
+    font-size:11px;color:var(--color-overcast);font-weight:500;
+    letter-spacing:-0.11px;margin-bottom:8px;text-transform:uppercase;
+  }
+  .tom-line{
+    font-family:var(--font-tiempos);font-feature-settings:normal;
+    font-size:20px;line-height:1.3;letter-spacing:-0.4px;
+    color:var(--color-ink);
+  }
+  .tom-line b{font-weight:500;color:var(--color-ink);}
+
+  /* ============================================================
+     TOMORROW
+  ============================================================ */
+  .tomorrow{min-height:100%;display:grid;place-items:center;padding:80px 40px 60px;}
+  .tomorrow-inner{max-width:640px;width:100%;}
+  .tom-h{
+    text-align:center;font-size:13px;color:var(--color-overcast);
+    font-weight:500;letter-spacing:-0.14px;margin-bottom:14px;
+  }
+  .tom-headline{
+    font-family:var(--font-tiempos);font-feature-settings:normal;
+    font-size:40px;line-height:1.1;letter-spacing:-0.6px;font-weight:400;
+    color:var(--color-ink);text-align:center;text-wrap:balance;
+    margin-bottom:48px;
+  }
+  .tom-list{display:flex;flex-direction:column;}
+  .tom-item{
+    display:grid;grid-template-columns:32px 1fr;gap:18px;
+    padding:18px 4px;
+    border-bottom:1px solid var(--color-stone);
+    align-items:baseline;
+  }
+  .tom-item:first-child{border-top:1px solid var(--color-stone);}
+  .tom-rank{
+    font-size:11px;color:var(--color-overcast);font-weight:500;
+    letter-spacing:-0.11px;
+  }
+  .tom-rank.locked{color:var(--color-action-blue);}
+  .tom-task{
+    font-size:16px;color:var(--color-ink);font-weight:500;
+    letter-spacing:-0.24px;line-height:1.4;
+  }
+  .tom-meta{
+    font-size:12px;color:var(--color-overcast);margin-top:6px;
+    letter-spacing:-0.14px;
+  }
+  .tom-meta b{color:var(--color-ink);font-weight:500;}
+  .tom-cta{display:flex;gap:8px;justify-content:center;margin-top:40px;}
+
+  /* ===== Toast ===== */
+  .toast{
+    position:fixed;bottom:24px;left:50%;
+    transform:translateX(-50%) translateY(120%);
+    background:var(--color-white);
+    border:1px solid var(--color-stone);
+    border-radius:99px;padding:10px 16px;
+    display:flex;gap:14px;align-items:center;
+    font-size:14px;color:var(--color-ink);
+    z-index:60;letter-spacing:-0.14px;
+    transition:transform .4s var(--ease);
+    box-shadow:var(--shadow-subtle-2);
+  }
+  .toast.on{transform:translateX(-50%) translateY(0);}
+  .toast-dot{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--color-danger-red);
+    animation:pulse 1.6s infinite;
+  }
+  .toast-action{
+    font-size:13px;color:var(--color-action-blue);
+    font-weight:500;cursor:pointer;
+    padding-left:12px;border-left:1px solid var(--color-stone);
+    letter-spacing:-0.14px;
+  }
+  .toast-action.muted{color:var(--color-overcast);}
+  @keyframes pulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(119,35,34,0.4);}
+    50%{box-shadow:0 0 0 6px rgba(119,35,34,0);}
+  }
+
+  /* focus mode dims rail */
+  body.in-focus .rail-item:not(.on){opacity:0.4;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef } = React;
+
+function suggestedMode(hour){
+  if (hour < 9) return 'tomorrow';
+  if (hour < 17) return 'today';
+  if (hour < 20) return 'review';
+  return 'today';
+}
+
+// ---------- Bandwidth ring ----------
+function Ring({ alloc, size = 96 }){
+  const cats = [
+    { id:'work',     v: alloc.work,     c:'#1c1d1f' },
+    { id:'personal', v: alloc.personal, c:'#407ff2' },
+    { id:'admin',    v: alloc.admin,    c:'#8f99a8' },
+    { id:'learning', v: alloc.learning, c:'#d3d8df' },
+  ];
+  const r = (size - 12) / 2;
+  const cx = size/2, cy = size/2;
+  const C = 2 * Math.PI * r;
+  let acc = 0;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f3f4f6" strokeWidth="6"/>
+      {cats.map(s => {
+        const len = (s.v/100)*C;
+        const dash = `${len} ${C-len}`;
+        const off = -acc;
+        acc += len;
+        return (
+          <circle key={s.id} cx={cx} cy={cy} r={r} fill="none"
+            stroke={s.c} strokeWidth="6"
+            strokeDasharray={dash} strokeDashoffset={off}
+            transform={`rotate(-90 ${cx} ${cy})`}/>
+        );
+      })}
+      <text x={cx} y={cy-2} textAnchor="middle" dominantBaseline="middle"
+            fontFamily="Newsreader, serif" fontSize="20" fill="#1c1d1f" fontWeight="400">
+        6h
+      </text>
+      <text x={cx} y={cy+14} textAnchor="middle" dominantBaseline="middle"
+            fontFamily="Inter, sans-serif" fontSize="10" fill="#8f99a8" letterSpacing="0">
+        today
+      </text>
+    </svg>
+  );
+}
+
+// ---------- FOCUS ----------
+function FocusMode({ task, onExit }){
+  const [secs, setSecs] = useState(22*60+14);
+  const [showWhy, setShowWhy] = useState(false);
+  useEffect(() => {
+    document.body.classList.add('in-focus');
+    const t = setInterval(() => setSecs(s => Math.max(0, s-1)), 1000);
+    return () => { clearInterval(t); document.body.classList.remove('in-focus'); };
+  }, []);
+  const m = Math.floor(secs/60), s = secs%60;
+  return (
+    <div className="focus">
+      <div className="focus-inner">
+        <div className="focus-eye">Focus · 1 of 3 must-win</div>
+        <div className="focus-task">{task}</div>
+        <div className="focus-timer">{m.toString().padStart(2,'0')}:{s.toString().padStart(2,'0')}</div>
+        <div className="focus-meta">remaining of 90-minute block</div>
+        <div className="focus-progress"><span></span></div>
+        <div className="focus-actions">
+          <button className="btn-secondary" onClick={onExit}>Pause</button>
+          <button className="btn-primary" onClick={onExit}>Done</button>
+        </div>
+        <span className="focus-reveal" onClick={() => setShowWhy(s=>!s)}>
+          {showWhy ? 'hide context' : 'why this task'}
+        </span>
+        {showWhy && (
+          <div className="focus-why">
+            Tied to roadmap goal <b>auth-success 87% → 92%</b>. Estimated impact <span className="blue">+8%</span>. Continues yesterday's open thread.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------- TODAY ----------
+function TodayMode({ tasks, setTasks, alloc, onStartFocus, hour }){
+  const [revealBw, setRevealBw] = useState(false);
+  const [revealCtx, setRevealCtx] = useState(false);
+  const total = alloc.work + alloc.personal + alloc.admin + alloc.learning;
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const nextTask = tasks.find(t => !t.done && (t.kind==='must' || t.kind==='personal'));
+  return (
+    <div className="today">
+      <div className="today-inner">
+        <div className="today-greet">{greet} · day 14</div>
+        <div className="today-q">
+          The one thing right now is <em>{nextTask ? nextTask.text.toLowerCase() : "rest. you're done."}</em>
+        </div>
+        <div className="ttasks">
+          {tasks.map(t => (
+            <div key={t.id} className={`ttask ${t.done?'done':''} ${t.id===nextTask?.id?'active':''}`}>
+              <span className={`ttask-rank ${t.kind}`}>
+                {t.kind==='must' ? `Must ${t.idx}` : t.kind==='personal' ? 'Personal' : 'Small'}
+              </span>
+              <div className="ttask-text">{t.text}</div>
+              {t.id===nextTask?.id && !t.done ? (
+                <button className="ttask-go" onClick={() => onStartFocus(t.text)}>Focus</button>
+              ) : (
+                <span className="ttask-check" onClick={() => setTasks(arr => arr.map(x => x.id===t.id ? {...x, done:!x.done} : x))}></span>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="reveal-row">
+          <button className={`reveal-pill ${revealBw?'on':''}`} onClick={() => setRevealBw(b=>!b)}>
+            {revealBw ? 'Hide bandwidth' : 'Show bandwidth'}
+          </button>
+          <button className={`reveal-pill ${revealCtx?'on':''}`} onClick={() => setRevealCtx(b=>!b)}>
+            {revealCtx ? 'Hide context' : 'Show context'}
+          </button>
+        </div>
+        <div className={`reveal-content ${revealBw?'on':''}`}>
+          <div className="ring-row">
+            <Ring alloc={alloc}/>
+            <div className="ring-legend">
+              <span><i style={{background:'#1c1d1f'}}></i>Work core</span><b>{alloc.work}%</b>
+              <span><i style={{background:'#407ff2'}}></i>Personal</span><b>{alloc.personal}%</b>
+              <span><i style={{background:'#8f99a8'}}></i>Admin</span><b>{alloc.admin}%</b>
+              <span><i style={{background:'#d3d8df'}}></i>Learning</span><b>{alloc.learning}%</b>
+            </div>
+          </div>
+          <div className="ctx-line">Allocated · {total}% &nbsp;·&nbsp; Cutoff · 16:30 &nbsp;·&nbsp; Productive · 6h</div>
+        </div>
+        <div className={`reveal-content ${revealCtx?'on':''}`}>
+          <div className="ctx-line" style={{textAlign:'left',padding:'0 8px',lineHeight:1.7,fontSize:13}}>
+            Must 1 → roadmap "auth-success 87 → 92%" · projected +8%<br/>
+            Must 2 → roadmap "alerts/wk 21 → 12" · projected −4 alerts<br/>
+            Personal task is below 10% bandwidth floor · <span className="danger">3rd consecutive day</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- CAPTURE ----------
+function CaptureMode({ items, setItems }){
+  const [draft, setDraft] = useState('');
+  const ref = useRef(null);
+  useEffect(() => { setTimeout(() => ref.current?.focus(), 100); }, []);
+  const submit = () => {
+    if (!draft.trim()) return;
+    setItems(arr => [{ id: Math.random().toString(36).slice(2), text: draft.trim(), fresh:true, age:'just now' }, ...arr.map(i => ({...i, fresh:false}))]);
+    setDraft('');
+  };
+  return (
+    <div className="capture">
+      <div className="capture-inner">
+        <div className="capture-eye">Capture · no thinking required</div>
+        <input ref={ref} className="capture-input" placeholder="what's on your mind…"
+          value={draft} onChange={e=>setDraft(e.target.value)}
+          onKeyDown={e=>{ if (e.key==='Enter') submit(); }}/>
+        <div className="capture-hint"><kbd>↵</kbd> to capture &nbsp; <kbd>esc</kbd> to leave</div>
+        <div className="capture-recent">
+          {items.slice(0,5).map(i => (
+            <div key={i.id} className={`capture-recent-row ${i.fresh?'fresh':''}`}>
+              {i.text}<span className="age">· {i.age}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- REVIEW ----------
+function EnergyMap(){
+  const buckets = useMemo(() => {
+    const arr = [];
+    for (let i=0; i<90; i++){
+      const h = 7 + i/6;
+      let v;
+      if (h<8.5) v=25+Math.random()*15;
+      else if (h<11.5) v=70+Math.random()*22;
+      else if (h<12.5) v=45+Math.random()*20;
+      else if (h<13.5) v=8+Math.random()*8;
+      else if (h<14.5) v=30+Math.random()*15;
+      else if (h<15.5) v=55+Math.random()*20;
+      else if (h<16.5) v=65+Math.random()*15;
+      else if (h<18) v=50+Math.random()*15;
+      else v=18+Math.random()*12;
+      const errors = (h>=14.5 && h<15.5) || (h>=17 && h<18);
+      arr.push({ h, v, errors });
+    }
+    return arr;
+  }, []);
+  const w = 100/buckets.length;
+  return (
+    <div className="em">
+      <div className="em-area">
+        <div className="em-region" style={{left:`${(13-7)/15*100}%`,width:`${1/15*100}%`}}>
+          <span className="em-region-label">lunch · black hole</span>
+        </div>
+        <div className="em-region" style={{left:`${(14.5-7)/15*100}%`,width:`${1/15*100}%`}}>
+          <span className="em-region-label">thrashing</span>
+        </div>
+        <div className="em-region" style={{left:`${(16.5-7)/15*100}%`,width:`${1.5/15*100}%`}}>
+          <span className="em-region-label">past cutoff</span>
+        </div>
+        {buckets.map((b,i) => (
+          <span key={i} className={`em-bar ${b.v>65?'peak':b.errors?'warn':''}`}
+            style={{ left:`${i*w + w/2}%`, height:`${(b.v/100)*100}%` }}></span>
+        ))}
+        <span className="em-now" style={{left:`${(14.6-7)/15*100}%`}}></span>
+      </div>
+      <div className="em-x">
+        {[7,9,11,13,15,17,19,21].map(h => (
+          <span key={h} style={{left:`${(h-7)/15*100}%`}}>{h.toString().padStart(2,'0')}:00</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReviewMode({ onGoTomorrow }){
+  return (
+    <div className="review">
+      <div className="review-inner">
+        <h1 className="review-h">Today's review</h1>
+        <div className="review-sub">Auto-generated from logs · not self-report</div>
+
+        <div className="review-summary">
+          <div className="rs-cell"><div className="rs-v">3h 47m</div><div className="rs-l">Deep work</div></div>
+          <div className="rs-cell"><div className="rs-v danger">1h 35m</div><div className="rs-l">Leaked time</div></div>
+          <div className="rs-cell"><div className="rs-v">3</div><div className="rs-l">Open loops</div></div>
+          <div className="rs-cell"><div className="rs-v">11</div><div className="rs-l">Sessions</div></div>
+        </div>
+
+        <div className="section">
+          <h2 className="section-h">Energy map</h2>
+          <div className="em-card"><EnergyMap/></div>
+        </div>
+
+        <div className="section">
+          <h2 className="section-h">What pulled you off</h2>
+          <div className="patterns">
+            <div className="pat">
+              <span className="pat-tag high">Thrashing</span>
+              <div>
+                <div className="pat-title">7 single-message AI sessions in 30 min</div>
+                <div className="pat-detail">Likely context fragmentation. Same window 4 of last 5 days.</div>
+              </div>
+              <span className="pat-window">14:30 — 15:00</span>
+            </div>
+            <div className="pat">
+              <span className="pat-tag">Crash</span>
+              <div>
+                <div className="pat-title">Activity dropped 62% post-lunch</div>
+                <div className="pat-detail">Heavy cognitive load right after meal. Pattern repeats.</div>
+              </div>
+              <span className="pat-window">13:30 — 14:30</span>
+            </div>
+            <div className="pat">
+              <span className="pat-tag">Stuck</span>
+              <div>
+                <div className="pat-title">retry-logic v2 — 4h open, 1 commit</div>
+                <div className="pat-detail">Same 3 files reopened. Low progress signal. Checkpoint or archive.</div>
+              </div>
+              <span className="pat-window">11:40 — now</span>
+            </div>
+            <div className="pat">
+              <span className="pat-tag high">Fatigue</span>
+              <div>
+                <div className="pat-title">Error rate +180% past 16:30 cutoff</div>
+                <div className="pat-detail">Quality collapse risk. Hard stop recommended.</div>
+              </div>
+              <span className="pat-window">17:15 — 18:30</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="section">
+          <h2 className="section-h">Where time leaked</h2>
+          <div className="leaks">
+            <div className="leak">
+              <span className="leak-time">13:30 — 14:30</span>
+              <span className="leak-cost">−1h 04m</span>
+              <span className="leak-cause">Post-lunch crash</span>
+              <span className="leak-fix">Move deep block to 11:00 →</span>
+            </div>
+            <div className="leak">
+              <span className="leak-time">14:30 — 15:00</span>
+              <span className="leak-cost">−27m</span>
+              <span className="leak-cause">Session thrashing</span>
+              <span className="leak-fix">Cap at 1 active thread →</span>
+            </div>
+            <div className="leak">
+              <span className="leak-time">14:38 — 14:42</span>
+              <span className="leak-cost">−4m × 5</span>
+              <span className="leak-cause">Cold-start errors</span>
+              <span className="leak-fix">Pre-flight checklist →</span>
+            </div>
+            <div className="leak">
+              <span className="leak-time">17:15 — 18:30</span>
+              <span className="leak-cost">quality</span>
+              <span className="leak-cause">Fatigue work</span>
+              <span className="leak-fix">Hard stop at 16:30 →</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="tom-card">
+          <div>
+            <div className="tom-eye">Tomorrow's plan is ready</div>
+            <div className="tom-line">
+              Recovery day. <b>One-thread cap</b>, cutoff at <b>15:00</b>, deep block at <b>09:00–11:00</b>. Your first task is set.
+            </div>
+          </div>
+          <button className="btn-primary" onClick={onGoTomorrow}>Open plan</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- TOMORROW ----------
+function TomorrowMode({ onLock }){
+  return (
+    <div className="tomorrow">
+      <div className="tomorrow-inner">
+        <div className="tom-h">Wed · May 6 · auto-generated</div>
+        <h1 className="tom-headline">Recovery day. One thread, one cutoff, no fatigue work.</h1>
+        <div className="tom-list">
+          <div className="tom-item">
+            <span className="tom-rank locked">01 ◆</span>
+            <div>
+              <div className="tom-task">Close out retry-logic v2 — checkpoint, ship behind flag, or archive.</div>
+              <div className="tom-meta">continues yesterday's open thread · 90m · <b>auth-success +8%</b> projected</div>
+            </div>
+          </div>
+          <div className="tom-item">
+            <span className="tom-rank">02</span>
+            <div>
+              <div className="tom-task">Tune p99 latency alerts — drop noise from on-call.</div>
+              <div className="tom-meta">60m · alerts/wk 21 → 12 target · <b>−4 alerts</b> projected</div>
+            </div>
+          </div>
+          <div className="tom-item">
+            <span className="tom-rank">03</span>
+            <div>
+              <div className="tom-task">Outline chapter 3 of side-project.</div>
+              <div className="tom-meta">protected window · 45m · before 13:00</div>
+            </div>
+          </div>
+        </div>
+        <div className="tom-cta">
+          <button className="btn-secondary">Adjust</button>
+          <button className="btn-primary" onClick={onLock}>Lock in plan</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- App ----------
+function App(){
+  const [now, setNow] = useState(new Date());
+  const [immersive, setImmersive] = useState(false);
+  const [peek, setPeek] = useState(false);
+  useEffect(() => {
+    document.body.classList.toggle('immersive', immersive);
+    return () => document.body.classList.remove('immersive');
+  }, [immersive]);
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  const hour = now.getHours() + now.getMinutes()/60;
+  const auto = suggestedMode(hour);
+
+  const [mode, setMode] = useState('today');
+  const [activeFocus, setActiveFocus] = useState(null);
+
+  const [tasks, setTasks] = useState([
+    { id:'m1', kind:'must', idx:1, text:'Ship retry-logic v2 behind a feature flag', done:false },
+    { id:'m2', kind:'must', idx:2, text:'Tune p99 latency alerts — drop noise from on-call', done:false },
+    { id:'m3', kind:'must', idx:3, text:'Draft post-mortem for Tuesday outage', done:true },
+    { id:'p1', kind:'personal', text:'Outline chapter 3 of side-project (45m)', done:false },
+  ]);
+  const [alloc] = useState({ work:60, personal:15, admin:15, learning:10 });
+  const [captures, setCaptures] = useState([
+    { id:'c1', text:'Investigate retry storms at 03:00 UTC', age:'2h ago' },
+    { id:'c2', text:'Talk to Maria about success-rate dashboard', age:'5h ago' },
+    { id:'c3', text:'Set up read-replica for analytics', age:'yesterday' },
+    { id:'c4', text:'Cancel old AWS dev account', age:'4d ago' },
+  ]);
+  const [toast, setToast] = useState(null);
+  useEffect(() => {
+    const t = setTimeout(() => setToast({ msg:'Detected 3 open AI threads. Close one before starting new work.', action:'Triage' }), 4000);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.tagName==='INPUT' || e.target.tagName==='TEXTAREA'){
+        if (e.key==='Escape'){ setMode('today'); e.target.blur(); }
+        return;
+      }
+      if (e.key==='1') setMode('focus');
+      if (e.key==='2') setMode('today');
+      if (e.key==='3') setMode('capture');
+      if (e.key==='4') setMode('review');
+      if (e.key==='5') setMode('tomorrow');
+      if (e.key==='Escape') { if (immersive) setImmersive(false); else setMode('today'); }
+      if ((e.metaKey||e.ctrlKey) && e.key==='.') { e.preventDefault(); setImmersive(v=>!v); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const startFocus = (task) => { setActiveFocus(task); setMode('focus'); };
+
+  const dateStr = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+  const clock = now.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', hour12:false });
+
+  const modes = [
+    { id:'focus',    label:'Focus' },
+    { id:'today',    label:'Today' },
+    { id:'capture',  label:'Capture' },
+    { id:'review',   label:'Review' },
+    { id:'tomorrow', label:'Tomorrow' },
+  ];
+
+  const railIcons = {
+    focus: <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.3"/><circle cx="7" cy="7" r="1.8" fill="currentColor"/></svg>,
+    today: <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="3" width="10" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M2 5.5h10M5 2v2M9 2v2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+    capture: <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
+    review: <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 11l3-4 2.5 2L12 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+    tomorrow: <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  };
+  const completed = tasks.filter(t=>t.done).length;
+  const titleByMode = { focus:'Focus session', today:'Today', capture:'Capture', review:'Daily review', tomorrow:'Tomorrow' };
+
+  return (
+    <div className="desktop">
+      <div className="menubar">
+        <div className="mb-logo"><i></i>Cogload</div>
+        <span className="mb-item">File</span>
+        <span className="mb-item">Edit</span>
+        <span className="mb-item">View</span>
+        <span className="mb-item">Mode</span>
+        <span className="mb-item">Window</span>
+        <span className="mb-item">Help</span>
+        <div className="mb-spacer"></div>
+        <div className="mb-status">
+          <span><span className="dot"></span>logging</span>
+          <span>{dateStr}</span>
+          <b className="mono-num">{clock}</b>
+        </div>
+      </div>
+      <div className="window-wrap">
+        <div className="window">
+          <div className="titlebar">
+            <div className="traffic">
+              <span className="tl red"></span>
+              <span className="tl yellow"></span>
+              <span className="tl green"></span>
+            </div>
+            <div className="title-center">{titleByMode[mode]}<span>auto · {auto}</span></div>
+            <div className="title-right">
+              <div className={`immersive-toggle ${immersive?'on':''}`} onClick={() => setImmersive(v=>!v)} title="Toggle immersive">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  {immersive
+                    ? <path d="M4 1v3H1M8 1v3h3M4 11V8H1M8 11V8h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                    : <path d="M1 1v3M1 1h3M11 1v3M11 1H8M1 11v-3M1 11h3M11 11v-3M11 11H8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>}
+                </svg>
+                <span>{immersive?'Exit immersive':'Immersive'}</span>
+                <kbd>⌘.</kbd>
+              </div>
+            </div>
+          </div>
+
+          <div className={`topnav ${peek?'peek':''}`} onMouseEnter={()=>setPeek(true)} onMouseLeave={()=>setPeek(false)}>
+            <div className="nav-brand"><i>c</i>Cogload</div>
+            <div className="nav-pills">
+              {modes.map((m,i) => (
+                <button key={m.id} className={mode===m.id?'on':''} onClick={() => setMode(m.id)}>{m.label}</button>
+              ))}
+            </div>
+            <div className="nav-right">
+              <span className="auto-hint">auto · {auto}</span>
+              <span><b>{completed}</b>/{tasks.length} closed</span>
+            </div>
+          </div>
+
+          <div className="content-area">
+            <div className="stage">
+              {mode==='focus' && <FocusMode task={activeFocus || tasks.find(t=>!t.done && t.kind==='must')?.text || 'Pick a task'} onExit={() => setMode('today')}/>}
+              {mode==='today' && <TodayMode tasks={tasks} setTasks={setTasks} alloc={alloc} onStartFocus={startFocus} hour={hour}/>}
+              {mode==='capture' && <CaptureMode items={captures} setItems={setCaptures}/>}
+              {mode==='review' && <ReviewMode onGoTomorrow={() => setMode('tomorrow')}/>}
+              {mode==='tomorrow' && <TomorrowMode onLock={() => setMode('today')}/>}
+            </div>
+          </div>
+
+          <div className="statusbar">
+            <span><span className={`sb-dot ${toast?'warn':''}`}></span>{toast ? '3 open threads' : 'all signals nominal'}</span>
+            <span>Sessions · <b>11</b></span>
+            <span>Errors · <b>2</b></span>
+            <span>Cutoff · <b>16:30</b></span>
+            <div className="sb-spacer"></div>
+            {toast && <span className="sb-link" onClick={() => setToast(null)}>Triage threads →</span>}
+            <span>v0.5 · synced</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="peek-zone" onMouseEnter={() => setPeek(true)} onMouseLeave={() => setPeek(false)}></div>
+      {toast && mode!=='focus' && !immersive && (
+        <div className="toast on">
+          <span className="toast-dot"></span>
+          <span>{toast.msg}</span>
+          <button className="toast-action" onClick={() => setToast(null)}>{toast.action}</button>
+          <button className="toast-action muted" onClick={() => setToast(null)}>Dismiss</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

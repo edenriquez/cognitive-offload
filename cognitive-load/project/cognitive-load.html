@@ -1,0 +1,1528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cognitive Load — Bandwidth-First Productivity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0: #0b0c0e;
+    --bg-1: #111316;
+    --bg-2: #16191d;
+    --bg-3: #1d2126;
+    --line: #23272d;
+    --line-2: #2c3138;
+    --ink-0: #e8eaee;
+    --ink-1: #b4b8c0;
+    --ink-2: #74798a;
+    --ink-3: #4b505c;
+    --accent: oklch(0.78 0.14 78);   /* amber signal */
+    --accent-dim: oklch(0.78 0.14 78 / 0.12);
+    --accent-line: oklch(0.78 0.14 78 / 0.35);
+    --warn: oklch(0.68 0.17 28);
+    --warn-dim: oklch(0.68 0.17 28 / 0.12);
+    --ok: oklch(0.74 0.12 162);
+    --ok-dim: oklch(0.74 0.12 162 / 0.12);
+    --cool: oklch(0.72 0.09 235);
+    --cool-dim: oklch(0.72 0.09 235 / 0.12);
+    --violet: oklch(0.72 0.11 305);
+    --violet-dim: oklch(0.72 0.11 305 / 0.12);
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --sans: 'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg-0);
+    color: var(--ink-0);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  button { font-family: inherit; color: inherit; background: none; border: none; cursor: pointer; padding: 0; }
+  input, textarea { font-family: inherit; color: inherit; }
+  ::selection { background: var(--accent-dim); color: var(--ink-0); }
+
+  /* ---------- App shell ---------- */
+  .app {
+    display: grid;
+    grid-template-columns: 232px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .side {
+    background: var(--bg-1);
+    border-right: 1px solid var(--line);
+    padding: 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    position: sticky; top: 0;
+    height: 100vh;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 9px;
+    padding: 4px 6px 0;
+  }
+  .brand-mark {
+    width: 22px; height: 22px;
+    border: 1px solid var(--ink-2);
+    border-radius: 4px;
+    position: relative;
+    background:
+      linear-gradient(135deg, transparent 49%, var(--accent) 49%, var(--accent) 51%, transparent 51%),
+      var(--bg-2);
+  }
+  .brand-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--ink-0);
+  }
+  .brand-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-2);
+    margin-left: auto;
+    letter-spacing: 0.05em;
+  }
+  .nav-section {
+    display: flex; flex-direction: column; gap: 1px;
+  }
+  .nav-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-3);
+    padding: 6px 8px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 8px;
+    border-radius: 5px;
+    color: var(--ink-1);
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    transition: background .12s, color .12s;
+  }
+  .nav-item:hover { background: var(--bg-2); color: var(--ink-0); }
+  .nav-item.active {
+    background: var(--bg-2);
+    color: var(--ink-0);
+  }
+  .nav-item.active .nav-dot { background: var(--accent); }
+  .nav-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ink-3);
+    flex-shrink: 0;
+  }
+  .nav-kbd {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    padding: 1px 5px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+  }
+  .nav-count {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-2);
+  }
+
+  .side-foot {
+    margin-top: auto;
+    padding: 10px 8px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .side-foot-row { display: flex; justify-content: space-between; }
+  .side-foot-row b { color: var(--ink-1); font-weight: 500; }
+
+  /* ---------- Main pane ---------- */
+  .main {
+    display: flex; flex-direction: column;
+    min-width: 0;
+  }
+  .topbar {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-0);
+    position: sticky; top: 0;
+    z-index: 10;
+  }
+  .crumb {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    letter-spacing: 0.05em;
+  }
+  .crumb b { color: var(--ink-0); font-weight: 500; }
+  .crumb .sep { color: var(--ink-3); margin: 0 8px; }
+  .topbar-spacer { flex: 1; }
+  .pill {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border: 1px solid var(--line-2);
+    border-radius: 99px;
+    color: var(--ink-1);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-1);
+  }
+  .pill .pdot { width: 5px; height: 5px; border-radius: 50%; background: var(--ok); }
+  .pill.warn { color: var(--warn); border-color: oklch(0.68 0.17 28 / 0.4); background: var(--warn-dim); }
+  .pill.warn .pdot { background: var(--warn); }
+  .pill.accent { color: var(--accent); border-color: var(--accent-line); background: var(--accent-dim); }
+  .pill.accent .pdot { background: var(--accent); }
+  .btn {
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 6px 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 5px;
+    background: var(--bg-1);
+    color: var(--ink-0);
+    transition: background .12s, border-color .12s;
+  }
+  .btn:hover { background: var(--bg-2); border-color: var(--ink-3); }
+  .btn-primary {
+    background: var(--accent);
+    color: #1a140a;
+    border-color: var(--accent);
+    font-weight: 500;
+  }
+  .btn-primary:hover { background: oklch(0.83 0.14 78); border-color: oklch(0.83 0.14 78); }
+
+  .content {
+    padding: 24px 28px 80px;
+    max-width: 1180px;
+    width: 100%;
+  }
+
+  /* ---------- Today view ---------- */
+  .focus-banner {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 18px;
+    align-items: center;
+    padding: 18px 22px;
+    background: linear-gradient(180deg, oklch(0.78 0.14 78 / 0.06), transparent);
+    border: 1px solid var(--accent-line);
+    border-radius: 8px;
+    margin-bottom: 26px;
+  }
+  .focus-banner-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .focus-banner-task {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink-0);
+    line-height: 1.3;
+  }
+  .focus-banner-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    margin-top: 4px;
+  }
+  .focus-banner-icon {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: 1px dashed var(--accent-line);
+    display: grid; place-items: center;
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .section-head {
+    display: flex; align-items: baseline; gap: 14px;
+    margin: 28px 0 12px;
+  }
+  .section-head h2 {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-1);
+    margin: 0;
+  }
+  .section-head .rule {
+    flex: 1;
+    height: 1px; background: var(--line);
+  }
+  .section-head .meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    letter-spacing: 0.05em;
+  }
+
+  /* Bandwidth */
+  .bw-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 22px;
+    align-items: start;
+  }
+  .bw-bars {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+  .bw-stack {
+    display: flex; height: 14px; border-radius: 4px; overflow: hidden;
+    margin-bottom: 18px;
+    background: var(--bg-3);
+  }
+  .bw-stack-seg {
+    height: 100%;
+    transition: width .25s ease;
+    position: relative;
+  }
+  .bw-row {
+    display: grid;
+    grid-template-columns: 14px 110px 1fr 64px 56px;
+    gap: 12px;
+    align-items: center;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .bw-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .bw-row:first-child { padding-top: 0; }
+  .bw-swatch { width: 10px; height: 10px; border-radius: 2px; }
+  .bw-name { font-size: 13px; color: var(--ink-0); }
+  .bw-name small { display: block; font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-top: 1px; }
+  .bw-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%; height: 4px;
+    background: var(--bg-3);
+    border-radius: 2px;
+    outline: none;
+  }
+  .bw-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--ink-0);
+    cursor: grab;
+    border: 2px solid var(--bg-1);
+    box-shadow: 0 0 0 1px var(--ink-2);
+  }
+  .bw-slider::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--ink-0);
+    cursor: grab;
+    border: 2px solid var(--bg-1);
+    box-shadow: 0 0 0 1px var(--ink-2);
+  }
+  .bw-pct {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink-0);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .bw-hrs {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .bw-foot {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px dashed var(--line-2);
+    font-family: var(--mono); font-size: 11px;
+  }
+  .bw-foot-l { color: var(--ink-2); }
+  .bw-foot-r { color: var(--ink-0); }
+  .bw-foot-r.bad { color: var(--warn); }
+
+  .bw-side {
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .bw-card {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .bw-card-h {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-2);
+    margin-bottom: 8px;
+    display: flex; justify-content: space-between;
+  }
+  .bw-card-num {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--ink-0);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+  .bw-card-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    margin-top: 4px;
+  }
+  .bw-card .delta { color: var(--warn); }
+  .bw-card .delta.ok { color: var(--ok); }
+
+  .productive-bar {
+    height: 4px; background: var(--bg-3); border-radius: 2px; overflow: hidden;
+    margin-top: 10px;
+  }
+  .productive-bar-fill { height: 100%; background: var(--accent); transition: width .25s; }
+
+  /* ---------- Tasks ---------- */
+  .tasks-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-top: 4px;
+  }
+  .tasks-wrap.full { grid-template-columns: 1fr; }
+  .task-block {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px 8px;
+  }
+  .task-block.must { border-color: var(--accent-line); }
+  .task-block-h {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .task-block-h h3 {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin: 0;
+    color: var(--ink-1);
+  }
+  .task-block.must h3 { color: var(--accent); }
+  .task-block-h .lim {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+  }
+  .task-list { list-style: none; margin: 0; padding: 0; }
+  .task {
+    display: grid;
+    grid-template-columns: 18px 1fr auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .task:last-child { border-bottom: none; }
+  .task .check {
+    width: 14px; height: 14px;
+    border: 1px solid var(--ink-3);
+    border-radius: 3px;
+    cursor: pointer;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+    transition: background .12s, border-color .12s;
+  }
+  .task.done .check {
+    background: var(--ok);
+    border-color: var(--ok);
+  }
+  .task.done .check::after {
+    content: ''; width: 6px; height: 9px;
+    border-right: 1.5px solid var(--bg-0);
+    border-bottom: 1.5px solid var(--bg-0);
+    transform: rotate(45deg) translate(-1px, -1px);
+  }
+  .task.done .ttext { color: var(--ink-3); text-decoration: line-through; }
+  .ttext { font-size: 13px; color: var(--ink-0); }
+  .ttext input {
+    width: 100%; background: transparent; border: none; outline: none;
+    font-size: 13px; color: inherit; padding: 0;
+  }
+  .ttext input::placeholder { color: var(--ink-3); }
+  .ttag {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 99px;
+    background: var(--bg-3);
+    color: var(--ink-2);
+  }
+  .ttag.work { background: var(--accent-dim); color: var(--accent); }
+  .ttag.personal { background: var(--violet-dim); color: var(--violet); }
+  .ttag.admin { background: var(--cool-dim); color: var(--cool); }
+  .ttag.learning { background: var(--ok-dim); color: var(--ok); }
+  .test {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .task-add {
+    display: flex; gap: 8px; align-items: center;
+    padding: 8px 0;
+    color: var(--ink-3);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .task-add:hover { color: var(--ink-1); }
+  .task-add .plus {
+    width: 14px; height: 14px; border: 1px dashed var(--ink-3); border-radius: 3px;
+    display: grid; place-items: center; font-size: 12px; line-height: 1;
+  }
+  .task-add.disabled { color: var(--ink-3); cursor: not-allowed; opacity: 0.5; }
+
+  /* Personal block */
+  .task-block.personal { border-color: oklch(0.72 0.11 305 / 0.35); }
+  .task-block.personal h3 { color: var(--violet); }
+
+  /* ---------- Guardrails ---------- */
+  .guardrails {
+    margin-top: 24px;
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .guardrails-h {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-1);
+  }
+  .guardrails-h .count {
+    margin-left: auto;
+    color: var(--ink-3);
+    font-size: 10px;
+  }
+  .guardrail {
+    display: grid;
+    grid-template-columns: 22px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    font-size: 12.5px;
+  }
+  .guardrail:last-child { border-bottom: none; }
+  .guardrail-icon {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .guardrail.ok .guardrail-icon { background: var(--ok-dim); color: var(--ok); }
+  .guardrail.warn .guardrail-icon { background: var(--warn-dim); color: var(--warn); }
+  .guardrail.info .guardrail-icon { background: var(--cool-dim); color: var(--cool); }
+  .guardrail-body { color: var(--ink-1); }
+  .guardrail-body b { color: var(--ink-0); font-weight: 500; }
+  .guardrail-action {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-2);
+    border: 1px solid var(--line-2);
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .guardrail-action:hover { color: var(--ink-0); border-color: var(--ink-3); }
+
+  /* ---------- Roadmap ---------- */
+  .goals {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .goal {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .goal-h {
+    display: flex; justify-content: space-between; align-items: start; gap: 12px;
+  }
+  .goal-h h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink-0);
+    line-height: 1.3;
+  }
+  .goal-h .deadline {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-2);
+    flex-shrink: 0;
+    text-align: right;
+    line-height: 1.4;
+  }
+  .goal-h .deadline b { color: var(--ink-0); font-weight: 500; display: block; }
+  .goal-metric {
+    display: flex; align-items: baseline; gap: 10px;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .goal-cur { font-size: 26px; color: var(--ink-0); }
+  .goal-arrow { color: var(--ink-3); }
+  .goal-tgt { font-size: 16px; color: var(--ink-2); }
+  .goal-unit { font-size: 12px; color: var(--ink-3); margin-left: 4px; }
+  .goal-bar {
+    height: 4px; background: var(--bg-3); border-radius: 2px; overflow: hidden;
+    position: relative;
+  }
+  .goal-bar-fill {
+    height: 100%; background: var(--accent);
+    border-radius: 2px;
+  }
+  .goal-bar-target {
+    position: absolute; top: -2px; height: 8px; width: 1px;
+    background: var(--ink-2);
+  }
+  .goal-actions {
+    display: flex; flex-direction: column; gap: 6px;
+    margin-top: 4px;
+  }
+  .goal-action {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--bg-2);
+    border-radius: 5px;
+    font-size: 12.5px;
+    align-items: center;
+  }
+  .goal-action-text { color: var(--ink-1); }
+  .goal-action-text b { color: var(--ink-0); font-weight: 500; }
+  .goal-action-impact {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ok);
+    background: var(--ok-dim);
+    padding: 2px 7px; border-radius: 99px;
+  }
+  .goal-action-impact.pending { color: var(--ink-2); background: var(--bg-3); }
+  .goal-foot {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 12px;
+    border-top: 1px dashed var(--line-2);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-2);
+  }
+  .goal-foot b { color: var(--ink-0); font-weight: 500; }
+
+  /* ---------- Backlog ---------- */
+  .backlog-input {
+    display: flex; gap: 0; align-items: stretch;
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .backlog-input input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 14px 18px;
+    font-size: 14px;
+    color: var(--ink-0);
+  }
+  .backlog-input input::placeholder { color: var(--ink-3); }
+  .backlog-input .hint {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    align-self: center;
+    padding: 0 14px;
+    border-left: 1px solid var(--line);
+  }
+  .backlog-list { display: flex; flex-direction: column; }
+  .backlog-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 14px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--line);
+    align-items: center;
+    font-size: 13px;
+  }
+  .backlog-item:hover { background: var(--bg-1); }
+  .backlog-text { color: var(--ink-0); }
+  .backlog-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+  }
+  .backlog-promote {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-2);
+    border: 1px solid var(--line-2);
+    padding: 3px 8px; border-radius: 4px;
+    cursor: pointer;
+  }
+  .backlog-promote:hover { color: var(--accent); border-color: var(--accent-line); }
+
+  /* ---------- Daily Log / Achievements ---------- */
+  .log-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 22px;
+    align-items: start;
+  }
+  .log-card {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+  .log-card h3 {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin: 0 0 14px;
+    color: var(--ink-1);
+  }
+  .log-input {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .log-input textarea {
+    width: 100%;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--ink-0);
+    outline: none;
+    resize: vertical;
+    min-height: 60px;
+    transition: border-color .12s;
+  }
+  .log-input textarea:focus { border-color: var(--ink-3); }
+  .log-input .help {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+  }
+  .log-input .help b { color: var(--warn); }
+  .log-input .help.ok b { color: var(--ok); }
+
+  .achv-list { display: flex; flex-direction: column; }
+  .achv {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+    align-items: start;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .achv:last-child { border-bottom: none; }
+  .achv-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    padding-top: 1px;
+  }
+  .achv-text { color: var(--ink-1); line-height: 1.4; }
+  .achv-text b { color: var(--ink-0); font-weight: 500; }
+  .achv-tag {
+    font-family: var(--mono); font-size: 10px;
+    padding: 2px 7px; border-radius: 99px;
+    background: var(--bg-3); color: var(--ink-2);
+    align-self: center;
+  }
+  .achv-tag.measurable { background: var(--ok-dim); color: var(--ok); }
+
+  .drift-row {
+    display: grid;
+    grid-template-columns: 90px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .drift-row:last-child { border-bottom: none; }
+  .drift-cat { font-size: 12px; color: var(--ink-1); }
+  .drift-bar-wrap { position: relative; height: 18px; }
+  .drift-bar {
+    position: absolute; top: 7px; left: 0; right: 0;
+    height: 4px;
+    background: var(--bg-3); border-radius: 2px;
+  }
+  .drift-planned, .drift-actual {
+    position: absolute; top: 7px;
+    height: 4px; border-radius: 2px;
+  }
+  .drift-planned { background: var(--ink-3); }
+  .drift-actual { background: var(--accent); top: 4px; height: 10px; opacity: 0.85; border-radius: 2px; }
+  .drift-delta {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+    min-width: 56px;
+    text-align: right;
+  }
+  .drift-delta.over { color: var(--warn); }
+  .drift-delta.under { color: var(--cool); }
+
+  .suggest {
+    background: linear-gradient(180deg, oklch(0.78 0.14 78 / 0.05), transparent);
+    border: 1px solid var(--accent-line);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-top: 14px;
+  }
+  .suggest-h {
+    font-family: var(--mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--accent); margin-bottom: 8px;
+  }
+  .suggest-body { color: var(--ink-0); font-size: 13px; line-height: 1.5; }
+  .suggest-body b { color: var(--accent); font-weight: 500; }
+  .suggest-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+  /* ---------- View routing visibility ---------- */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ---------- Empty / hidden helpers ---------- */
+  .row { display: flex; gap: 8px; align-items: center; }
+  .gap { flex: 1; }
+
+  /* clock display */
+  .clock-row {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-2);
+  }
+  .clock-row .live {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 0 0 var(--ok);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 oklch(0.74 0.12 162 / 0.5); }
+    70% { box-shadow: 0 0 0 6px oklch(0.74 0.12 162 / 0); }
+    100% { box-shadow: 0 0 0 0 oklch(0.74 0.12 162 / 0); }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef } = React;
+
+// ============================================================
+// Constants
+// ============================================================
+const PRODUCTIVE_HOURS = 6;       // realistic, NOT 8
+const CUTOFF_HOUR = 16.5;          // 4:30pm — no new complex tasks past this
+const CATEGORIES = [
+  { id: 'work',     name: 'Work Core',       sub: 'Roadmap-aligned',    color: 'oklch(0.78 0.14 78)',  swatch: 'oklch(0.78 0.14 78)' },
+  { id: 'personal', name: 'Personal Project', sub: 'Protected time',     color: 'oklch(0.72 0.11 305)', swatch: 'oklch(0.72 0.11 305)' },
+  { id: 'admin',    name: 'Admin',            sub: 'Email, meetings',    color: 'oklch(0.72 0.09 235)', swatch: 'oklch(0.72 0.09 235)' },
+  { id: 'learning', name: 'Learning',         sub: 'Reading, notes',     color: 'oklch(0.74 0.12 162)', swatch: 'oklch(0.74 0.12 162)' },
+];
+
+// ============================================================
+// Sidebar
+// ============================================================
+function Sidebar({ view, setView, counts, bandwidth, guardrailCount }) {
+  const items = [
+    { id: 'today',    label: 'Today',        kbd: '1', count: counts.today },
+    { id: 'roadmap',  label: 'Roadmap',      kbd: '2', count: counts.roadmap },
+    { id: 'backlog',  label: 'Backlog',      kbd: '3', count: counts.backlog },
+    { id: 'log',      label: 'Daily Log',    kbd: '4', count: counts.log },
+  ];
+  const totalAlloc = bandwidth.work + bandwidth.personal + bandwidth.admin + bandwidth.learning;
+  return (
+    <aside className="side">
+      <div className="brand">
+        <div className="brand-mark"></div>
+        <div className="brand-name">COGLOAD</div>
+        <div className="brand-tag">v0.4</div>
+      </div>
+
+      <div className="nav-section">
+        <div className="nav-label">Workspace</div>
+        {items.map(it => (
+          <button key={it.id} className={`nav-item ${view===it.id?'active':''}`} onClick={() => setView(it.id)}>
+            <span className="nav-dot"></span>
+            <span>{it.label}</span>
+            {it.id === 'today' && guardrailCount > 0 ? (
+              <span className="nav-count" style={{color:'var(--warn)'}}>{guardrailCount}</span>
+            ) : (
+              <span className="nav-kbd">{it.kbd}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="nav-section">
+        <div className="nav-label">Bandwidth · today</div>
+        {CATEGORIES.map(c => (
+          <div key={c.id} style={{display:'grid',gridTemplateColumns:'10px 1fr auto',gap:'10px',alignItems:'center',padding:'5px 8px',fontFamily:'var(--mono)',fontSize:'11px'}}>
+            <span style={{width:8,height:8,borderRadius:2,background:c.swatch}}></span>
+            <span style={{color:'var(--ink-1)'}}>{c.name}</span>
+            <span style={{color:'var(--ink-2)',fontVariantNumeric:'tabular-nums'}}>{bandwidth[c.id]}%</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="side-foot">
+        <div className="side-foot-row"><span>Productive hrs</span><b>{PRODUCTIVE_HOURS}h</b></div>
+        <div className="side-foot-row"><span>Cutoff</span><b>16:30</b></div>
+        <div className="side-foot-row"><span>Allocated</span><b style={{color: totalAlloc===100?'var(--ok)':'var(--warn)'}}>{totalAlloc}%</b></div>
+      </div>
+    </aside>
+  );
+}
+
+// ============================================================
+// Topbar
+// ============================================================
+function Topbar({ view, dateStr, clock, oneThing }) {
+  const titles = { today: 'Today', roadmap: 'Roadmap', backlog: 'Backlog', log: 'Daily Log' };
+  return (
+    <div className="topbar">
+      <div className="crumb">
+        <span>workspace</span>
+        <span className="sep">/</span>
+        <b>{titles[view]}</b>
+      </div>
+      <div className="clock-row">
+        <span className="live"></span>
+        <span>{dateStr}</span>
+        <span style={{color:'var(--ink-3)'}}>·</span>
+        <span>{clock}</span>
+      </div>
+      <div className="topbar-spacer"></div>
+      {view === 'today' && oneThing && (
+        <span className="pill accent"><span className="pdot"></span>FOCUS · {oneThing}</span>
+      )}
+      <span className="pill"><span className="pdot"></span>day 14 · streak</span>
+    </div>
+  );
+}
+
+// ============================================================
+// Bandwidth allocator
+// ============================================================
+function BandwidthBars({ bandwidth, setBandwidth, actual }) {
+  const total = bandwidth.work + bandwidth.personal + bandwidth.admin + bandwidth.learning;
+  const update = (id, val) => {
+    setBandwidth(b => ({ ...b, [id]: parseInt(val) }));
+  };
+  const bad = total !== 100;
+  return (
+    <div className="bw-bars">
+      <div className="bw-stack">
+        {CATEGORIES.map(c => (
+          <div key={c.id} className="bw-stack-seg" style={{ width: `${bandwidth[c.id]}%`, background: c.swatch }} title={`${c.name}: ${bandwidth[c.id]}%`}></div>
+        ))}
+      </div>
+      {CATEGORIES.map(c => {
+        const pct = bandwidth[c.id];
+        const hrs = (PRODUCTIVE_HOURS * pct / 100);
+        const hStr = hrs >= 1 ? `${hrs.toFixed(1)}h` : `${Math.round(hrs*60)}m`;
+        return (
+          <div key={c.id} className="bw-row">
+            <span className="bw-swatch" style={{background:c.swatch}}></span>
+            <div className="bw-name">{c.name}<small>{c.sub}</small></div>
+            <input type="range" className="bw-slider" min="0" max="80" step="5" value={pct} onChange={e=>update(c.id, e.target.value)} style={{accentColor: c.swatch}}/>
+            <div className="bw-pct">{pct}%</div>
+            <div className="bw-hrs">{hStr}</div>
+          </div>
+        );
+      })}
+      <div className="bw-foot">
+        <span className="bw-foot-l">Total allocation must = 100%</span>
+        <span className={`bw-foot-r ${bad?'bad':''}`}>{total}% / 100%</span>
+      </div>
+    </div>
+  );
+}
+
+function BandwidthSide({ bandwidth, actual }) {
+  const workOver = actual.work > bandwidth.work + 5;
+  const personalLow = bandwidth.personal < 10;
+  return (
+    <div className="bw-side">
+      <div className="bw-card">
+        <div className="bw-card-h"><span>productive window</span><span>{PRODUCTIVE_HOURS}h</span></div>
+        <div className="bw-card-num">06:00<span style={{fontSize:14,color:'var(--ink-3)'}}> elapsed</span></div>
+        <div className="productive-bar"><div className="productive-bar-fill" style={{width:'62%'}}></div></div>
+        <div className="bw-card-sub">62% of day used · 2h 17m remaining</div>
+      </div>
+      <div className="bw-card">
+        <div className="bw-card-h"><span>drift · today</span><span style={{color: workOver?'var(--warn)':'var(--ok)'}}>{workOver?'OVER':'OK'}</span></div>
+        <div className="bw-card-num">
+          {workOver ? <span className="delta">+{actual.work - bandwidth.work}%</span> : <span className="delta ok">±{Math.abs(actual.work - bandwidth.work)}%</span>}
+          <span style={{fontSize:14,color:'var(--ink-3)'}}> work</span>
+        </div>
+        <div className="bw-card-sub">
+          Personal at {bandwidth.personal}% — {personalLow ? <span style={{color:'var(--warn)'}}>below 10% floor</span> : 'protected'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Task block
+// ============================================================
+function TaskBlock({ kind, title, limit, tasks, setTasks, max, currentTime, onPromoteRequest }) {
+  const blockClass = kind === 'must' ? 'task-block must' : kind === 'personal' ? 'task-block personal' : 'task-block';
+  const toggle = (id) => setTasks(ts => ts.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  const updateText = (id, v) => setTasks(ts => ts.map(t => t.id === id ? { ...t, text: v } : t));
+  const add = () => {
+    if (max && tasks.length >= max) return;
+    setTasks(ts => [...ts, { id: Math.random().toString(36).slice(2), text: '', done: false, est: 60, tag: kind === 'must' ? 'work' : kind === 'personal' ? 'personal' : 'admin' }]);
+  };
+  const isLate = currentTime >= CUTOFF_HOUR;
+  return (
+    <div className={blockClass}>
+      <div className="task-block-h">
+        <h3>{title}</h3>
+        <span className="lim">{limit}</span>
+      </div>
+      <ul className="task-list">
+        {tasks.map(t => (
+          <li key={t.id} className={`task ${t.done?'done':''}`}>
+            <span className="check" onClick={() => toggle(t.id)}></span>
+            <div className="ttext">
+              <input value={t.text} placeholder={kind==='must' ? 'Define a measurable outcome…' : kind==='personal' ? '30–60 min, well-defined…' : 'Quick task…'} onChange={e => updateText(t.id, e.target.value)} />
+            </div>
+            <span className={`ttag ${t.tag}`}>{t.tag}</span>
+            <span className="test">{t.est}m</span>
+          </li>
+        ))}
+        {(!max || tasks.length < max) && (
+          <li className={`task-add ${isLate && kind==='must' ? 'disabled' : ''}`} onClick={isLate && kind==='must' ? undefined : add} title={isLate && kind==='must' ? 'Past cutoff — no new MUST WIN tasks' : ''}>
+            <span className="plus">+</span>
+            <span>{isLate && kind==='must' ? 'Cutoff reached — defer to tomorrow' : kind==='must' ? 'Add MUST WIN' : kind==='personal' ? 'Add personal task' : 'Add small task'}</span>
+          </li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+// ============================================================
+// Guardrails panel
+// ============================================================
+function Guardrails({ rails }) {
+  return (
+    <div className="guardrails">
+      <div className="guardrails-h">
+        <span>Guardrails</span>
+        <span style={{color:'var(--ink-3)',marginLeft:8,fontSize:10,fontWeight:400}}>· enforced rules, not suggestions</span>
+        <span className="count">{rails.length} active</span>
+      </div>
+      {rails.map((r, i) => (
+        <div key={i} className={`guardrail ${r.kind}`}>
+          <div className="guardrail-icon">{r.kind === 'ok' ? '✓' : r.kind === 'warn' ? '!' : 'i'}</div>
+          <div className="guardrail-body" dangerouslySetInnerHTML={{ __html: r.text }} />
+          {r.action && <button className="guardrail-action">{r.action}</button>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
+// TODAY VIEW
+// ============================================================
+function TodayView({ state, setState }) {
+  const { bandwidth, mustTasks, smallTasks, personalTasks, actual, currentTime, oneThing } = state;
+
+  const setBandwidth = (updater) => setState(s => ({ ...s, bandwidth: typeof updater === 'function' ? updater(s.bandwidth) : updater }));
+  const setMust      = (u) => setState(s => ({ ...s, mustTasks: typeof u === 'function' ? u(s.mustTasks) : u }));
+  const setSmall     = (u) => setState(s => ({ ...s, smallTasks: typeof u === 'function' ? u(s.smallTasks) : u }));
+  const setPersonal  = (u) => setState(s => ({ ...s, personalTasks: typeof u === 'function' ? u(s.personalTasks) : u }));
+
+  // --- guardrails computation ---
+  const totalAlloc = bandwidth.work + bandwidth.personal + bandwidth.admin + bandwidth.learning;
+  const rails = [];
+  if (totalAlloc !== 100) rails.push({ kind: 'warn', text: `Bandwidth allocation is <b>${totalAlloc}%</b>. Must equal 100% before the day starts.`, action: 'Auto-balance' });
+  if (mustTasks.length > 3) rails.push({ kind: 'warn', text: `<b>${mustTasks.length} MUST WIN tasks</b> — limit is 3. Demote the lowest-impact one.`, action: 'Demote' });
+  if (mustTasks.length === 0) rails.push({ kind: 'info', text: `No MUST WIN task defined. The day has no anchor.`, action: 'Pick from roadmap' });
+  if (personalTasks.length === 0) rails.push({ kind: 'warn', text: `<b>Missing personal task.</b> Required: at least one well-defined personal task per day.`, action: 'Add' });
+  if (bandwidth.personal < 10) rails.push({ kind: 'warn', text: `Personal bandwidth at <b>${bandwidth.personal}%</b> — below the 10% floor. <b>3rd consecutive day.</b> Schedule a block now.`, action: 'Force block' });
+  if (actual.work > bandwidth.work + 5) rails.push({ kind: 'warn', text: `Work overflow detected: actual <b>${actual.work}%</b> vs planned <b>${bandwidth.work}%</b>. Stop or rebalance.`, action: 'Pause work' });
+  if (currentTime >= CUTOFF_HOUR) rails.push({ kind: 'info', text: `Past <b>16:30 cutoff</b>. New complex tasks are blocked. Wrap and log instead.`, action: 'Open log' });
+  if (rails.length === 0) rails.push({ kind: 'ok', text: `All guardrails pass. Execute.` });
+
+  return (
+    <div className="view active">
+      {/* Focus banner */}
+      <div className="focus-banner">
+        <div className="focus-banner-icon">!</div>
+        <div>
+          <div className="focus-banner-label">The one thing right now</div>
+          <div className="focus-banner-task">{oneThing || 'Define a MUST WIN task to set today\'s anchor.'}</div>
+          <div className="focus-banner-meta">Tied to · Increase auth success 82 → 92% · est 90m · highest impact</div>
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn">Snooze 25m</button>
+          <button className="btn btn-primary">Start focus</button>
+        </div>
+      </div>
+
+      {/* Bandwidth */}
+      <div className="section-head">
+        <h2>Bandwidth</h2>
+        <span className="rule"></span>
+        <span className="meta">{PRODUCTIVE_HOURS}h productive · sliders sum to 100%</span>
+      </div>
+      <div className="bw-grid">
+        <BandwidthBars bandwidth={bandwidth} setBandwidth={setBandwidth} actual={actual} />
+        <BandwidthSide bandwidth={bandwidth} actual={actual} />
+      </div>
+
+      {/* Tasks */}
+      <div className="section-head">
+        <h2>Today · execution</h2>
+        <span className="rule"></span>
+        <span className="meta">{mustTasks.length}/3 must · {smallTasks.length}/4 small · {personalTasks.length}/1 personal</span>
+      </div>
+
+      <TaskBlock kind="must" title="Must win" limit="max 3 · roadmap-tied" tasks={mustTasks} setTasks={setMust} max={3} currentTime={currentTime} />
+
+      <div className="tasks-wrap" style={{marginTop:18}}>
+        <TaskBlock kind="small" title="Small tasks" limit="2–4 · ≤30 min each" tasks={smallTasks} setTasks={setSmall} max={4} currentTime={currentTime} />
+        <TaskBlock kind="personal" title="Personal" limit="required · 30–60 min" tasks={personalTasks} setTasks={setPersonal} max={1} currentTime={currentTime} />
+      </div>
+
+      {/* Guardrails */}
+      <Guardrails rails={rails} />
+    </div>
+  );
+}
+
+// ============================================================
+// ROADMAP VIEW
+// ============================================================
+function RoadmapView({ goals }) {
+  return (
+    <div className="view active">
+      <div className="section-head">
+        <h2>Strategic roadmap</h2>
+        <span className="rule"></span>
+        <span className="meta">{goals.length} active goals · metric-bound · today's MUST WIN tasks pull from here</span>
+      </div>
+      <div className="goals">
+        {goals.map(g => {
+          const span = g.target - g.start;
+          const done = g.current - g.start;
+          const pct = Math.max(0, Math.min(100, (done / span) * 100));
+          return (
+            <div key={g.id} className="goal">
+              <div className="goal-h">
+                <h3>{g.title}</h3>
+                <div className="deadline"><b>{g.deadline}</b><span>{g.daysLeft}d left</span></div>
+              </div>
+              <div className="goal-metric">
+                <span className="goal-cur">{g.current}{g.unit}</span>
+                <span className="goal-arrow">→</span>
+                <span className="goal-tgt">{g.target}{g.unit}</span>
+                <span className="goal-unit">target</span>
+              </div>
+              <div className="goal-bar">
+                <div className="goal-bar-fill" style={{ width: `${pct}%` }}></div>
+                <div className="goal-bar-target" style={{ left: '100%' }}></div>
+              </div>
+              <div className="goal-actions">
+                {g.actions.map((a, i) => (
+                  <div key={i} className="goal-action">
+                    <div className="goal-action-text" dangerouslySetInnerHTML={{ __html: a.text }} />
+                    <span className={`goal-action-impact ${a.done?'':'pending'}`}>{a.done ? `+${a.impact}` : `est ${a.impact}`}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="goal-foot">
+                <span>last move · <b>{g.lastMove}</b></span>
+                <span>impact this week · <b style={{color:'var(--ok)'}}>{g.weekImpact}</b></span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// BACKLOG VIEW
+// ============================================================
+function BacklogView({ items, setItems }) {
+  const [draft, setDraft] = useState('');
+  const submit = () => {
+    if (!draft.trim()) return;
+    setItems(arr => [{ id: Math.random().toString(36).slice(2), text: draft.trim(), age: 'just now' }, ...arr]);
+    setDraft('');
+  };
+  return (
+    <div className="view active">
+      <div className="section-head">
+        <h2>Backlog · capture</h2>
+        <span className="rule"></span>
+        <span className="meta">dump everything · no priority · no thinking</span>
+      </div>
+
+      <div className="backlog-input">
+        <input
+          placeholder="Brain dump — write the thought, hit enter, move on."
+          value={draft}
+          onChange={e=>setDraft(e.target.value)}
+          onKeyDown={e=>{ if (e.key==='Enter') submit(); }}
+        />
+        <span className="hint">⏎ to capture</span>
+      </div>
+
+      <div className="backlog-list">
+        {items.map(i => (
+          <div key={i.id} className="backlog-item">
+            <span className="backlog-text">{i.text}</span>
+            <span className="backlog-meta">{i.age}</span>
+            <span className="backlog-meta">·</span>
+            <button className="backlog-promote">→ promote to today</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// DAILY LOG VIEW
+// ============================================================
+function LogView({ state }) {
+  const { bandwidth, actual } = state;
+  const [draft, setDraft] = useState('');
+  const isMeasurable = /\b\d+(\.\d+)?\s*(%|x|h|min|hrs|hours|sec|users|requests|deploys|tests|errors|points|tickets|prs|commits|leads|calls|words|kb|mb|gb)?\b|reduced|increased|shipped|deployed|merged|closed|fixed|broke/i.test(draft);
+
+  const drift = CATEGORIES.map(c => ({
+    cat: c,
+    planned: bandwidth[c.id],
+    actual: actual[c.id],
+    delta: actual[c.id] - bandwidth[c.id]
+  }));
+
+  return (
+    <div className="view active">
+      <div className="section-head">
+        <h2>End of day · reality layer</h2>
+        <span className="rule"></span>
+        <span className="meta">measurable outcomes only · no "worked on X"</span>
+      </div>
+
+      <div className="log-grid">
+        <div>
+          <div className="log-card">
+            <h3>Log an achievement</h3>
+            <div className="log-input">
+              <textarea
+                placeholder='e.g. "Reduced OTP failure rate from 12% → 7% in production. Verified across 3 carriers."'
+                value={draft}
+                onChange={e=>setDraft(e.target.value)}
+              />
+              <div className={`help ${isMeasurable?'ok':''}`}>
+                {draft.length === 0
+                  ? <>Tip: include a number, delta, or shipped artifact. Vague entries are rejected.</>
+                  : isMeasurable
+                    ? <><b>✓</b> measurable — accepted</>
+                    : <><b>✗</b> not measurable — needs a number, delta, or concrete outcome</>
+                }
+              </div>
+              <div className="row">
+                <button className="btn" disabled={!isMeasurable} style={{opacity: isMeasurable?1:0.4}}>Tag → roadmap</button>
+                <span className="gap"></span>
+                <button className="btn btn-primary" disabled={!isMeasurable} style={{opacity: isMeasurable?1:0.4}}>Log achievement</button>
+              </div>
+            </div>
+
+            <div style={{marginTop:18}}>
+              <div className="bw-card-h"><span>logged today</span><span>3 entries</span></div>
+              <div className="achv-list">
+                <div className="achv">
+                  <span className="achv-num">01</span>
+                  <div className="achv-text">Reduced <b>OTP failure rate 12% → 7%</b>. Carriers A/B/C verified, 24h window.</div>
+                  <span className="achv-tag measurable">−5%</span>
+                </div>
+                <div className="achv">
+                  <span className="achv-num">02</span>
+                  <div className="achv-text">Shipped <b>retry-logic v2</b> to staging. Bench: <b>+8% success</b> on degraded networks.</div>
+                  <span className="achv-tag measurable">+8%</span>
+                </div>
+                <div className="achv">
+                  <span className="achv-num">03</span>
+                  <div className="achv-text">Wrote <b>2 chapters</b> of side-project draft. ~1,400 words.</div>
+                  <span className="achv-tag measurable">1.4k</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="log-card">
+          <h3>Drift · planned vs actual</h3>
+          {drift.map(d => {
+            const planW = d.planned;
+            const actW  = d.actual;
+            const overClass = d.delta > 5 ? 'over' : d.delta < -5 ? 'under' : '';
+            return (
+              <div key={d.cat.id} className="drift-row">
+                <span className="drift-cat">{d.cat.name}</span>
+                <div className="drift-bar-wrap">
+                  <div className="drift-bar"></div>
+                  <div className="drift-planned" style={{ width: `${planW}%`, background: 'var(--ink-3)' }}></div>
+                  <div className="drift-actual" style={{ width: `${actW}%`, background: d.cat.swatch }}></div>
+                </div>
+                <div className={`drift-delta ${overClass}`}>
+                  {d.delta > 0 ? '+' : ''}{d.delta}%
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="suggest">
+            <div className="suggest-h">Calibration · tomorrow</div>
+            <div className="suggest-body">
+              Work core ran <b>+9%</b> over plan and Personal slipped to <b>5%</b>. For tomorrow, suggest shifting{' '}
+              <b>Work 60% → 50%</b>, <b>Personal 5% → 15%</b>, hold Admin and Learning. <br/>
+              Highest-impact action: continue retry-logic — accounts for <b>+8% success</b> this week.
+            </div>
+            <div className="suggest-actions">
+              <button className="btn">Reject</button>
+              <button className="btn btn-primary">Apply to tomorrow</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Root app
+// ============================================================
+function useClock() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  return now;
+}
+
+function App() {
+  const [view, setView] = useState('today');
+  const now = useClock();
+
+  // Initial state — realistic snapshot, mid-afternoon, light overflow
+  const [state, setState] = useState({
+    bandwidth: { work: 60, personal: 5, admin: 20, learning: 15 },
+    actual:    { work: 69, personal: 5, admin: 18, learning: 8 },
+    currentTime: 14.5, // demo at 14:30 — change to >16.5 to see cutoff guardrail
+    mustTasks: [
+      { id: 'm1', text: 'Reduce OTP failure rate to <8% in production', done: true,  est: 90, tag: 'work' },
+      { id: 'm2', text: 'Ship retry-logic v2 behind feature flag',       done: false, est: 120, tag: 'work' },
+      { id: 'm3', text: 'Draft post-mortem for Tuesday outage',           done: false, est: 60,  tag: 'work' },
+    ],
+    smallTasks: [
+      { id: 's1', text: 'Review PR #1284 (auth telemetry)',     done: false, est: 20, tag: 'admin' },
+      { id: 's2', text: 'Reply to procurement re: SOC2 docs',   done: true,  est: 15, tag: 'admin' },
+      { id: 's3', text: 'Read 1 chapter — "Designing Data-Intensive"', done: false, est: 30, tag: 'learning' },
+    ],
+    personalTasks: [
+      { id: 'p1', text: 'Outline chapter 3 of side-project (45 min)', done: false, est: 45, tag: 'personal' },
+    ],
+    oneThing: 'Ship retry-logic v2 behind a feature flag',
+  });
+
+  const [backlog, setBacklog] = useState([
+    { id: 'b1', text: 'Investigate why retry storms spike at 03:00 UTC',           age: '2h ago' },
+    { id: 'b2', text: 'Talk to Maria about success-rate dashboard ownership',     age: '5h ago' },
+    { id: 'b3', text: 'Set up read-replica for analytics queries',                age: 'yesterday' },
+    { id: 'b4', text: 'Decide on monorepo split — apps/ vs packages/',            age: 'yesterday' },
+    { id: 'b5', text: 'Schedule annual checkup',                                  age: '2d ago' },
+    { id: 'b6', text: 'Write down idea: signal-quality scoring per-carrier',      age: '3d ago' },
+    { id: 'b7', text: 'Cancel old AWS dev account',                               age: '4d ago' },
+  ]);
+
+  const goals = [
+    {
+      id: 'g1',
+      title: 'Increase auth success rate',
+      start: 82, current: 87, target: 92, unit: '%',
+      deadline: 'Jul 31', daysLeft: 47,
+      lastMove: '2 days ago',
+      weekImpact: '+3.0%',
+      actions: [
+        { text: 'Reduce <b>OTP failures</b> by 15% via carrier-aware routing', impact: '5%', done: true },
+        { text: 'Improve <b>retry logic success</b> by 10% on degraded networks', impact: '8%', done: false },
+        { text: 'Migrate session refresh to <b>silent flow</b>',                impact: '3%', done: false },
+      ],
+    },
+    {
+      id: 'g2',
+      title: 'Cut median onboarding time',
+      start: 9.2, current: 7.4, target: 5.0, unit: 'min',
+      deadline: 'Aug 15', daysLeft: 62,
+      lastMove: '5 days ago',
+      weekImpact: '+0.0',
+      actions: [
+        { text: 'Collapse <b>step 2 + 3</b> into a single screen',          impact: '1.5min', done: true },
+        { text: 'Pre-fill business profile from <b>Stripe data</b>',        impact: '0.8min', done: false },
+        { text: 'Remove <b>email-verify gate</b> on first session',         impact: '1.2min', done: false },
+      ],
+    },
+    {
+      id: 'g3',
+      title: 'Personal: ship side-project beta',
+      start: 0, current: 35, target: 100, unit: '%',
+      deadline: 'Sep 30', daysLeft: 108,
+      lastMove: 'yesterday',
+      weekImpact: '+5%',
+      actions: [
+        { text: 'Finish <b>chapter 3 + 4</b> of long-form draft',            impact: '20%', done: false },
+        { text: 'Decide on <b>distribution channel</b> (Substack vs self)', impact: '5%',  done: false },
+        { text: 'Lock in <b>cover design</b> with illustrator',              impact: '10%', done: false },
+      ],
+    },
+    {
+      id: 'g4',
+      title: 'Reduce on-call paging volume',
+      start: 28, current: 21, target: 12, unit: ' alerts/wk',
+      deadline: 'Jul 15', daysLeft: 31,
+      lastMove: '1 week ago',
+      weekImpact: '+0.0',
+      actions: [
+        { text: 'Tune <b>p99 latency alerts</b> to drop noise',              impact: '4', done: true },
+        { text: 'Build <b>auto-mute</b> for known-flaky checks',             impact: '5', done: false },
+        { text: 'Audit <b>severity routing</b> in PagerDuty',                impact: '3', done: false },
+      ],
+    },
+  ];
+
+  // counts for sidebar
+  const counts = {
+    today: state.mustTasks.length + state.smallTasks.length + state.personalTasks.length,
+    roadmap: goals.length,
+    backlog: backlog.length,
+    log: 3,
+  };
+
+  // guardrail count
+  const totalAlloc = state.bandwidth.work + state.bandwidth.personal + state.bandwidth.admin + state.bandwidth.learning;
+  let grCount = 0;
+  if (totalAlloc !== 100) grCount++;
+  if (state.mustTasks.length > 3) grCount++;
+  if (state.personalTasks.length === 0) grCount++;
+  if (state.bandwidth.personal < 10) grCount++;
+  if (state.actual.work > state.bandwidth.work + 5) grCount++;
+
+  // keyboard nav
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === '1') setView('today');
+      if (e.key === '2') setView('roadmap');
+      if (e.key === '3') setView('backlog');
+      if (e.key === '4') setView('log');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const dateStr = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }).toUpperCase();
+  const clock = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+  return (
+    <div className="app">
+      <Sidebar view={view} setView={setView} counts={counts} bandwidth={state.bandwidth} guardrailCount={grCount} />
+      <main className="main">
+        <Topbar view={view} dateStr={dateStr} clock={clock} oneThing={state.oneThing} />
+        <div className="content" data-screen-label={view}>
+          {view === 'today'   && <TodayView state={state} setState={setState} />}
+          {view === 'roadmap' && <RoadmapView goals={goals} />}
+          {view === 'backlog' && <BacklogView items={backlog} setItems={setBacklog} />}
+          {view === 'log'     && <LogView state={state} />}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

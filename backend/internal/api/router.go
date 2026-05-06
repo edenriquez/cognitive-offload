@@ -1,0 +1,431 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"math"
+	"net/http"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
+
+	"github.com/cogload/backend/internal/engine"
+	"github.com/cogload/backend/internal/models"
+	"github.com/cogload/backend/internal/store"
+	"github.com/cogload/backend/internal/ws"
+)
+
+func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine) http.Handler {
+	r := chi.NewRouter()
+
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.Timeout(15 * time.Second))
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:*", "http://127.0.0.1:*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
+
+	h := &handler{db: db, hub: hub, eng: eng}
+
+	r.Get("/ws/signals", hub.HandleWS)
+
+	r.Route("/api/v1", func(r chi.Router) {
+		// Today
+		r.Get("/today", h.getToday)
+		r.Patch("/today/tasks/{id}", h.toggleTask)
+
+		// Focus
+		r.Post("/focus/start", h.startFocus)
+		r.Post("/focus/stop", h.stopFocus)
+
+		// Capture
+		r.Post("/captures", h.createCapture)
+		r.Get("/captures", h.listCaptures)
+
+		// Review
+		r.Get("/review/{day}", h.getReview)
+
+		// Tomorrow
+		r.Get("/tomorrow", h.getTomorrow)
+		r.Post("/tomorrow/lock", h.lockTomorrow)
+
+		// Sessions
+		r.Get("/sessions", h.listSessions)
+		r.Post("/sessions/{id}/close", h.closeSession)
+
+		// Interventions
+		r.Get("/interventions", h.listInterventions)
+
+		// Ingestion
+		r.Post("/ingest/events", h.ingestEvents)
+
+		// Signals snapshot (HTTP fallback)
+		r.Get("/signals/current", h.currentSignals)
+	})
+
+	return r
+}
+
+type handler struct {
+	db  *store.DB
+	hub *ws.Hub
+	eng *engine.Engine
+}
+
+func today() string { return time.Now().Format("2006-01-02") }
+
+func tomorrow() string { return time.Now().AddDate(0, 0, 1).Format("2006-01-02") }
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(v)
+}
+
+func readJSON(r *http.Request, v any) error {
+	defer r.Body.Close()
+	return json.NewDecoder(r.Body).Decode(v)
+}
+
+// ---------- Today ----------
+
+func (h *handler) getToday(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	day := today()
+
+	tasks, err := h.db.TasksByDay(ctx, day)
+	if err != nil {
+		slog.Error("get tasks", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+
+	// Seed demo tasks if empty
+	if len(tasks) == 0 {
+		tasks = seedDemoTasks(ctx, h.db, day)
+	}
+
+	bw := models.Bandwidth{Work: 60, Personal: 15, Admin: 15, Learning: 10}
+
+	completed := 0
+	for _, t := range tasks {
+		if t.Done {
+			completed++
+		}
+	}
+
+	hour := float64(time.Now().Hour()) + float64(time.Now().Minute())/60.0
+	greet := "Good morning"
+	if hour >= 17 {
+		greet = "Good evening"
+	} else if hour >= 12 {
+		greet = "Good afternoon"
+	}
+
+	// Active thread
+	open, _ := h.db.OpenSessions(ctx, day)
+	var active *models.SessionBrief
+	if len(open) > 0 {
+		s := open[0]
+		dur := int(time.Since(s.StartedAt).Minutes())
+		active = &models.SessionBrief{
+			ID: s.ID, Label: s.Label, DurationMin: dur, LastTouchAgoSec: 180,
+		}
+	}
+
+	writeJSON(w, 200, models.TodayResponse{
+		Tasks:        tasks,
+		Bandwidth:    bw,
+		ActiveThread: active,
+		Greet:        greet,
+		Completed:    completed,
+		Total:        len(tasks),
+	})
+}
+
+func seedDemoTasks(ctx context.Context, db *store.DB, day string) []models.Task {
+	demo := []models.Task{
+		{ID: "m1", Day: day, Kind: "must", Idx: 1, Text: "Ship retry-logic v2 behind a feature flag", Done: false},
+		{ID: "m2", Day: day, Kind: "must", Idx: 2, Text: "Tune p99 latency alerts — drop noise from on-call", Done: false},
+		{ID: "m3", Day: day, Kind: "must", Idx: 3, Text: "Draft post-mortem for Tuesday outage", Done: true},
+		{ID: "p1", Day: day, Kind: "personal", Idx: 1, Text: "Outline chapter 3 of side-project (45m)", Done: false},
+	}
+	for _, t := range demo {
+		db.UpsertTask(ctx, t)
+	}
+	return demo
+}
+
+func (h *handler) toggleTask(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.db.ToggleTask(r.Context(), id); err != nil {
+		slog.Error("toggle task", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "ok"})
+}
+
+// ---------- Focus ----------
+
+type focusReq struct {
+	TaskID string `json:"task_id"`
+}
+
+func (h *handler) startFocus(w http.ResponseWriter, r *http.Request) {
+	var req focusReq
+	if err := readJSON(r, &req); err != nil {
+		http.Error(w, "bad request", 400)
+		return
+	}
+	// In a real impl, we'd track the focus session in DB
+	writeJSON(w, 200, map[string]any{"status": "started", "task_id": req.TaskID, "started_at": time.Now()})
+}
+
+func (h *handler) stopFocus(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, 200, map[string]string{"status": "stopped"})
+}
+
+// ---------- Capture ----------
+
+type captureReq struct {
+	Text string `json:"text"`
+}
+
+func (h *handler) createCapture(w http.ResponseWriter, r *http.Request) {
+	var req captureReq
+	if err := readJSON(r, &req); err != nil || req.Text == "" {
+		http.Error(w, "bad request", 400)
+		return
+	}
+	c := models.Capture{
+		ID:        fmt.Sprintf("cap-%d", time.Now().UnixNano()),
+		Text:      req.Text,
+		CreatedAt: time.Now(),
+	}
+	if err := h.db.InsertCapture(r.Context(), c); err != nil {
+		slog.Error("insert capture", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 201, c)
+}
+
+func (h *handler) listCaptures(w http.ResponseWriter, r *http.Request) {
+	caps, err := h.db.RecentCaptures(r.Context(), 20)
+	if err != nil {
+		slog.Error("list captures", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	if caps == nil {
+		caps = []models.Capture{}
+	}
+	writeJSON(w, 200, caps)
+}
+
+// ---------- Review ----------
+
+func (h *handler) getReview(w http.ResponseWriter, r *http.Request) {
+	day := chi.URLParam(r, "day")
+	ctx := r.Context()
+
+	buckets, _ := h.db.BucketsByDay(ctx, day)
+	if buckets == nil {
+		buckets = []models.Bucket{}
+	}
+
+	patterns, _ := h.db.PatternsByDay(ctx, day)
+	if patterns == nil {
+		patterns = []models.Pattern{}
+	}
+
+	sessions, _ := h.db.SessionsByDay(ctx, day)
+	if sessions == nil {
+		sessions = []models.Session{}
+	}
+
+	openLoops := 0
+	for _, s := range sessions {
+		if s.Status != "closed" {
+			openLoops++
+		}
+	}
+
+	leaks := []models.Leak{
+		{Time: "13:30–14:30", Cost: "−1h 04m", Cause: "Post-lunch crash", Fix: "Move deep block to 11:00"},
+		{Time: "14:30–15:00", Cost: "−27m", Cause: "Session thrashing", Fix: "Cap at 1 active thread"},
+		{Time: "14:38–14:42", Cost: "−4m × 5", Cause: "Cold-start errors", Fix: "Pre-flight checklist"},
+		{Time: "17:15–18:30", Cost: "quality", Cause: "Fatigue work", Fix: "Hard stop at 16:30"},
+	}
+
+	rootCauses := []models.RootCause{
+		{Signal: "7 sessions / 30m", Cause: "No active-thread cap → context-switch tax", Confidence: 92},
+		{Signal: "−62% post-lunch dip", Cause: "Heavy lunch + immediate cognitive load", Confidence: 78},
+		{Signal: "+180% error spike", Cause: "Working past cutoff under fatigue", Confidence: 88},
+		{Signal: "3 open threads", Cause: "No close-or-archive enforcement", Confidence: 85},
+	}
+
+	review := models.ReviewSummary{
+		Summary: models.DaySummary{
+			DeepWorkMin:   227,
+			LeakedMin:     95,
+			OpenLoops:     openLoops,
+			SessionsCount: len(sessions),
+		},
+		EnergyMap:  buckets,
+		Patterns:   patterns,
+		Leaks:      leaks,
+		RootCauses: rootCauses,
+		Sessions:   sessions,
+	}
+
+	writeJSON(w, 200, review)
+}
+
+// ---------- Tomorrow ----------
+
+func (h *handler) getTomorrow(w http.ResponseWriter, r *http.Request) {
+	day := tomorrow()
+	ctx := r.Context()
+
+	plan, err := h.db.PlanByDay(ctx, day)
+	if err != nil {
+		slog.Error("get plan", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+
+	if plan == nil {
+		now := time.Now()
+		plan = &models.Plan{
+			Day:      day,
+			Status:   "draft",
+			Headline: "Recovery day. One thread, one cutoff, no fatigue work.",
+			Constraints: []models.Constraint{
+				{Rule: "CUTOFF", Title: "No work after 15:00.", Description: "Cutoff pulled forward 90m due to fatigue-pattern repeat (4/5 days)", Locked: true},
+				{Rule: "THREAD_CAP", Title: "1 active thread cap.", Description: "Enforced at editor + AI layer. New sessions blocked until close-or-archive.", Locked: true},
+				{Rule: "CONTINUE", Title: "Continue session s10 first.", Description: "retry-logic v2 — open 4h with stalled progress. Checkpoint or archive by 09:30.", Locked: true},
+				{Rule: "PREFLIGHT", Title: "Pre-flight before 13:30 session.", Description: "3 cold-start errors yesterday. Run `make verify` first.", Locked: true},
+				{Rule: "RECOVERY", Title: "Recovery block 13:00–14:00.", Description: "Scheduled, not optional. Post-lunch crash mitigation.", Locked: true},
+			},
+			Bandwidth: models.Bandwidth{Work: 50, Personal: 20, Admin: 20, Learning: 10},
+			Tasks: []models.Task{
+				{ID: "tm1", Kind: "must", Idx: 1, Text: "Close out retry-logic v2 — checkpoint, ship behind flag, or archive"},
+				{ID: "tm2", Kind: "must", Idx: 2, Text: "Tune p99 latency alerts — drop noise from on-call"},
+				{ID: "tp1", Kind: "personal", Idx: 1, Text: "Outline chapter 3 of side-project (45 min, before 13:00)"},
+			},
+			GeneratedAt: &now,
+		}
+		h.db.UpsertPlan(ctx, *plan)
+	}
+
+	writeJSON(w, 200, plan)
+}
+
+func (h *handler) lockTomorrow(w http.ResponseWriter, r *http.Request) {
+	day := tomorrow()
+	ctx := r.Context()
+
+	plan, _ := h.db.PlanByDay(ctx, day)
+	if plan == nil {
+		http.Error(w, "no plan exists", 404)
+		return
+	}
+	now := time.Now()
+	plan.Status = "locked"
+	plan.LockedAt = &now
+	if err := h.db.UpsertPlan(ctx, *plan); err != nil {
+		slog.Error("lock plan", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 200, plan)
+}
+
+// ---------- Sessions ----------
+
+func (h *handler) listSessions(w http.ResponseWriter, r *http.Request) {
+	day := r.URL.Query().Get("day")
+	if day == "" {
+		day = today()
+	}
+	sessions, err := h.db.SessionsByDay(r.Context(), day)
+	if err != nil {
+		slog.Error("list sessions", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	if sessions == nil {
+		sessions = []models.Session{}
+	}
+	writeJSON(w, 200, sessions)
+}
+
+func (h *handler) closeSession(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.db.CloseSession(r.Context(), id); err != nil {
+		slog.Error("close session", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "closed"})
+}
+
+// ---------- Interventions ----------
+
+func (h *handler) listInterventions(w http.ResponseWriter, r *http.Request) {
+	s, err := h.eng.ComputeSignals(r.Context())
+	if err != nil {
+		slog.Error("compute signals", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	hour := float64(time.Now().Hour()) + float64(time.Now().Minute())/60.0
+	interventions := h.eng.EvaluateRules(s, hour)
+	writeJSON(w, 200, interventions)
+}
+
+// ---------- Signals ----------
+
+func (h *handler) currentSignals(w http.ResponseWriter, r *http.Request) {
+	snap, err := h.eng.SignalSnapshot(r.Context())
+	if err != nil {
+		slog.Error("signal snapshot", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 200, snap)
+}
+
+// ---------- Ingestion ----------
+
+type ingestReq struct {
+	Events []models.RawEvent `json:"events"`
+}
+
+func (h *handler) ingestEvents(w http.ResponseWriter, r *http.Request) {
+	var req ingestReq
+	if err := readJSON(r, &req); err != nil {
+		http.Error(w, "bad request", 400)
+		return
+	}
+	if err := h.db.InsertEvents(r.Context(), req.Events); err != nil {
+		slog.Error("ingest events", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 200, map[string]int{"ingested": len(req.Events)})
+}
+
+// Suppress unused import warning
+var _ = math.Min

@@ -1,0 +1,1242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cognitive Load — Modes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0: #0b0c0e;
+    --bg-1: #111316;
+    --bg-2: #16191d;
+    --line: #23272d;
+    --line-2: #2c3138;
+    --ink-0: #ececef;
+    --ink-1: #aeb2bb;
+    --ink-2: #6e7383;
+    --ink-3: #43475173;
+    --accent: oklch(0.78 0.14 78);
+    --accent-dim: oklch(0.78 0.14 78 / 0.12);
+    --warn: oklch(0.68 0.17 28);
+    --ok: oklch(0.74 0.12 162);
+    --violet: oklch(0.72 0.11 305);
+    --cool: oklch(0.72 0.09 235);
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --sans: 'Inter', system-ui, sans-serif;
+    --ease: cubic-bezier(.2,.7,.2,1);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg-0);
+    color: var(--ink-0);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    height: 100vh;
+  }
+  button { font-family: inherit; color: inherit; background: none; border: none; cursor: pointer; padding: 0; }
+  input, textarea { font-family: inherit; color: inherit; }
+  ::selection { background: var(--accent-dim); }
+
+  /* ===== Mode switcher (top-center) ===== */
+  .mode-bar {
+    position: fixed;
+    top: 18px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 2px;
+    padding: 4px;
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 99px;
+    z-index: 50;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+  .mode-bar button {
+    padding: 6px 14px;
+    border-radius: 99px;
+    color: var(--ink-2);
+    text-transform: uppercase;
+    transition: color .2s var(--ease), background .2s var(--ease);
+  }
+  .mode-bar button:hover { color: var(--ink-0); }
+  .mode-bar button.on {
+    background: var(--bg-2);
+    color: var(--ink-0);
+  }
+  .mode-bar .auto {
+    color: var(--ink-3);
+    font-size: 9px;
+    align-self: center;
+    padding-left: 10px;
+    border-left: 1px solid var(--line);
+    margin-left: 6px;
+  }
+
+  /* ===== Corner clock ===== */
+  .clock {
+    position: fixed;
+    top: 22px; right: 22px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    letter-spacing: 0.06em;
+    z-index: 40;
+  }
+  .clock b { color: var(--ink-0); font-weight: 500; }
+
+  /* ===== Bottom corner controls (per-mode) ===== */
+  .bottom-left {
+    position: fixed;
+    bottom: 22px; left: 22px;
+    display: flex; gap: 8px;
+    z-index: 40;
+  }
+  .bottom-right {
+    position: fixed;
+    bottom: 22px; right: 22px;
+    display: flex; gap: 8px;
+    z-index: 40;
+  }
+  .ghost-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    padding: 7px 13px;
+    border: 1px solid var(--line);
+    border-radius: 99px;
+    background: var(--bg-1);
+    letter-spacing: 0.06em;
+    transition: color .2s, border-color .2s;
+  }
+  .ghost-btn:hover { color: var(--ink-0); border-color: var(--ink-3); }
+  .ghost-btn.warn { color: var(--warn); border-color: oklch(0.68 0.17 28 / 0.4); }
+  .ghost-btn.accent { color: var(--accent); border-color: oklch(0.78 0.14 78 / 0.4); }
+
+  /* ===== Stage ===== */
+  .stage {
+    height: 100vh;
+    width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
+  .stage::-webkit-scrollbar { width: 0; }
+
+  /* fades for mode swap */
+  .mode { opacity: 0; pointer-events: none; transition: opacity .35s var(--ease); }
+  .mode.on { opacity: 1; pointer-events: auto; }
+
+  /* ============================================================
+     MODE: FOCUS — one task, full screen, nothing else
+  ============================================================ */
+  .focus {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 80px 40px;
+  }
+  .focus.mode { position: absolute; inset: 0; }
+  .focus-inner {
+    text-align: center;
+    max-width: 780px;
+    width: 100%;
+  }
+  .focus-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+  .focus-task {
+    font-size: 42px;
+    font-weight: 300;
+    line-height: 1.2;
+    color: var(--ink-0);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin-bottom: 36px;
+  }
+  .focus-timer {
+    font-family: var(--mono);
+    font-size: 88px;
+    font-weight: 200;
+    color: var(--ink-0);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .focus-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .focus-progress {
+    width: 360px; height: 1px;
+    background: var(--line);
+    margin: 28px auto 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .focus-progress span {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: var(--accent);
+    width: 38%;
+  }
+  .focus-actions {
+    display: flex; gap: 12px;
+    justify-content: center;
+    margin-top: 48px;
+  }
+  .focus-actions .ghost-btn { padding: 9px 18px; }
+
+  /* hidden subtle "next" reveal — only on hover near bottom */
+  .focus-reveal {
+    margin-top: 90px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity .3s;
+  }
+  .focus-reveal:hover { opacity: 1; }
+  .focus-reveal-content {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--ink-2);
+    font-family: var(--sans);
+    text-transform: none;
+    letter-spacing: 0;
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.5;
+  }
+
+  /* ============================================================
+     MODE: TODAY — 3 lines, one ring, very calm
+  ============================================================ */
+  .today {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr;
+    place-items: center;
+    padding: 100px 40px;
+  }
+  .today.mode { position: absolute; inset: 0; }
+  .today-inner {
+    width: 100%;
+    max-width: 640px;
+  }
+  .today-greeting {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .today-question {
+    font-size: 22px;
+    font-weight: 300;
+    color: var(--ink-2);
+    text-align: center;
+    margin-bottom: 56px;
+    letter-spacing: -0.005em;
+  }
+  .today-question b { color: var(--ink-0); font-weight: 400; }
+
+  .today-tasks { display: flex; flex-direction: column; gap: 0; }
+  .ttask {
+    display: grid;
+    grid-template-columns: 38px 1fr auto;
+    gap: 16px;
+    align-items: center;
+    padding: 22px 4px;
+    border-bottom: 1px solid var(--line);
+    transition: border-color .2s;
+  }
+  .ttask:hover { border-bottom-color: var(--line-2); }
+  .ttask:last-child { border-bottom: 1px solid var(--line); }
+  .ttask-rank {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    letter-spacing: 0.06em;
+  }
+  .ttask-rank.must { color: var(--accent); }
+  .ttask-rank.personal { color: var(--violet); }
+  .ttask-text {
+    font-size: 17px;
+    color: var(--ink-0);
+    font-weight: 400;
+    line-height: 1.4;
+  }
+  .ttask.done .ttask-text { color: var(--ink-3); text-decoration: line-through; }
+  .ttask-go {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    letter-spacing: 0.06em;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 99px;
+    text-transform: uppercase;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .2s, color .2s, border-color .2s;
+  }
+  .ttask:hover .ttask-go { opacity: 1; }
+  .ttask-go:hover { color: var(--accent); border-color: oklch(0.78 0.14 78 / 0.4); }
+  .ttask.active .ttask-go { opacity: 1; color: var(--accent); border-color: oklch(0.78 0.14 78 / 0.5); background: oklch(0.78 0.14 78 / 0.06); }
+  .ttask-check {
+    width: 18px; height: 18px;
+    border: 1px solid var(--ink-3);
+    border-radius: 50%;
+    cursor: pointer;
+    display: grid; place-items: center;
+    transition: background .2s, border-color .2s;
+  }
+  .ttask.done .ttask-check { background: var(--ok); border-color: var(--ok); }
+  .ttask.done .ttask-check::after {
+    content:''; width: 5px; height: 8px;
+    border-right: 1.5px solid var(--bg-0);
+    border-bottom: 1.5px solid var(--bg-0);
+    transform: rotate(45deg) translate(-1px, -1px);
+  }
+
+  /* progressive disclosure: "show more" reveal */
+  .reveal-row {
+    display: flex; justify-content: center;
+    margin-top: 56px;
+    gap: 10px;
+  }
+  .reveal-pill {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border: 1px solid var(--line);
+    border-radius: 99px;
+    cursor: pointer;
+    transition: color .2s, border-color .2s;
+  }
+  .reveal-pill:hover { color: var(--ink-1); border-color: var(--line-2); }
+  .reveal-pill.on { color: var(--accent); border-color: oklch(0.78 0.14 78 / 0.4); }
+
+  .reveal-content {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height .4s var(--ease), opacity .3s var(--ease), margin .3s var(--ease);
+  }
+  .reveal-content.on {
+    max-height: 800px;
+    opacity: 1;
+    margin-top: 32px;
+  }
+
+  /* the bandwidth ring (single, small) */
+  .ring-row {
+    display: flex; justify-content: center; gap: 32px;
+    align-items: center;
+  }
+  .ring-svg { display: block; }
+  .ring-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    letter-spacing: 0.06em;
+  }
+  .ring-num b { color: var(--ink-0); font-weight: 500; font-size: 14px; }
+  .ring-legend {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 6px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-2);
+  }
+  .ring-legend span { display: flex; align-items: center; gap: 8px; }
+  .ring-legend i { width: 8px; height: 8px; border-radius: 2px; }
+  .ring-legend b { color: var(--ink-0); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  /* gentle context line */
+  .ctx-line {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    letter-spacing: 0.08em;
+    margin-top: 18px;
+  }
+  .ctx-line .warn { color: var(--warn); }
+
+  /* ============================================================
+     MODE: CAPTURE — single input, nothing else
+  ============================================================ */
+  .capture {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 100px 40px 40px;
+  }
+  .capture.mode { position: absolute; inset: 0; }
+  .capture-inner {
+    width: 100%;
+    max-width: 680px;
+  }
+  .capture-eyebrow {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+  .capture-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 32px;
+    font-weight: 300;
+    color: var(--ink-0);
+    text-align: center;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+    transition: border-bottom-color .2s;
+    letter-spacing: -0.01em;
+  }
+  .capture-input:focus { border-bottom-color: var(--accent); }
+  .capture-input::placeholder { color: var(--ink-3); font-weight: 200; }
+  .capture-hint {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-top: 14px;
+  }
+  .capture-recent {
+    margin-top: 54px;
+    display: flex; flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .capture-recent-row {
+    font-size: 13px;
+    color: var(--ink-2);
+    opacity: 0.6;
+    transition: opacity .3s;
+  }
+  .capture-recent-row:hover { opacity: 1; color: var(--ink-1); }
+  .capture-recent-row.fresh { opacity: 1; color: var(--ink-0); }
+
+  /* ============================================================
+     MODE: REVIEW — graphs only here. Information rich is OK here.
+  ============================================================ */
+  .review { padding: 80px 40px 100px; min-height: 100vh; }
+  .review.mode { position: absolute; inset: 0; overflow-y: auto; }
+  .review-inner { max-width: 1080px; margin: 0 auto; }
+  .review-h {
+    font-size: 28px; font-weight: 300; color: var(--ink-0);
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .review-sub {
+    font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 36px;
+  }
+
+  .review-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 36px;
+  }
+  .rs-cell {
+    padding: 18px 4px;
+    border-right: 1px solid var(--line);
+  }
+  .rs-cell:last-child { border-right: none; }
+  .rs-v { font-family: var(--mono); font-size: 26px; color: var(--ink-0); font-weight: 300; font-variant-numeric: tabular-nums; line-height: 1; }
+  .rs-l { font-family: var(--mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.12em; text-transform: uppercase; margin-top: 8px; }
+
+  .section {
+    margin-top: 48px;
+  }
+  .section-h {
+    font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-2);
+    margin-bottom: 18px;
+    display: flex; gap: 14px; align-items: baseline;
+  }
+  .section-h::after {
+    content: ''; flex: 1; height: 1px; background: var(--line);
+  }
+
+  /* energy map — tall, clean */
+  .energy-map {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 24px;
+    height: 200px;
+    position: relative;
+  }
+  .em-area {
+    position: relative;
+    border-bottom: 1px solid var(--line);
+  }
+  .em-region {
+    position: absolute; top: 0; bottom: 0;
+    background: oklch(0.68 0.17 28 / 0.06);
+    border-left: 1px dashed oklch(0.68 0.17 28 / 0.3);
+    border-right: 1px dashed oklch(0.68 0.17 28 / 0.3);
+  }
+  .em-region-label {
+    position: absolute; top: -18px; left: 6px;
+    font-family: var(--mono); font-size: 9px;
+    color: var(--warn); letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .em-bar {
+    position: absolute; bottom: 0;
+    width: 4px;
+    background: var(--ink-3);
+    border-radius: 1px 1px 0 0;
+    transform: translateX(-50%);
+  }
+  .em-bar.peak { background: var(--accent); }
+  .em-bar.warn { background: var(--warn); }
+  .em-x {
+    position: relative;
+  }
+  .em-x span {
+    position: absolute; top: 6px;
+    font-family: var(--mono); font-size: 10px;
+    color: var(--ink-3);
+    transform: translateX(-50%);
+  }
+  .em-now {
+    position: absolute; top: 0; bottom: 0;
+    width: 1px;
+    background: var(--accent);
+    box-shadow: 0 0 8px oklch(0.78 0.14 78 / 0.5);
+  }
+
+  /* patterns: simple stacked rows, calm */
+  .patterns {
+    display: flex; flex-direction: column;
+    gap: 0;
+    border-top: 1px solid var(--line);
+  }
+  .pat {
+    display: grid;
+    grid-template-columns: 100px 1fr 110px;
+    gap: 18px;
+    align-items: baseline;
+    padding: 18px 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  .pat-tag {
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .pat-tag.high { color: var(--warn); }
+  .pat-title { font-size: 15px; color: var(--ink-0); font-weight: 400; }
+  .pat-detail { font-size: 12.5px; color: var(--ink-2); margin-top: 4px; line-height: 1.5; }
+  .pat-window { font-family: var(--mono); font-size: 10px; color: var(--ink-3); text-align: right; letter-spacing: 0.06em; }
+
+  /* leaks/loops minimal lists */
+  .row-list { display: flex; flex-direction: column; }
+  .row-list-row {
+    display: grid;
+    grid-template-columns: 110px 80px 1fr 1fr;
+    gap: 18px;
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+    align-items: center;
+  }
+  .row-list-row:first-child { border-top: 1px solid var(--line); }
+  .rl-time { font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+  .rl-cost { font-family: var(--mono); font-size: 12px; color: var(--warn); }
+  .rl-cause { color: var(--ink-0); }
+  .rl-fix { font-family: var(--mono); font-size: 11px; color: var(--ok); }
+
+  /* one-line tomorrow card */
+  .tomorrow-card {
+    border: 1px solid oklch(0.78 0.14 78 / 0.3);
+    background: linear-gradient(180deg, oklch(0.78 0.14 78 / 0.04), transparent);
+    border-radius: 8px;
+    padding: 22px 24px;
+    margin-top: 32px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 18px;
+    align-items: center;
+  }
+  .tom-eye {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--accent); letter-spacing: 0.16em; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .tom-line { font-size: 16px; color: var(--ink-0); font-weight: 400; line-height: 1.5; }
+  .tom-line b { color: var(--accent); font-weight: 500; }
+
+  /* ============================================================
+     MODE: TOMORROW — single block, the plan
+  ============================================================ */
+  .tomorrow { min-height: 100vh; display: grid; place-items: center; padding: 100px 40px; }
+  .tomorrow.mode { position: absolute; inset: 0; }
+  .tomorrow-inner { max-width: 620px; width: 100%; }
+  .tom-h {
+    font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+    letter-spacing: 0.16em; text-transform: uppercase;
+    text-align: center; margin-bottom: 14px;
+  }
+  .tom-headline {
+    font-size: 28px; font-weight: 300; color: var(--ink-0);
+    text-align: center; line-height: 1.3;
+    letter-spacing: -0.005em;
+    margin-bottom: 48px;
+    text-wrap: balance;
+  }
+  .tom-list { display: flex; flex-direction: column; }
+  .tom-item {
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 16px;
+    padding: 16px 4px;
+    border-bottom: 1px solid var(--line);
+    align-items: baseline;
+  }
+  .tom-item:first-child { border-top: 1px solid var(--line); }
+  .tom-rank {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ink-3); letter-spacing: 0.06em;
+  }
+  .tom-rank.locked { color: var(--accent); }
+  .tom-task { font-size: 16px; color: var(--ink-0); font-weight: 400; line-height: 1.4; }
+  .tom-meta { font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-top: 4px; letter-spacing: 0.06em; }
+  .tom-cta { display: flex; gap: 10px; justify-content: center; margin-top: 40px; }
+  .btn-primary {
+    background: var(--accent); color: #1a140a; border: 1px solid var(--accent);
+    padding: 9px 18px; border-radius: 99px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; font-weight: 500;
+    cursor: pointer;
+  }
+  .btn-primary:hover { background: oklch(0.83 0.14 78); border-color: oklch(0.83 0.14 78); }
+
+  /* ============================================================
+     Toast (intervention)
+  ============================================================ */
+  .toast {
+    position: fixed;
+    bottom: 22px; left: 50%;
+    transform: translateX(-50%) translateY(120%);
+    background: var(--bg-1);
+    border: 1px solid oklch(0.68 0.17 28 / 0.5);
+    border-radius: 99px;
+    padding: 10px 18px;
+    display: flex; gap: 14px; align-items: center;
+    font-size: 13px;
+    color: var(--ink-0);
+    z-index: 60;
+    transition: transform .4s var(--ease);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  }
+  .toast.on { transform: translateX(-50%) translateY(0); }
+  .toast-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); animation: pulse 1.6s infinite; }
+  .toast-action {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase;
+    cursor: pointer;
+    padding-left: 12px;
+    border-left: 1px solid var(--line);
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 oklch(0.68 0.17 28 / 0.5); }
+    50% { box-shadow: 0 0 0 6px oklch(0.68 0.17 28 / 0); }
+  }
+
+  /* ============================================================
+     Keyboard hint (very subtle, bottom)
+  ============================================================ */
+  .kbd-hint {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+    font-family: var(--mono); font-size: 10px; color: var(--ink-3);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    z-index: 30;
+    opacity: 0.7;
+    pointer-events: none;
+  }
+  .kbd-hint kbd {
+    border: 1px solid var(--line);
+    padding: 1px 5px; border-radius: 3px;
+    color: var(--ink-2);
+    margin: 0 2px;
+    font-family: var(--mono);
+  }
+
+  /* hide all bottom chrome when on focus */
+  body.in-focus .kbd-hint { display: none; }
+
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef } = React;
+
+// ---------- Mode auto-suggestion based on time ----------
+function suggestedMode(hour) {
+  if (hour < 9)            return 'tomorrow';   // morning: review the plan
+  if (hour < 12)           return 'today';      // mid-morning: working list
+  if (hour < 13.5)         return 'today';
+  if (hour < 17)           return 'today';
+  if (hour >= 17 && hour < 20) return 'review'; // end of day: audit
+  return 'today';
+}
+
+// ---------- Bandwidth ring (small, calm) ----------
+function Ring({ alloc, size = 92 }) {
+  const cats = [
+    { id:'work',     v: alloc.work,     c: 'oklch(0.78 0.14 78)' },
+    { id:'personal', v: alloc.personal, c: 'oklch(0.72 0.11 305)' },
+    { id:'admin',    v: alloc.admin,    c: 'oklch(0.72 0.09 235)' },
+    { id:'learning', v: alloc.learning, c: 'oklch(0.74 0.12 162)' },
+  ];
+  const r = (size - 14) / 2;
+  const cx = size/2, cy = size/2;
+  const C = 2 * Math.PI * r;
+  let acc = 0;
+  return (
+    <svg className="ring-svg" width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--line)" strokeWidth="6" />
+      {cats.map(s => {
+        const len = (s.v/100) * C;
+        const dash = `${len} ${C - len}`;
+        const off = -acc;
+        acc += len;
+        return (
+          <circle key={s.id}
+            cx={cx} cy={cy} r={r}
+            fill="none" stroke={s.c} strokeWidth="6"
+            strokeDasharray={dash} strokeDashoffset={off}
+            transform={`rotate(-90 ${cx} ${cy})`}
+          />
+        );
+      })}
+      <text x={cx} y={cy+1} textAnchor="middle" dominantBaseline="middle"
+            fontFamily="var(--mono)" fontSize="13" fill="var(--ink-0)" fontWeight="500">
+        {6}h
+      </text>
+      <text x={cx} y={cy+14} textAnchor="middle" dominantBaseline="middle"
+            fontFamily="var(--mono)" fontSize="8" fill="var(--ink-3)" letterSpacing="0.1em">
+        TODAY
+      </text>
+    </svg>
+  );
+}
+
+// ---------- FOCUS MODE ----------
+function FocusMode({ task, onExit }) {
+  const [secs, setSecs] = useState(22 * 60 + 14);
+  useEffect(() => {
+    document.body.classList.add('in-focus');
+    const t = setInterval(() => setSecs(s => Math.max(0, s - 1)), 1000);
+    return () => { clearInterval(t); document.body.classList.remove('in-focus'); };
+  }, []);
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  const [showWhy, setShowWhy] = useState(false);
+  return (
+    <div className="focus mode on">
+      <div className="focus-inner">
+        <div className="focus-eyebrow">Focus · 1 of 3 must-win</div>
+        <div className="focus-task">{task}</div>
+        <div className="focus-timer">{m.toString().padStart(2,'0')}:{s.toString().padStart(2,'0')}</div>
+        <div className="focus-meta">remaining of 90m block</div>
+        <div className="focus-progress"><span></span></div>
+        <div className="focus-actions">
+          <button className="ghost-btn" onClick={onExit}>Pause</button>
+          <button className="ghost-btn warn" onClick={onExit}>Done</button>
+        </div>
+        <div className="focus-reveal" onClick={() => setShowWhy(s => !s)}>
+          {showWhy ? '— hide context —' : '— why this task —'}
+        </div>
+        {showWhy && (
+          <div className="focus-reveal-content">
+            Tied to roadmap goal <b style={{color:'var(--accent)'}}>auth-success 87% → 92%</b>.
+            Estimated impact <b style={{color:'var(--accent)'}}>+8%</b>. Continues yesterday's open thread.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------- TODAY MODE ----------
+function TodayMode({ tasks, setTasks, alloc, onStartFocus, hour }) {
+  const [revealBw, setRevealBw] = useState(false);
+  const [revealCtx, setRevealCtx] = useState(false);
+  const total = alloc.work + alloc.personal + alloc.admin + alloc.learning;
+
+  const greet = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+  const remaining = tasks.filter(t => !t.done && t.kind !== 'small').length;
+  const nextTask = tasks.find(t => !t.done && (t.kind === 'must' || t.kind === 'personal'));
+
+  return (
+    <div className="today mode on">
+      <div className="today-inner">
+        <div className="today-greeting">{greet} · day 14</div>
+        <div className="today-question">
+          The one thing right now is <b>{nextTask ? nextTask.text.toLowerCase() : 'rest. you\'re done.'}</b>
+        </div>
+
+        <div className="today-tasks">
+          {tasks.map(t => (
+            <div key={t.id} className={`ttask ${t.done?'done':''} ${t.id===nextTask?.id?'active':''}`}>
+              <span className={`ttask-rank ${t.kind}`}>
+                {t.kind === 'must' ? `MUST ${t.idx}` : t.kind === 'personal' ? 'PERSONAL' : 'SMALL'}
+              </span>
+              <div className="ttask-text">{t.text}</div>
+              {t.id === nextTask?.id && !t.done ? (
+                <button className="ttask-go" onClick={() => onStartFocus(t.text)}>Focus →</button>
+              ) : (
+                <span className="ttask-check" onClick={() => setTasks(arr => arr.map(x => x.id===t.id ? {...x,done:!x.done} : x))}></span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="reveal-row">
+          <button className={`reveal-pill ${revealBw?'on':''}`} onClick={() => setRevealBw(b=>!b)}>
+            {revealBw ? '— bandwidth' : '+ bandwidth'}
+          </button>
+          <button className={`reveal-pill ${revealCtx?'on':''}`} onClick={() => setRevealCtx(b=>!b)}>
+            {revealCtx ? '— context' : '+ context'}
+          </button>
+        </div>
+
+        <div className={`reveal-content ${revealBw?'on':''}`}>
+          <div className="ring-row">
+            <Ring alloc={alloc} />
+            <div className="ring-legend">
+              <span><i style={{background:'oklch(0.78 0.14 78)'}}></i>Work core</span><b>{alloc.work}%</b>
+              <span><i style={{background:'oklch(0.72 0.11 305)'}}></i>Personal</span><b>{alloc.personal}%</b>
+              <span><i style={{background:'oklch(0.72 0.09 235)'}}></i>Admin</span><b>{alloc.admin}%</b>
+              <span><i style={{background:'oklch(0.74 0.12 162)'}}></i>Learning</span><b>{alloc.learning}%</b>
+            </div>
+          </div>
+          <div className="ctx-line">
+            allocated · {total}% &nbsp;·&nbsp; cutoff · 16:30 &nbsp;·&nbsp; productive · 6h
+          </div>
+        </div>
+
+        <div className={`reveal-content ${revealCtx?'on':''}`}>
+          <div className="ctx-line" style={{textAlign:'left',padding:'0 8px',lineHeight:1.7}}>
+            Today's must-win 1 → roadmap "auth-success 87 → 92%" · projected +8% <br/>
+            Today's must-win 2 → roadmap "alerts/wk 21 → 12" · projected −4 alerts <br/>
+            Personal task is below 10% bandwidth floor · <span className="warn">3rd consecutive day</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- CAPTURE MODE ----------
+function CaptureMode({ items, setItems }) {
+  const [draft, setDraft] = useState('');
+  const inputRef = useRef(null);
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);
+  const submit = () => {
+    if (!draft.trim()) return;
+    setItems(arr => [{ id: Math.random().toString(36).slice(2), text: draft.trim(), fresh: true, age: 'just now' }, ...arr.map(i => ({...i, fresh:false}))]);
+    setDraft('');
+  };
+  return (
+    <div className="capture mode on">
+      <div className="capture-inner">
+        <div className="capture-eyebrow">Capture · no thinking required</div>
+        <input
+          ref={inputRef}
+          className="capture-input"
+          placeholder="what's on your mind…"
+          value={draft}
+          onChange={e=>setDraft(e.target.value)}
+          onKeyDown={e=>{ if (e.key==='Enter') submit(); }}
+        />
+        <div className="capture-hint">⏎ to capture · esc to leave</div>
+        <div className="capture-recent">
+          {items.slice(0, 5).map(i => (
+            <div key={i.id} className={`capture-recent-row ${i.fresh?'fresh':''}`}>
+              {i.text} <span style={{color:'var(--ink-3)',fontFamily:'var(--mono)',fontSize:11,marginLeft:8}}>· {i.age}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- REVIEW MODE (information-rich, only here) ----------
+function EnergyMap() {
+  const W = 100;
+  // 90 ten-min buckets covering 07:00–22:00
+  const buckets = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < 90; i++) {
+      const h = 7 + i / 6;
+      let v;
+      if (h < 8.5) v = 25 + Math.random()*15;
+      else if (h < 11.5) v = 70 + Math.random()*22;
+      else if (h < 12.5) v = 45 + Math.random()*20;
+      else if (h < 13.5) v = 8 + Math.random()*8;
+      else if (h < 14.5) v = 30 + Math.random()*15;
+      else if (h < 15.5) v = 55 + Math.random()*20;
+      else if (h < 16.5) v = 65 + Math.random()*15;
+      else if (h < 18) v = 50 + Math.random()*15;
+      else v = 18 + Math.random()*12;
+      const errors = (h >= 14.5 && h < 15.5) || (h >= 17 && h < 18);
+      arr.push({ h, v, errors });
+    }
+    return arr;
+  }, []);
+  const w = W / buckets.length;
+  return (
+    <div className="energy-map">
+      <div className="em-area">
+        <div className="em-region" style={{left:`${(13-7)/15*100}%`,width:`${1/15*100}%`}}>
+          <span className="em-region-label">lunch · black hole</span>
+        </div>
+        <div className="em-region" style={{left:`${(14.5-7)/15*100}%`,width:`${1/15*100}%`}}>
+          <span className="em-region-label">thrashing</span>
+        </div>
+        <div className="em-region" style={{left:`${(16.5-7)/15*100}%`,width:`${1.5/15*100}%`}}>
+          <span className="em-region-label">past cutoff</span>
+        </div>
+        {buckets.map((b, i) => (
+          <span key={i} className={`em-bar ${b.v>65?'peak':b.errors?'warn':''}`}
+                style={{ left: `${i*w + w/2}%`, height: `${(b.v/100)*100}%` }}></span>
+        ))}
+        <span className="em-now" style={{ left: `${(14.6-7)/15*100}%` }}></span>
+      </div>
+      <div className="em-x">
+        {[7,9,11,13,15,17,19,21].map(h => (
+          <span key={h} style={{ left: `${(h-7)/15*100}%` }}>{h.toString().padStart(2,'0')}:00</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReviewMode({ onGoTomorrow }) {
+  return (
+    <div className="review mode on">
+      <div className="review-inner">
+        <div className="review-h">Today's review</div>
+        <div className="review-sub">auto · derived from logs · not self-report</div>
+
+        <div className="review-summary">
+          <div className="rs-cell"><div className="rs-v">3h 47m</div><div className="rs-l">deep work</div></div>
+          <div className="rs-cell"><div className="rs-v" style={{color:'var(--warn)'}}>1h 35m</div><div className="rs-l">leaked</div></div>
+          <div className="rs-cell"><div className="rs-v">3</div><div className="rs-l">open loops</div></div>
+          <div className="rs-cell"><div className="rs-v">11</div><div className="rs-l">sessions</div></div>
+        </div>
+
+        <div className="section">
+          <div className="section-h">Energy map</div>
+          <EnergyMap />
+        </div>
+
+        <div className="section">
+          <div className="section-h">What pulled you off</div>
+          <div className="patterns">
+            <div className="pat">
+              <span className="pat-tag high">thrashing</span>
+              <div>
+                <div className="pat-title">7 single-message AI sessions in 30 min</div>
+                <div className="pat-detail">Likely context fragmentation. Same window 4 of last 5 days.</div>
+              </div>
+              <span className="pat-window">14:30 — 15:00</span>
+            </div>
+            <div className="pat">
+              <span className="pat-tag">crash</span>
+              <div>
+                <div className="pat-title">Activity dropped 62% post-lunch</div>
+                <div className="pat-detail">Heavy cognitive load right after meal. Pattern repeats.</div>
+              </div>
+              <span className="pat-window">13:30 — 14:30</span>
+            </div>
+            <div className="pat">
+              <span className="pat-tag">stuck</span>
+              <div>
+                <div className="pat-title">retry-logic v2 — 4h open, 1 commit</div>
+                <div className="pat-detail">Same 3 files reopened. Low progress signal. Checkpoint or archive.</div>
+              </div>
+              <span className="pat-window">11:40 — now</span>
+            </div>
+            <div className="pat">
+              <span className="pat-tag high">fatigue</span>
+              <div>
+                <div className="pat-title">Error rate +180% past 16:30 cutoff</div>
+                <div className="pat-detail">Quality collapse risk. Hard stop recommended.</div>
+              </div>
+              <span className="pat-window">17:15 — 18:30</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="section">
+          <div className="section-h">Where time leaked</div>
+          <div className="row-list">
+            <div className="row-list-row">
+              <span className="rl-time">13:30 — 14:30</span>
+              <span className="rl-cost">−1h 04m</span>
+              <span className="rl-cause">Post-lunch crash</span>
+              <span className="rl-fix">→ Move deep block to 11:00</span>
+            </div>
+            <div className="row-list-row">
+              <span className="rl-time">14:30 — 15:00</span>
+              <span className="rl-cost">−27m</span>
+              <span className="rl-cause">Session thrashing</span>
+              <span className="rl-fix">→ Cap at 1 active thread</span>
+            </div>
+            <div className="row-list-row">
+              <span className="rl-time">14:38 — 14:42</span>
+              <span className="rl-cost">−4m × 5</span>
+              <span className="rl-cause">Cold-start errors</span>
+              <span className="rl-fix">→ Pre-flight checklist</span>
+            </div>
+            <div className="row-list-row">
+              <span className="rl-time">17:15 — 18:30</span>
+              <span className="rl-cost">quality</span>
+              <span className="rl-cause">Fatigue work</span>
+              <span className="rl-fix">→ Hard stop at 16:30</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="tomorrow-card">
+          <div>
+            <div className="tom-eye">Tomorrow's plan is ready</div>
+            <div className="tom-line">
+              Recovery day. <b>1 thread cap</b>, <b>cutoff at 15:00</b>, deep block moved to <b>09:00–11:00</b>.
+              <br/>Your first task is set: continue retry-logic v2 to checkpoint or archive.
+            </div>
+          </div>
+          <button className="btn-primary" onClick={onGoTomorrow}>Open</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- TOMORROW MODE ----------
+function TomorrowMode({ onLock }) {
+  return (
+    <div className="tomorrow mode on">
+      <div className="tomorrow-inner">
+        <div className="tom-h">Wed · May 6 · auto-generated</div>
+        <div className="tom-headline">Recovery day. One thread, one cutoff, no fatigue work.</div>
+        <div className="tom-list">
+          <div className="tom-item">
+            <span className="tom-rank locked">01 ⌷</span>
+            <div>
+              <div className="tom-task">Close out retry-logic v2 — checkpoint, ship behind flag, or archive.</div>
+              <div className="tom-meta">continues yesterday's open thread · 90m · auth-success +8% projected</div>
+            </div>
+          </div>
+          <div className="tom-item">
+            <span className="tom-rank">02</span>
+            <div>
+              <div className="tom-task">Tune p99 latency alerts — drop noise from on-call.</div>
+              <div className="tom-meta">60m · alerts/wk 21 → 12 target · −4 projected</div>
+            </div>
+          </div>
+          <div className="tom-item">
+            <span className="tom-rank">03</span>
+            <div>
+              <div className="tom-task">Outline chapter 3 of side-project.</div>
+              <div className="tom-meta">protected window · 45m · before 13:00</div>
+            </div>
+          </div>
+        </div>
+        <div className="tom-cta">
+          <button className="ghost-btn">Adjust</button>
+          <button className="btn-primary" onClick={onLock}>Lock in plan</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// App
+// ============================================================
+function App() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  const hour = now.getHours() + now.getMinutes()/60;
+  const auto = suggestedMode(hour);
+
+  const [mode, setMode] = useState('today');
+  const [activeFocus, setActiveFocus] = useState(null);
+
+  const [tasks, setTasks] = useState([
+    { id:'m1', kind:'must', idx:1, text:'Ship retry-logic v2 behind a feature flag', done:false },
+    { id:'m2', kind:'must', idx:2, text:'Tune p99 latency alerts — drop noise from on-call', done:false },
+    { id:'m3', kind:'must', idx:3, text:'Draft post-mortem for Tuesday outage', done:true },
+    { id:'p1', kind:'personal', text:'Outline chapter 3 of side-project (45m)', done:false },
+  ]);
+
+  const [alloc] = useState({ work: 60, personal: 15, admin: 15, learning: 10 });
+
+  const [captures, setCaptures] = useState([
+    { id:'c1', text:'Investigate retry storms at 03:00 UTC', age:'2h ago' },
+    { id:'c2', text:'Talk to Maria about success-rate dashboard', age:'5h ago' },
+    { id:'c3', text:'Set up read-replica for analytics', age:'yesterday' },
+    { id:'c4', text:'Cancel old AWS dev account', age:'4d ago' },
+  ]);
+
+  // intervention toast (mock — fires once on enter)
+  const [toast, setToast] = useState(null);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setToast({ msg: 'Detected 3 open AI threads. Close one before starting new work.', action: 'Triage' });
+    }, 4000);
+    return () => clearTimeout(t);
+  }, []);
+
+  // keyboard
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        if (e.key === 'Escape') { setMode('today'); e.target.blur(); }
+        return;
+      }
+      if (e.key === '1') setMode('focus');
+      if (e.key === '2') setMode('today');
+      if (e.key === '3') setMode('capture');
+      if (e.key === '4') setMode('review');
+      if (e.key === '5') setMode('tomorrow');
+      if (e.key === 'Escape') setMode('today');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const startFocus = (task) => { setActiveFocus(task); setMode('focus'); };
+
+  const dateStr = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }).toUpperCase();
+  const clock = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+  const modes = [
+    { id: 'focus',    label: 'Focus' },
+    { id: 'today',    label: 'Today' },
+    { id: 'capture',  label: 'Capture' },
+    { id: 'review',   label: 'Review' },
+    { id: 'tomorrow', label: 'Tomorrow' },
+  ];
+
+  return (
+    <>
+      {/* mode switcher hidden in focus */}
+      {mode !== 'focus' && (
+        <div className="mode-bar">
+          {modes.map(m => (
+            <button key={m.id} className={mode===m.id?'on':''} onClick={() => setMode(m.id)}>{m.label}</button>
+          ))}
+          <span className="auto">auto · {auto}</span>
+        </div>
+      )}
+
+      {mode !== 'focus' && (
+        <div className="clock">
+          <span>{dateStr}</span> · <b>{clock}</b>
+        </div>
+      )}
+
+      <div className="stage">
+        {mode === 'focus' && (
+          <FocusMode
+            task={activeFocus || tasks.find(t=>!t.done && t.kind==='must')?.text || 'Pick a task'}
+            onExit={() => setMode('today')}
+          />
+        )}
+        {mode === 'today' && (
+          <TodayMode tasks={tasks} setTasks={setTasks} alloc={alloc} onStartFocus={startFocus} hour={hour} />
+        )}
+        {mode === 'capture' && (
+          <CaptureMode items={captures} setItems={setCaptures} />
+        )}
+        {mode === 'review' && (
+          <ReviewMode onGoTomorrow={() => setMode('tomorrow')} />
+        )}
+        {mode === 'tomorrow' && (
+          <TomorrowMode onLock={() => setMode('today')} />
+        )}
+      </div>
+
+      {/* subtle keyboard hint, only on today */}
+      {mode === 'today' && (
+        <div className="kbd-hint">
+          <kbd>1</kbd>focus &nbsp;<kbd>2</kbd>today &nbsp;<kbd>3</kbd>capture &nbsp;<kbd>4</kbd>review &nbsp;<kbd>5</kbd>tomorrow
+        </div>
+      )}
+
+      {toast && mode !== 'focus' && (
+        <div className="toast on">
+          <span className="toast-dot"></span>
+          <span>{toast.msg}</span>
+          <button className="toast-action" onClick={() => setToast(null)}>{toast.action}</button>
+          <button className="toast-action" style={{color:'var(--ink-3)'}} onClick={() => setToast(null)}>Dismiss</button>
+        </div>
+      )}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{
+  "productName": "Cogload",
+  "version": "0.1.0",
+  "identifier": "com.cogload.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Cogload",
+        "label": "main",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 900,
+        "minHeight": 600,
+        "resizable": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "decorations": true,
+        "transparent": false
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+          "icons/icon.png"
+        ]
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    }
+  }
+}

@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+frontend/dist/
+frontend/src-tauri/target/
+backend/cogload
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Database
+*.db
+*.db-wal
+*.db-shm
+
+# Env
+.env
+.env.local
