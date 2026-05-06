@@ -507,27 +507,15 @@ func (h *handler) getTomorrow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if plan == nil {
-		now := time.Now()
+		// No plan exists — return an empty draft, don't auto-create fake tasks
 		plan = &models.Plan{
-			Day:      day,
-			Status:   "draft",
-			Headline: "Recovery day. One thread, one cutoff, no fatigue work.",
-			Constraints: []models.Constraint{
-				{Rule: "CUTOFF", Title: "No work after 15:00.", Description: "Cutoff pulled forward 90m due to fatigue-pattern repeat (4/5 days)", Locked: true},
-				{Rule: "THREAD_CAP", Title: "1 active thread cap.", Description: "Enforced at editor + AI layer. New sessions blocked until close-or-archive.", Locked: true},
-				{Rule: "CONTINUE", Title: "Continue session s10 first.", Description: "retry-logic v2 — open 4h with stalled progress. Checkpoint or archive by 09:30.", Locked: true},
-				{Rule: "PREFLIGHT", Title: "Pre-flight before 13:30 session.", Description: "3 cold-start errors yesterday. Run `make verify` first.", Locked: true},
-				{Rule: "RECOVERY", Title: "Recovery block 13:00–14:00.", Description: "Scheduled, not optional. Post-lunch crash mitigation.", Locked: true},
-			},
-			Bandwidth: models.Bandwidth{Work: 50, Personal: 20, Admin: 20, Learning: 10},
-			Tasks: []models.Task{
-				{ID: "tm1", Kind: "must", Idx: 1, Text: "Close out retry-logic v2 — checkpoint, ship behind flag, or archive"},
-				{ID: "tm2", Kind: "must", Idx: 2, Text: "Tune p99 latency alerts — drop noise from on-call"},
-				{ID: "tp1", Kind: "personal", Idx: 1, Text: "Outline chapter 3 of side-project (45 min, before 13:00)"},
-			},
-			GeneratedAt: &now,
+			Day:         day,
+			Status:      "draft",
+			Headline:    "No plan yet. Review today first, or create tasks manually.",
+			Constraints: []models.Constraint{},
+			Bandwidth:   models.Bandwidth{Work: 60, Personal: 15, Admin: 15, Learning: 10},
+			Tasks:       []models.Task{},
 		}
-		h.db.UpsertPlan(ctx, *plan)
 	}
 
 	writeJSON(w, 200, plan)
