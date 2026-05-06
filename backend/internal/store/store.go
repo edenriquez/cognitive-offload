@@ -606,6 +606,12 @@ func (d *DB) UpdateSession(ctx context.Context, id string, label string, status 
 	return err
 }
 
+func (d *DB) IncrementSessionMessages(ctx context.Context, id string) error {
+	_, err := d.db.ExecContext(ctx,
+		`UPDATE sessions SET message_count = message_count + 1 WHERE id = ?`, id)
+	return err
+}
+
 // ---------- Plans (extended) ----------
 
 func (d *DB) UpdatePlan(ctx context.Context, p models.Plan) error {

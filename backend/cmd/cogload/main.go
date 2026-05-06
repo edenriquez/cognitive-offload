@@ -65,24 +65,19 @@ func main() {
 	cfg := config.Load()
 	slog.Info("config loaded", "watch_paths", cfg.WatchPaths, "ignore_dirs", len(cfg.IgnoreDirs))
 
-	// Start file watcher
+	// Start all data collectors via coordinator
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	defer ctxCancel()
 
-	fsw, err := ingest.NewFSWatcher(db, cfg.WatchPaths, cfg.IgnoreDirs, cfg.MaxWatchDirs)
+	coord, err := ingest.NewCoordinator(db, cfg)
 	if err != nil {
-		slog.Error("failed to create file watcher", "error", err)
+		slog.Error("failed to create coordinator", "error", err)
 	} else {
-		if err := fsw.Start(ctx); err != nil {
-			slog.Error("failed to start file watcher", "error", err)
+		if err := coord.Start(ctx); err != nil {
+			slog.Error("failed to start coordinator", "error", err)
 		}
-		defer fsw.Stop()
+		defer coord.Stop()
 	}
-
-	// Start aggregator
-	agg := ingest.NewAggregator(db)
-	agg.Start(ctx)
-	defer agg.Stop()
 
 	router := api.NewRouter(db, hub, eng)
 
