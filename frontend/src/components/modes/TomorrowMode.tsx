@@ -196,89 +196,34 @@ export default function TomorrowMode() {
         </div>
         <h1 className="tom-headline">{headline}</h1>
 
-        {/* Constraints — enforced rules */}
-        {constraints.length > 0 && (
-          <div className="tom-constraints">
-            <div className="tom-section-label">Constraints · enforced</div>
-            {constraints.map((c, i) => (
-              <div key={i} className="tom-constraint">
-                <div className="tom-constraint-icon">
-                  <RuleIcon rule={c.rule} />
-                </div>
-                <div className="tom-constraint-body">
-                  <div className="tom-constraint-title">{c.title ?? ""}</div>
-                  <div className="tom-constraint-desc">
-                    {c.description ?? ""}
-                  </div>
-                </div>
-                {c.locked && <div className="tom-constraint-lock">locked</div>}
-              </div>
-            ))}
+        {/* Actions — top */}
+        <div className="tom-cta">
+          <button className="btn-secondary" onClick={() => setMode("today")}>
+            Back to today
+          </button>
+          <button className="btn-secondary" onClick={handleRegenerate}>
+            Regenerate plan
+          </button>
+          {plan.status !== "locked" && plan.status !== "completed" && (
+            <button className="btn-primary" onClick={handleLock}>
+              Lock in plan
+            </button>
+          )}
+          {(plan.status === "locked" || plan.status === "draft") &&
+            plan.tasks.length > 0 && (
+              <button className="btn-primary" onClick={handleRollover}>
+                Roll over tasks now
+              </button>
+            )}
+        </div>
+        {actionMsg && <div className="tom-action-msg">{actionMsg}</div>}
+        {plan.status === "completed" && (
+          <div className="tom-completed-msg">
+            Plan completed — tasks have been rolled into your Today tab.
           </div>
         )}
 
-        {/* Bandwidth */}
-        {plan.bandwidth && (
-          <div className="tom-bandwidth">
-            <div className="tom-section-label">Bandwidth · adjusted</div>
-            <div className="tom-bw-bars">
-              <div className="tom-bw-row">
-                <span className="tom-bw-cat">Work</span>
-                <div className="tom-bw-track">
-                  <span
-                    className="tom-bw-fill"
-                    style={{
-                      width: `${plan.bandwidth.work}%`,
-                      background: "var(--color-ink)",
-                    }}
-                  ></span>
-                </div>
-                <span className="tom-bw-pct">{plan.bandwidth.work}%</span>
-              </div>
-              <div className="tom-bw-row">
-                <span className="tom-bw-cat">Personal</span>
-                <div className="tom-bw-track">
-                  <span
-                    className="tom-bw-fill"
-                    style={{
-                      width: `${plan.bandwidth.personal}%`,
-                      background: "var(--color-action-blue)",
-                    }}
-                  ></span>
-                </div>
-                <span className="tom-bw-pct">{plan.bandwidth.personal}%</span>
-              </div>
-              <div className="tom-bw-row">
-                <span className="tom-bw-cat">Admin</span>
-                <div className="tom-bw-track">
-                  <span
-                    className="tom-bw-fill"
-                    style={{
-                      width: `${plan.bandwidth.admin}%`,
-                      background: "var(--color-overcast)",
-                    }}
-                  ></span>
-                </div>
-                <span className="tom-bw-pct">{plan.bandwidth.admin}%</span>
-              </div>
-              <div className="tom-bw-row">
-                <span className="tom-bw-cat">Learning</span>
-                <div className="tom-bw-track">
-                  <span
-                    className="tom-bw-fill"
-                    style={{
-                      width: `${plan.bandwidth.learning}%`,
-                      background: "var(--color-slate)",
-                    }}
-                  ></span>
-                </div>
-                <span className="tom-bw-pct">{plan.bandwidth.learning}%</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tasks */}
+        {/* 1. Tasks */}
         {tasks.length > 0 ? (
           <>
             <div className="tom-section-label" style={{ marginTop: 32 }}>
@@ -314,33 +259,66 @@ export default function TomorrowMode() {
           </div>
         )}
 
-        {/* Action feedback */}
-        {actionMsg && <div className="tom-action-msg">{actionMsg}</div>}
+        {/* 2. Bandwidth */}
+        {plan.bandwidth && (
+          <div className="tom-bandwidth" style={{ marginTop: 32 }}>
+            <div className="tom-section-label">Bandwidth · adjusted</div>
+            <div className="tom-bw-bars">
+              {[
+                {
+                  cat: "Work",
+                  val: plan.bandwidth.work,
+                  color: "var(--color-ink)",
+                },
+                {
+                  cat: "Personal",
+                  val: plan.bandwidth.personal,
+                  color: "var(--color-action-blue)",
+                },
+                {
+                  cat: "Admin",
+                  val: plan.bandwidth.admin,
+                  color: "var(--color-overcast)",
+                },
+                {
+                  cat: "Learning",
+                  val: plan.bandwidth.learning,
+                  color: "var(--color-slate)",
+                },
+              ].map((b) => (
+                <div key={b.cat} className="tom-bw-row">
+                  <span className="tom-bw-cat">{b.cat}</span>
+                  <div className="tom-bw-track">
+                    <span
+                      className="tom-bw-fill"
+                      style={{ width: `${b.val}%`, background: b.color }}
+                    ></span>
+                  </div>
+                  <span className="tom-bw-pct">{b.val}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-        {/* Actions */}
-        <div className="tom-cta">
-          <button className="btn-secondary" onClick={() => setMode("today")}>
-            Back to today
-          </button>
-          <button className="btn-secondary" onClick={handleRegenerate}>
-            Regenerate plan
-          </button>
-          {plan.status !== "locked" && plan.status !== "completed" && (
-            <button className="btn-primary" onClick={handleLock}>
-              Lock in plan
-            </button>
-          )}
-          {(plan.status === "locked" || plan.status === "draft") &&
-            plan.tasks.length > 0 && (
-              <button className="btn-primary" onClick={handleRollover}>
-                Roll over tasks now
-              </button>
-            )}
-        </div>
-
-        {plan.status === "completed" && (
-          <div className="tom-completed-msg">
-            Plan completed — tasks have been rolled into your Today tab.
+        {/* 3. Constraints */}
+        {constraints.length > 0 && (
+          <div className="tom-constraints" style={{ marginTop: 32 }}>
+            <div className="tom-section-label">Constraints · enforced</div>
+            {constraints.map((c, i) => (
+              <div key={i} className="tom-constraint">
+                <div className="tom-constraint-icon">
+                  <RuleIcon rule={c.rule} />
+                </div>
+                <div className="tom-constraint-body">
+                  <div className="tom-constraint-title">{c.title ?? ""}</div>
+                  <div className="tom-constraint-desc">
+                    {c.description ?? ""}
+                  </div>
+                </div>
+                {c.locked && <div className="tom-constraint-lock">locked</div>}
+              </div>
+            ))}
           </div>
         )}
       </div>
