@@ -3,16 +3,81 @@ import { useAppStore } from "../../store/app-store";
 import { api } from "../../api/client";
 import type { Plan } from "../../types";
 
-const RULE_ICONS: Record<string, string> = {
-  CUTOFF: "🛑",
-  THREAD_CAP: "🔒",
-  RECOVERY: "🌿",
-  CHECKPOINT: "📌",
-  CLOSE_LOOPS: "🧹",
-  FOCUS_BLOCK: "🎯",
-  CONTINUE: "▶️",
-  PREFLIGHT: "🔧",
-};
+function RuleIcon({ rule }: { rule: string }) {
+  const s = {
+    width: 16,
+    height: 16,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.8",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  switch (rule) {
+    case "CUTOFF": // clock with slash
+      return (
+        <svg {...s}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 6v6" />
+          <path d="M4 4l16 16" />
+        </svg>
+      );
+    case "THREAD_CAP": // lock
+      return (
+        <svg {...s}>
+          <rect x="5" y="11" width="14" height="10" rx="2" />
+          <path d="M8 11V7a4 4 0 018 0v4" />
+        </svg>
+      );
+    case "RECOVERY": // heart pulse
+      return (
+        <svg {...s}>
+          <path d="M3 12h4l3-6 4 12 3-6h4" />
+        </svg>
+      );
+    case "CHECKPOINT": // flag
+      return (
+        <svg {...s}>
+          <path d="M4 21V4" />
+          <path d="M4 4l12 4-12 4" />
+        </svg>
+      );
+    case "CLOSE_LOOPS": // circle with check
+      return (
+        <svg {...s}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="M9 12l2 2 4-4" />
+        </svg>
+      );
+    case "FOCUS_BLOCK": // crosshair
+      return (
+        <svg {...s}>
+          <circle cx="12" cy="12" r="8" />
+          <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+        </svg>
+      );
+    case "CONTINUE": // play
+      return (
+        <svg {...s}>
+          <polygon points="6,4 20,12 6,20" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "PREFLIGHT": // wrench
+      return (
+        <svg {...s}>
+          <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94L6.7 20.2a2.12 2.12 0 01-3-3l6.73-6.73a6 6 0 017.94-7.94z" />
+        </svg>
+      );
+    default:
+      return (
+        <svg {...s}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 8v4l2 2" />
+        </svg>
+      );
+  }
+}
 
 export default function TomorrowMode() {
   const setMode = useAppStore((s) => s.setMode);
@@ -98,7 +163,7 @@ export default function TomorrowMode() {
             {constraints.map((c, i) => (
               <div key={i} className="tom-constraint">
                 <div className="tom-constraint-icon">
-                  {RULE_ICONS[c.rule] ?? "⌷"}
+                  <RuleIcon rule={c.rule} />
                 </div>
                 <div className="tom-constraint-body">
                   <div className="tom-constraint-title">{c.title ?? ""}</div>
