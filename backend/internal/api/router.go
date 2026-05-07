@@ -91,6 +91,7 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 
 		// Reset
 		r.Post("/reset", h.resetDB)
+		r.Post("/sessions/cleanup", h.cleanupSessions)
 	})
 
 	return r
@@ -446,6 +447,11 @@ func (h *handler) promoteCapture(w http.ResponseWriter, r *http.Request) {
 func (h *handler) getReview(w http.ResponseWriter, r *http.Request) {
 	day := chi.URLParam(r, "day")
 	ctx := r.Context()
+
+	// Run aggregator on-demand so review always has fresh buckets
+	if h.coord != nil {
+		h.coord.RunAggregator(ctx)
+	}
 
 	// Detect patterns from real data
 	patterns, _ := engine.DetectPatterns(ctx, h.db, day)
@@ -806,6 +812,21 @@ func (h *handler) getSources(w http.ResponseWriter, r *http.Request) {
 	}
 	sources := h.coord.Status(r.Context())
 	writeJSON(w, 200, sources)
+}
+
+func (h *handler) cleanupSessions(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	today := today()
+
+	// Close all sessions that are not from today
+	result, err := h.db.CloseOldSessions(ctx, today)
+	if err != nil {
+		slog.Error("cleanup sessions failed", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	slog.Info("sessions cleaned up", "closed", result)
+	writeJSON(w, 200, map[string]any{"status": "cleaned", "closed": result})
 }
 
 // Suppress unused import warning

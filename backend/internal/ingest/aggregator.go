@@ -24,7 +24,7 @@ func NewAggregator(db *store.DB) *Aggregator {
 
 func (a *Aggregator) Start(ctx context.Context) {
 	// Run immediately on start, then every 10 minutes
-	a.aggregate(ctx)
+	a.Aggregate(ctx)
 
 	go func() {
 		ticker := time.NewTicker(10 * time.Minute)
@@ -36,7 +36,7 @@ func (a *Aggregator) Start(ctx context.Context) {
 			case <-a.stopCh:
 				return
 			case <-ticker.C:
-				a.aggregate(ctx)
+				a.Aggregate(ctx)
 			}
 		}
 	}()
@@ -48,7 +48,7 @@ func (a *Aggregator) Stop() {
 	close(a.stopCh)
 }
 
-func (a *Aggregator) aggregate(ctx context.Context) {
+func (a *Aggregator) Aggregate(ctx context.Context) {
 	now := time.Now()
 	day := now.Format("2006-01-02")
 

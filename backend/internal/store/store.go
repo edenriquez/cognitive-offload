@@ -246,6 +246,17 @@ func (d *DB) CloseSession(ctx context.Context, id string) error {
 	return err
 }
 
+// CloseOldSessions closes all sessions not from the given day.
+func (d *DB) CloseOldSessions(ctx context.Context, today string) (int64, error) {
+	result, err := d.db.ExecContext(ctx,
+		`UPDATE sessions SET status = 'closed', ended_at = ? WHERE day != ? AND status IN ('open', 'stalled')`,
+		time.Now().Unix(), today)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 // ---------- Buckets ----------
 
 func (d *DB) BucketsByDay(ctx context.Context, day string) ([]models.Bucket, error) {

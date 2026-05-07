@@ -107,6 +107,13 @@ func (c *Coordinator) RecordActivity() {
 	}
 }
 
+// RunAggregator triggers an immediate aggregation cycle.
+func (c *Coordinator) RunAggregator(ctx context.Context) {
+	if c.aggregator != nil {
+		c.aggregator.Aggregate(ctx)
+	}
+}
+
 // Status returns the current status of all data sources.
 func (c *Coordinator) Status(ctx context.Context) []SourceStatus {
 	today := time.Now().Format("2006-01-02")
