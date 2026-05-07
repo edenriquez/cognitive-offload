@@ -72,11 +72,15 @@ func (a *Aggregator) Aggregate(ctx context.Context) {
 		}
 
 		// Compute activity density (0-100)
-		// Weight: file saves × 10, sessions × 5, other events × 1
-		weighted := counts.fileSaves*10 + counts.sessions*5 + (counts.total - counts.fileSaves - counts.sessions)
-		activity := int(math.Min(100, float64(weighted)*2))
-		if activity < 1 && counts.total > 0 {
-			activity = 5 // minimum visibility for any activity
+		// In a 10-min window, peak work looks like: 15+ saves, 3+ sessions, 30+ events
+		// Scale each dimension to 0-33, sum to 0-100
+		savesScore := math.Min(33, float64(counts.fileSaves)*2.2) // 15 saves = 33
+		sessScore := math.Min(33, float64(counts.sessions)*11)    // 3 sessions = 33
+		otherCount := counts.total - counts.fileSaves - counts.sessions
+		otherScore := math.Min(34, float64(otherCount)*1.1) // 30 other = 33
+		activity := int(savesScore + sessScore + otherScore)
+		if activity < 3 && counts.total > 0 {
+			activity = 3 // minimum visibility
 		}
 
 		hour := float64(idx*10) / 60.0
