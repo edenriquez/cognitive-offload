@@ -79,7 +79,7 @@ func main() {
 		defer coord.Stop()
 	}
 
-	router := api.NewRouter(db, hub, eng)
+	router := api.NewRouter(db, hub, eng, coord)
 
 	addr := os.Getenv("COGLOAD_ADDR")
 	if addr == "" {

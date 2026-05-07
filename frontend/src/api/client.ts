@@ -128,6 +128,10 @@ export const api = {
   currentSignals: () =>
     request<SignalSnapshot>("GET", "/api/v1/signals/current"),
 
+  // ---------- Sources ----------
+  getSources: () =>
+    request<import("../types").SourceStatus[]>("GET", "/api/v1/sources"),
+
   // ---------- Interventions ----------
   listInterventions: () =>
     request<import("../types").Intervention[]>("GET", "/api/v1/interventions"),

@@ -1041,3 +1041,108 @@
     justify-content: center;
     margin-top: 40px;
 }
+
+/* ============================================================
+   SOURCES MODE
+============================================================ */
+.sources {
+    padding: 60px 48px 80px;
+    min-height: 100%;
+}
+.sources-inner {
+    max-width: 800px;
+    margin: 0 auto;
+}
+.sources-h {
+    font-family: var(--font-tiempos);
+    font-feature-settings: normal;
+    font-weight: 400;
+    font-size: 40px;
+    line-height: 1.1;
+    letter-spacing: -0.6px;
+    color: var(--color-ink);
+    margin-bottom: 6px;
+}
+.sources-sub {
+    font-size: 14px;
+    color: var(--color-overcast);
+    font-weight: 400;
+    letter-spacing: -0.14px;
+    margin-bottom: 40px;
+}
+.sources-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.source-card {
+    border: 1px solid var(--color-stone);
+    border-radius: var(--radius-cards);
+    padding: 18px 22px;
+    background: var(--color-white);
+    box-shadow: var(--shadow-subtle-2);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 6px 20px;
+}
+.source-card.not_found {
+    opacity: 0.6;
+    border-style: dashed;
+}
+.source-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    grid-column: 1 / -1;
+}
+.source-icon {
+    font-size: 18px;
+}
+.source-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--color-ink);
+    letter-spacing: -0.24px;
+    flex: 1;
+}
+.source-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.source-status-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-overcast);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.source-detail {
+    font-size: 13px;
+    color: var(--color-metal);
+    letter-spacing: -0.14px;
+    grid-column: 1;
+}
+.source-events {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+}
+.source-events-count {
+    font-family: var(--font-tiempos);
+    font-feature-settings: normal;
+    font-size: 24px;
+    font-weight: 400;
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+}
+.source-events-label {
+    font-size: 11px;
+    color: var(--color-overcast);
+    letter-spacing: -0.11px;
+}

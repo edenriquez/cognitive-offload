@@ -1,4 +1,10 @@
-export type Mode = "focus" | "today" | "capture" | "review" | "tomorrow";
+export type Mode =
+  | "focus"
+  | "today"
+  | "capture"
+  | "review"
+  | "tomorrow"
+  | "sources";
 
 export interface Task {
   id: string;
@@ -148,4 +154,12 @@ export interface FocusSession {
   ended_at?: string;
   duration_sec: number;
   outcome: string;
+}
+
+export interface SourceStatus {
+  name: string;
+  type: string;
+  status: "active" | "inactive" | "error" | "not_found";
+  detail: string;
+  events_today: number;
 }

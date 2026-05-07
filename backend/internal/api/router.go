@@ -13,12 +13,13 @@ import (
 	"github.com/go-chi/cors"
 
 	"github.com/cogload/backend/internal/engine"
+	"github.com/cogload/backend/internal/ingest"
 	"github.com/cogload/backend/internal/models"
 	"github.com/cogload/backend/internal/store"
 	"github.com/cogload/backend/internal/ws"
 )
 
-func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine) http.Handler {
+func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coordinator) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -33,7 +34,7 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine) http.Handler {
 		MaxAge:           300,
 	}))
 
-	h := &handler{db: db, hub: hub, eng: eng}
+	h := &handler{db: db, hub: hub, eng: eng, coord: coord}
 
 	r.Get("/ws/signals", hub.HandleWS)
 
@@ -83,6 +84,9 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine) http.Handler {
 		// Signals snapshot (HTTP fallback)
 		r.Get("/signals/current", h.currentSignals)
 
+		// Sources
+		r.Get("/sources", h.getSources)
+
 		// Reset
 		r.Post("/reset", h.resetDB)
 	})
@@ -91,9 +95,10 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine) http.Handler {
 }
 
 type handler struct {
-	db  *store.DB
-	hub *ws.Hub
-	eng *engine.Engine
+	db    *store.DB
+	hub   *ws.Hub
+	eng   *engine.Engine
+	coord *ingest.Coordinator
 }
 
 func today() string { return time.Now().Format("2006-01-02") }
@@ -714,6 +719,17 @@ func (h *handler) resetDB(w http.ResponseWriter, r *http.Request) {
 	}
 	slog.Info("database reset via API")
 	writeJSON(w, 200, map[string]string{"status": "reset"})
+}
+
+// ---------- Sources ----------
+
+func (h *handler) getSources(w http.ResponseWriter, r *http.Request) {
+	if h.coord == nil {
+		writeJSON(w, 200, []ingest.SourceStatus{})
+		return
+	}
+	sources := h.coord.Status(r.Context())
+	writeJSON(w, 200, sources)
 }
 
 // Suppress unused import warning

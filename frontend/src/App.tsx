@@ -6,6 +6,7 @@ import TodayMode from "./components/modes/TodayMode";
 import CaptureMode from "./components/modes/CaptureMode";
 import ReviewMode from "./components/modes/ReviewMode";
 import TomorrowMode from "./components/modes/TomorrowMode";
+import SourcesMode from "./components/modes/SourcesMode";
 import { startSignalStream, stopSignalStream } from "./store/ws-client";
 import ErrorBoundary from "./components/shared/ErrorBoundary";
 import { api } from "./api/client";
@@ -18,6 +19,7 @@ const MODES: { id: Mode; label: string }[] = [
   { id: "capture", label: "Capture" },
   { id: "review", label: "Review" },
   { id: "tomorrow", label: "Tomorrow" },
+  { id: "sources", label: "Sources" },
 ];
 
 function suggestedMode(hour: number): Mode {
@@ -81,6 +83,7 @@ export default function App() {
       if (e.key === "3") setMode("capture");
       if (e.key === "4") setMode("review");
       if (e.key === "5") setMode("tomorrow");
+      if (e.key === "6") setMode("sources");
       if (e.key === "Escape") setMode("today");
     };
     window.addEventListener("keydown", onKey);
@@ -208,6 +211,7 @@ export default function App() {
             {mode === "capture" && <CaptureMode />}
             {mode === "review" && <ReviewMode />}
             {mode === "tomorrow" && <TomorrowMode />}
+            {mode === "sources" && <SourcesMode />}
           </ErrorBoundary>
         </div>
       </div>
