@@ -18,6 +18,9 @@ function EnergyMap({
   buckets: Bucket[];
   patterns: Pattern[];
 }) {
+  const [hovered, setHovered] = useState<Bucket | null>(null);
+  const [hoverX, setHoverX] = useState(0);
+
   if (!buckets || buckets.length === 0) {
     return (
       <div className="em">
@@ -37,7 +40,12 @@ function EnergyMap({
     );
   }
 
-  const hours = [7, 9, 11, 13, 15, 17, 19, 21];
+  // Filter to visible range
+  const visible = buckets.filter(
+    (b) => (b.hour ?? 0) >= 7 && (b.hour ?? 0) <= 22,
+  );
+  const barW = 100 / 90; // 90 buckets in 7-22 range (15h * 6 per hour)
+  const hours = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
   const nowH = new Date().getHours() + new Date().getMinutes() / 60;
 
   // Build regions from detected patterns
@@ -55,15 +63,32 @@ function EnergyMap({
           ? parseInt(parts[0]) + parseInt(parts[1]) / 60
           : 0;
       });
-      if (s > 0 && e > s) {
+      if (s > 0 && e > s)
         regions.push({ label: p.kind, start: s, end: e, severity: p.severity });
-      }
     }
   }
 
+  const fmtHour = (h: number) => {
+    const hh = Math.floor(h);
+    const mm = Math.round((h - hh) * 60);
+    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  };
+
   return (
     <div className="em">
+      {/* Y axis */}
+      <div className="em-y">
+        <span>100</span>
+        <span>50</span>
+        <span>0</span>
+      </div>
       <div className="em-area">
+        {/* Grid lines */}
+        <div className="em-grid" style={{ top: "0%" }} />
+        <div className="em-grid" style={{ top: "50%" }} />
+        <div className="em-grid" style={{ top: "100%" }} />
+
+        {/* Pattern regions */}
         {regions.map((r, i) => (
           <div
             key={i}
@@ -80,9 +105,10 @@ function EnergyMap({
             <span className="em-region-label">{r.label}</span>
           </div>
         ))}
-        {buckets.map((b, i) => {
+
+        {/* Activity bars */}
+        {visible.map((b, i) => {
           const h = b.hour ?? 0;
-          if (h < 7 || h > 22) return null;
           const leftPct = ((h - 7) / 15) * 100;
           const activity = b.activity ?? 0;
           if (activity === 0) return null;
@@ -92,23 +118,91 @@ function EnergyMap({
               className={`em-bar ${(b.errors ?? 0) > 0 ? "warn" : activity > 65 ? "peak" : activity > 35 ? "mid" : ""}`}
               style={{
                 left: `${leftPct}%`,
-                height: `${Math.max(activity, 3)}%`,
-                width: `${Math.max(100 / 90, 0.8)}%`,
+                width: `${barW * 0.85}%`,
+                height: `${activity}%`,
+              }}
+              onMouseEnter={(e) => {
+                setHovered(b);
+                const rect =
+                  e.currentTarget.parentElement?.getBoundingClientRect();
+                if (rect) setHoverX(e.clientX - rect.left);
+              }}
+              onMouseLeave={() => setHovered(null)}
+            />
+          );
+        })}
+
+        {/* Error markers */}
+        {visible.map((b, i) => {
+          if ((b.errors ?? 0) <= 0) return null;
+          const h = b.hour ?? 0;
+          const leftPct = ((h - 7) / 15) * 100 + barW * 0.425;
+          return (
+            <span
+              key={`e${i}`}
+              className="em-error-dot"
+              style={{
+                left: `${leftPct}%`,
+                opacity: Math.min(1, (b.errors ?? 0) / 3),
               }}
             />
           );
         })}
+
+        {/* Session dots */}
+        {visible.map((b, i) => {
+          if ((b.sessions ?? 0) <= 0) return null;
+          const h = b.hour ?? 0;
+          const leftPct = ((h - 7) / 15) * 100 + barW * 0.425;
+          return (
+            <span
+              key={`s${i}`}
+              className="em-session-dot"
+              style={{
+                left: `${leftPct}%`,
+                opacity: Math.min(1, (b.sessions ?? 0) / 3),
+              }}
+            />
+          );
+        })}
+
+        {/* Now line */}
         {nowH >= 7 && nowH <= 22 && (
           <span
             className="em-now"
             style={{ left: `${((nowH - 7) / 15) * 100}%` }}
           />
         )}
+
+        {/* Hover tooltip */}
+        {hovered && (
+          <div className="em-tooltip" style={{ left: Math.min(hoverX, 280) }}>
+            <div className="em-tooltip-time">{fmtHour(hovered.hour ?? 0)}</div>
+            <div className="em-tooltip-row">
+              <span>Activity</span>
+              <b>{hovered.activity ?? 0}</b>
+            </div>
+            <div className="em-tooltip-row">
+              <span>File saves</span>
+              <b>{hovered.file_saves ?? 0}</b>
+            </div>
+            <div className="em-tooltip-row">
+              <span>Sessions</span>
+              <b>{hovered.sessions ?? 0}</b>
+            </div>
+            {(hovered.errors ?? 0) > 0 && (
+              <div className="em-tooltip-row warn">
+                <span>Errors</span>
+                <b>{hovered.errors}</b>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <div className="em-x">
         {hours.map((h) => (
           <span key={h} style={{ left: `${((h - 7) / 15) * 100}%` }}>
-            {h.toString().padStart(2, "0")}:00
+            {h.toString().padStart(2, "0")}
           </span>
         ))}
       </div>
@@ -251,7 +345,13 @@ export default function ReviewMode() {
                   <i className="em-legend-bar"></i> low
                 </span>
                 <span>
-                  <i className="em-legend-bar warn"></i> errors
+                  <i className="em-legend-bar warn"></i> error bars
+                </span>
+                <span>
+                  <i className="em-legend-dot error"></i> errors
+                </span>
+                <span>
+                  <i className="em-legend-dot session"></i> sessions
                 </span>
                 <span>
                   <i className="em-legend-now"></i> now
