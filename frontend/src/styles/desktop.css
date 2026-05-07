@@ -366,8 +366,8 @@
     padding: 14px;
     box-shadow: var(--shadow-subtle-2);
     transition:
-        transform 0.3s var(--ease),
-        opacity 0.25s var(--ease);
+        transform 0.15s var(--ease),
+        opacity 0.12s var(--ease);
     user-select: none;
     opacity: 0;
 }
