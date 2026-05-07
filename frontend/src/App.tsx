@@ -122,28 +122,90 @@ export default function App() {
     .toString()
     .padStart(2, "0");
 
-  // Hover-to-switch nav — 80ms is fast but prevents accidental flickers
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Liquid nav blob — tracks active button position with spring physics
+  const pillsRef = useRef<HTMLDivElement>(null);
+  const blobRef = useRef<HTMLDivElement>(null);
+  const blobPos = useRef({ x: 0, w: 0, targetX: 0, targetW: 0, velocity: 0 });
+  const rafRef = useRef<number>(0);
   const [transitioning, setTransitioning] = useState(false);
-  const handleNavHover = useCallback(
-    (id: Mode) => {
-      if (hoverTimer.current) clearTimeout(hoverTimer.current);
-      hoverTimer.current = setTimeout(() => {
-        setTransitioning(true);
-        setTimeout(() => {
-          setMode(id);
-          setTransitioning(false);
-        }, 120); // fade out duration
-      }, 80);
-    },
-    [setMode],
-  );
-  const handleNavLeave = useCallback(() => {
-    if (hoverTimer.current) {
-      clearTimeout(hoverTimer.current);
-      hoverTimer.current = null;
+
+  const updateBlob = useCallback((el: HTMLElement, instant?: boolean) => {
+    const pills = pillsRef.current;
+    if (!pills || !blobRef.current) return;
+    const pillsRect = pills.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
+    const x = rect.left - pillsRect.left;
+    const w = rect.width;
+
+    if (instant) {
+      blobPos.current = { x, w, targetX: x, targetW: w, velocity: 0 };
+      blobRef.current.style.transform = `translateX(${x}px)`;
+      blobRef.current.style.width = `${w}px`;
+      return;
     }
+
+    const prev = blobPos.current;
+    prev.velocity = Math.abs(x - prev.targetX);
+    prev.targetX = x;
+    prev.targetW = w;
+
+    // Animate with spring
+    const animate = () => {
+      const p = blobPos.current;
+      const dx = p.targetX - p.x;
+      const dw = p.targetW - p.w;
+
+      // Spring constant — fast convergence
+      p.x += dx * 0.25;
+      p.w += dw * 0.2;
+      p.velocity *= 0.85;
+
+      // Distortion: stretch horizontally based on velocity
+      const stretch = Math.min(p.velocity * 0.4, 20);
+      const scaleX = 1 + stretch / Math.max(p.w, 1);
+      const scaleY = 1 / (0.7 + 0.3 * scaleX); // squish vertically to conserve volume
+
+      if (blobRef.current) {
+        blobRef.current.style.transform = `translateX(${p.x}px) scaleX(${scaleX.toFixed(3)}) scaleY(${scaleY.toFixed(3)})`;
+        blobRef.current.style.width = `${p.w}px`;
+      }
+
+      if (Math.abs(dx) > 0.3 || Math.abs(dw) > 0.3 || p.velocity > 0.5) {
+        rafRef.current = requestAnimationFrame(animate);
+      } else {
+        // Snap to final position
+        if (blobRef.current) {
+          blobRef.current.style.transform = `translateX(${p.targetX}px)`;
+          blobRef.current.style.width = `${p.targetW}px`;
+        }
+        p.x = p.targetX;
+        p.w = p.targetW;
+        p.velocity = 0;
+      }
+    };
+
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(animate);
   }, []);
+
+  // Position blob on mount and when mode changes
+  useEffect(() => {
+    const pills = pillsRef.current;
+    if (!pills) return;
+    const activeBtn = pills.querySelector("button.on") as HTMLElement;
+    if (activeBtn) updateBlob(activeBtn, true);
+  }, [mode, updateBlob]);
+
+  const handleNavHover = useCallback(
+    (id: Mode, e: React.MouseEvent<HTMLButtonElement>) => {
+      setTransitioning(true);
+      updateBlob(e.currentTarget);
+      // Switch mode instantly — the blob animation IS the transition
+      setMode(id);
+      setTimeout(() => setTransitioning(false), 80);
+    },
+    [setMode, updateBlob],
+  );
 
   return (
     <div className="app-shell">
@@ -152,13 +214,14 @@ export default function App() {
         <div className="nav-brand">
           <i>c</i>Cogload
         </div>
-        <div className="nav-pills" onMouseLeave={handleNavLeave}>
+        <div className="nav-pills" ref={pillsRef}>
+          <div className="nav-blob" ref={blobRef} />
           {MODES.map((m) => (
             <button
               key={m.id}
               className={mode === m.id ? "on" : ""}
               onClick={() => setMode(m.id)}
-              onMouseEnter={() => handleNavHover(m.id)}
+              onMouseEnter={(e) => handleNavHover(m.id, e)}
             >
               {m.label}
             </button>
