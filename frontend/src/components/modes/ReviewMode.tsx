@@ -20,6 +20,22 @@ function EnergyMap({
 }) {
   const [hovered, setHovered] = useState<Bucket | null>(null);
   const [hoverX, setHoverX] = useState(0);
+  const [activeRegion, setActiveRegion] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
+  const [cfg, setCfg] = useState<{
+    cutoff_hour: number;
+    lunch_start: number;
+    lunch_end: number;
+  } | null>(null);
+
+  useEffect(() => {
+    api
+      .getConfig()
+      .then((c) => setCfg(c))
+      .catch(() => {});
+  }, []);
 
   if (!buckets || buckets.length === 0) {
     return (
@@ -36,11 +52,14 @@ function EnergyMap({
   const w = 100 / visible.length;
   const nowH = new Date().getHours() + new Date().getMinutes() / 60;
 
-  // Static annotated regions (always shown, like v8)
+  // Static regions from config (adjustable)
+  const lunchStart = cfg?.lunch_start ?? 12.5;
+  const lunchEnd = cfg?.lunch_end ?? 13.5;
+  const cutoff = cfg?.cutoff_hour ?? 16.5;
   const staticRegions = [
-    { label: "lunch · black hole", start: 12.5, end: 13.5 },
-    { label: "post-lunch dip", start: 13.5, end: 14.5 },
-    { label: "past cutoff", start: 16.5, end: 18 },
+    { label: "lunch", start: lunchStart, end: lunchEnd },
+    { label: "post-lunch dip", start: lunchEnd, end: lunchEnd + 1 },
+    { label: "past cutoff", start: cutoff, end: cutoff + 1.5 },
   ];
 
   // Dynamic regions from detected patterns
@@ -78,25 +97,29 @@ function EnergyMap({
         {staticRegions.map((r, i) => (
           <div
             key={`s${i}`}
-            className="em-region"
+            className={`em-region ${activeRegion?.start === r.start ? "em-region-active" : ""}`}
             style={{
               left: `${((r.start - 7) / 15) * 100}%`,
               width: `${((r.end - r.start) / 15) * 100}%`,
             }}
+            onMouseEnter={() => setActiveRegion({ start: r.start, end: r.end })}
+            onMouseLeave={() => setActiveRegion(null)}
           >
             <span className="em-region-label">{r.label}</span>
           </div>
         ))}
 
-        {/* Dynamic pattern regions (highlighted) */}
+        {/* Dynamic pattern regions */}
         {patternRegions.map((r, i) => (
           <div
             key={`p${i}`}
-            className={`em-region ${r.high ? "em-region-high" : ""}`}
+            className={`em-region ${r.high ? "em-region-high" : ""} ${activeRegion?.start === r.start ? "em-region-active" : ""}`}
             style={{
               left: `${((r.start - 7) / 15) * 100}%`,
               width: `${((r.end - r.start) / 15) * 100}%`,
             }}
+            onMouseEnter={() => setActiveRegion({ start: r.start, end: r.end })}
+            onMouseLeave={() => setActiveRegion(null)}
           >
             <span
               className={`em-region-label ${r.high ? "em-region-label-high" : ""}`}
@@ -105,6 +128,26 @@ function EnergyMap({
             </span>
           </div>
         ))}
+
+        {/* Dim overlay when region is hovered */}
+        {activeRegion && (
+          <>
+            <div
+              className="em-dim"
+              style={{
+                left: 0,
+                width: `${((activeRegion.start - 7) / 15) * 100}%`,
+              }}
+            />
+            <div
+              className="em-dim"
+              style={{
+                left: `${((activeRegion.end - 7) / 15) * 100}%`,
+                right: 0,
+              }}
+            />
+          </>
+        )}
 
         {/* Bars */}
         {visible.map((b, i) => {
@@ -116,7 +159,16 @@ function EnergyMap({
             <span
               key={i}
               className={`em-bar ${cls}`}
-              style={{ left: `${i * w + w / 2}%`, height: `${activity}%` }}
+              style={{
+                left: `${i * w + w / 2}%`,
+                height: `${activity}%`,
+                opacity: activeRegion
+                  ? (b.hour ?? 0) >= activeRegion.start &&
+                    (b.hour ?? 0) < activeRegion.end
+                    ? 1
+                    : 0.15
+                  : undefined,
+              }}
               onMouseEnter={(e) => {
                 setHovered(b);
                 const rect =

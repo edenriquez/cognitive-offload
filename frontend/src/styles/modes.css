@@ -844,6 +844,15 @@
 .em-bar.warn:hover {
     background: #5a1a19;
 }
+.em-region:hover {
+    background: rgba(119, 35, 34, 0.08);
+    cursor: pointer;
+}
+.em-region-active {
+    background: rgba(119, 35, 34, 0.12) !important;
+    border-color: rgba(119, 35, 34, 0.5) !important;
+    z-index: 2;
+}
 .em-region-high {
     background: rgba(119, 35, 34, 0.1) !important;
     border-color: rgba(119, 35, 34, 0.4) !important;
@@ -851,6 +860,15 @@
 .em-region-label-high {
     color: var(--color-danger-red) !important;
     font-weight: 600;
+}
+.em-dim {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.7);
+    pointer-events: none;
+    z-index: 1;
+    transition: opacity 0.15s var(--ease);
 }
 .em-x {
     position: relative;

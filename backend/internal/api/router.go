@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
+	"github.com/cogload/backend/internal/config"
 	"github.com/cogload/backend/internal/engine"
 	"github.com/cogload/backend/internal/ingest"
 	"github.com/cogload/backend/internal/models"
@@ -89,7 +90,9 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 		// Sources
 		r.Get("/sources", h.getSources)
 
-		// Reset
+		// Config
+		r.Get("/config", h.getConfig)
+		r.Put("/config", h.updateConfig)
 
 		r.Post("/sessions/cleanup", h.cleanupSessions)
 	})
@@ -799,6 +802,38 @@ func (h *handler) getSources(w http.ResponseWriter, r *http.Request) {
 	}
 	sources := h.coord.Status(r.Context())
 	writeJSON(w, 200, sources)
+}
+
+func (h *handler) getConfig(w http.ResponseWriter, r *http.Request) {
+	cfg := config.Load()
+	writeJSON(w, 200, cfg)
+}
+
+func (h *handler) updateConfig(w http.ResponseWriter, r *http.Request) {
+	var updates config.Config
+	if err := readJSON(r, &updates); err != nil {
+		http.Error(w, "bad request", 400)
+		return
+	}
+	cfg := config.Load()
+	if updates.CutoffHour > 0 {
+		cfg.CutoffHour = updates.CutoffHour
+	}
+	if updates.LunchStart > 0 {
+		cfg.LunchStart = updates.LunchStart
+	}
+	if updates.LunchEnd > 0 {
+		cfg.LunchEnd = updates.LunchEnd
+	}
+	if updates.ThreadCap > 0 {
+		cfg.ThreadCap = updates.ThreadCap
+	}
+	if len(updates.WatchPaths) > 0 {
+		cfg.WatchPaths = updates.WatchPaths
+	}
+	config.Save(cfg)
+	slog.Info("config updated", "cutoff", cfg.CutoffHour, "lunch", cfg.LunchStart, "thread_cap", cfg.ThreadCap)
+	writeJSON(w, 200, cfg)
 }
 
 func (h *handler) cleanupSessions(w http.ResponseWriter, r *http.Request) {

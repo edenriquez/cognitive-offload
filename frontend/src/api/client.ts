@@ -141,6 +141,18 @@ export const api = {
   getSources: () =>
     request<import("../types").SourceStatus[]>("GET", "/api/v1/sources"),
 
+  // ---------- Config ----------
+  getConfig: () =>
+    request<{
+      cutoff_hour: number;
+      lunch_start: number;
+      lunch_end: number;
+      thread_cap: number;
+    }>("GET", "/api/v1/config"),
+
+  updateConfig: (updates: Record<string, unknown>) =>
+    request<Record<string, unknown>>("PUT", "/api/v1/config", updates),
+
   // ---------- Interventions ----------
   listInterventions: () =>
     request<import("../types").Intervention[]>("GET", "/api/v1/interventions"),
