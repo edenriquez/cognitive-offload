@@ -116,7 +116,7 @@ export default function SelfReport() {
     if (selfReportOpen) return;
     hoverTimerRef.current = setTimeout(() => {
       setSelfReportOpen(true);
-    }, 1500);
+    }, 750);
   }, [selfReportOpen, setSelfReportOpen]);
 
   const onEdgeLeave = useCallback(() => {

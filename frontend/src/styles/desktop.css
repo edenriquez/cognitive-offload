@@ -313,16 +313,17 @@
     pointer-events: auto;
 }
 
-/* Invisible hover zone — extends the hit area along the right edge */
+/* Invisible hover zone — 1.8× square around the handle for easier detection */
 .sr-edge-zone {
-    position: fixed;
+    position: absolute;
+    top: 50%;
     right: 0;
-    top: 30%;
-    width: 28px;
-    height: 40%;
+    width: 43px; /* 24 × 1.8 */
+    height: 79px; /* 44 × 1.8 */
+    transform: translateY(-50%);
     pointer-events: auto;
     cursor: default;
-    z-index: 1;
+    z-index: 0;
 }
 
 /* Handle — flush with right edge (only child in normal flow) */
