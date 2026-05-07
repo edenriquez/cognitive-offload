@@ -445,14 +445,31 @@ func (h *handler) getReview(w http.ResponseWriter, r *http.Request) {
 	day := chi.URLParam(r, "day")
 	ctx := r.Context()
 
+	// Detect patterns from real data
+	patterns, _ := engine.DetectPatterns(ctx, h.db, day)
+	if patterns == nil {
+		patterns = []models.Pattern{}
+	}
+
+	// Compute energy leaks from buckets
+	leaks := engine.ComputeLeaks(ctx, h.db, day)
+	if leaks == nil {
+		leaks = []models.Leak{}
+	}
+
+	// Infer root causes from patterns
+	rootCauses := engine.InferRootCauses(ctx, h.db, day)
+	if rootCauses == nil {
+		rootCauses = []models.RootCause{}
+	}
+
+	// Compute daily summary from real data
+	summary := engine.ComputeDaySummary(ctx, h.db, day)
+
+	// Get raw data for display
 	buckets, _ := h.db.BucketsByDay(ctx, day)
 	if buckets == nil {
 		buckets = []models.Bucket{}
-	}
-
-	patterns, _ := h.db.PatternsByDay(ctx, day)
-	if patterns == nil {
-		patterns = []models.Pattern{}
 	}
 
 	sessions, _ := h.db.SessionsByDay(ctx, day)
@@ -460,34 +477,8 @@ func (h *handler) getReview(w http.ResponseWriter, r *http.Request) {
 		sessions = []models.Session{}
 	}
 
-	openLoops := 0
-	for _, s := range sessions {
-		if s.Status != "closed" {
-			openLoops++
-		}
-	}
-
-	leaks := []models.Leak{
-		{Time: "13:30–14:30", Cost: "−1h 04m", Cause: "Post-lunch crash", Fix: "Move deep block to 11:00"},
-		{Time: "14:30–15:00", Cost: "−27m", Cause: "Session thrashing", Fix: "Cap at 1 active thread"},
-		{Time: "14:38–14:42", Cost: "−4m × 5", Cause: "Cold-start errors", Fix: "Pre-flight checklist"},
-		{Time: "17:15–18:30", Cost: "quality", Cause: "Fatigue work", Fix: "Hard stop at 16:30"},
-	}
-
-	rootCauses := []models.RootCause{
-		{Signal: "7 sessions / 30m", Cause: "No active-thread cap → context-switch tax", Confidence: 92},
-		{Signal: "−62% post-lunch dip", Cause: "Heavy lunch + immediate cognitive load", Confidence: 78},
-		{Signal: "+180% error spike", Cause: "Working past cutoff under fatigue", Confidence: 88},
-		{Signal: "3 open threads", Cause: "No close-or-archive enforcement", Confidence: 85},
-	}
-
 	review := models.ReviewSummary{
-		Summary: models.DaySummary{
-			DeepWorkMin:   227,
-			LeakedMin:     95,
-			OpenLoops:     openLoops,
-			SessionsCount: len(sessions),
-		},
+		Summary:    summary,
 		EnergyMap:  buckets,
 		Patterns:   patterns,
 		Leaks:      leaks,
