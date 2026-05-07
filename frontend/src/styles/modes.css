@@ -1097,7 +1097,18 @@
     grid-column: 1 / -1;
 }
 .source-icon {
-    font-size: 18px;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    color: var(--color-metal);
+    background: var(--color-ash);
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+.source-card.active .source-icon {
+    color: var(--color-ink);
+    background: var(--color-stone);
 }
 .source-name {
     font-size: 15px;
