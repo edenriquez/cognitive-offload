@@ -72,10 +72,11 @@ func (a *Aggregator) Aggregate(ctx context.Context) {
 		}
 
 		// Compute activity density (0-100)
-		// Scale: 0 events = 0, 1-5 = low (10-30), 6-20 = medium (30-70), 20+ = high (70-100)
-		activity := int(math.Min(100, float64(counts.total)*4))
-		if activity > 100 {
-			activity = 100
+		// Weight: file saves × 10, sessions × 5, other events × 1
+		weighted := counts.fileSaves*10 + counts.sessions*5 + (counts.total - counts.fileSaves - counts.sessions)
+		activity := int(math.Min(100, float64(weighted)*2))
+		if activity < 1 && counts.total > 0 {
+			activity = 5 // minimum visibility for any activity
 		}
 
 		hour := float64(idx*10) / 60.0
@@ -122,9 +123,10 @@ func (a *Aggregator) countEventsInWindow(ctx context.Context, day string, start,
 			c.fileSaves += count
 		case "error":
 			c.errors += count
-		case "session_start", "prompt", "zed_thread_start", "zed_thread_update",
-			"claude_user_msg", "claude_assistant_msg", "claude_tool_use":
+		case "session_start", "zed_thread_start":
 			c.sessions += count
+		case "prompt":
+			c.sessions++ // count as 1 session touch, not per-prompt
 		}
 	}
 

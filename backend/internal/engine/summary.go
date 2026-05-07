@@ -27,12 +27,13 @@ func ComputeDaySummary(ctx context.Context, db *store.DB, day string) models.Day
 		}
 		totalWorkMin += 10 // each bucket = 10 min
 
-		if b.Activity > 10 {
+		if b.Activity > 5 {
 			totalActiveMin += 10
 		}
 
-		// Deep work = high activity + low errors + low session switching
-		if b.Activity >= 50 && b.Errors <= 1 && b.Sessions <= 1 {
+		// Deep work = meaningful activity + low errors + not excessive context switching
+		// Sessions here = new threads started, not message count
+		if b.Activity >= 30 && b.Errors <= 2 && b.Sessions <= 5 {
 			deepWorkMin += 10
 		}
 	}

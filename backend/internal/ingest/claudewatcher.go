@@ -65,6 +65,8 @@ func (c *ClaudeWatcher) tailFile(ctx context.Context) error {
 	// Backfill: scan entire file for today's entries
 	today := time.Now().Format("2006-01-02")
 	backfilled := 0
+	seenSessions := make(map[string]bool)
+	var lastSessionID string
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 256*1024), 256*1024)
 	for scanner.Scan() {
@@ -82,12 +84,24 @@ func (c *ClaudeWatcher) tailFile(ctx context.Context) error {
 		// Only backfill today's entries
 		ts := time.UnixMilli(entry.Timestamp)
 		if ts.Format("2006-01-02") == today {
+			// Close previous session when a new one starts
+			if lastSessionID != "" && entry.SessionID != lastSessionID {
+				c.db.CloseSession(ctx, lastSessionID)
+			}
+			lastSessionID = entry.SessionID
+			seenSessions[entry.SessionID] = true
 			c.processEntry(ctx, entry)
 			backfilled++
 		}
 	}
+	// Close all sessions except the most recent one
+	for sid := range seenSessions {
+		if sid != lastSessionID {
+			c.db.CloseSession(ctx, sid)
+		}
+	}
 	if backfilled > 0 {
-		slog.Info("claude watcher backfilled today's history", "entries", backfilled)
+		slog.Info("claude watcher backfilled today's history", "entries", backfilled, "sessions", len(seenSessions))
 	}
 
 	// Now tail for new entries
