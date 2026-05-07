@@ -89,7 +89,7 @@ function EnergyMap({
           return (
             <span
               key={i}
-              className={`em-bar ${activity > 65 ? "peak" : (b.errors ?? 0) > 0 ? "warn" : ""}`}
+              className={`em-bar ${(b.errors ?? 0) > 0 ? "warn" : activity > 65 ? "peak" : activity > 35 ? "mid" : ""}`}
               style={{
                 left: `${leftPct}%`,
                 height: `${Math.max(activity, 3)}%`,
@@ -245,7 +245,10 @@ export default function ReviewMode() {
                   <i className="em-legend-bar peak"></i> peak
                 </span>
                 <span>
-                  <i className="em-legend-bar"></i> active
+                  <i className="em-legend-bar mid"></i> active
+                </span>
+                <span>
+                  <i className="em-legend-bar"></i> low
                 </span>
                 <span>
                   <i className="em-legend-bar warn"></i> errors
