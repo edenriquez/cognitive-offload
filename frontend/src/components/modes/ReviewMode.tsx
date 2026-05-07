@@ -10,7 +10,7 @@ import type {
   Session,
 } from "../../types";
 
-// ---------- Energy Map ----------
+// ---------- Energy Map (matches v8 design) ----------
 function EnergyMap({
   buckets,
   patterns,
@@ -24,39 +24,34 @@ function EnergyMap({
   if (!buckets || buckets.length === 0) {
     return (
       <div className="em">
-        <div
-          className="em-area"
-          style={{
-            color: "var(--color-overcast)",
-            display: "grid",
-            placeItems: "center",
-            fontSize: 13,
-          }}
-        >
-          No energy data yet — work for a bit and check back
-        </div>
+        <div className="em-area em-empty">No energy data yet</div>
         <div className="em-x"></div>
       </div>
     );
   }
 
-  // Filter to visible range
   const visible = buckets.filter(
     (b) => (b.hour ?? 0) >= 7 && (b.hour ?? 0) <= 22,
   );
-  const barW = 100 / 90; // 90 buckets in 7-22 range (15h * 6 per hour)
-  const hours = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
+  const w = 100 / visible.length;
   const nowH = new Date().getHours() + new Date().getMinutes() / 60;
 
-  // Build regions from detected patterns
-  const regions: {
+  // Static annotated regions (always shown, like v8)
+  const staticRegions = [
+    { label: "lunch · black hole", start: 12.5, end: 13.5 },
+    { label: "post-lunch dip", start: 13.5, end: 14.5 },
+    { label: "past cutoff", start: 16.5, end: 18 },
+  ];
+
+  // Dynamic regions from detected patterns
+  const patternRegions: {
     label: string;
     start: number;
     end: number;
-    severity: string;
+    high: boolean;
   }[] = [];
   for (const p of patterns ?? []) {
-    if (p.window && p.window.includes("–")) {
+    if (p.window?.includes("–")) {
       const [s, e] = p.window.split("–").map((t) => {
         const parts = t.trim().split(":");
         return parts.length === 2
@@ -64,63 +59,64 @@ function EnergyMap({
           : 0;
       });
       if (s > 0 && e > s)
-        regions.push({ label: p.kind, start: s, end: e, severity: p.severity });
+        patternRegions.push({
+          label: p.kind,
+          start: s,
+          end: e,
+          high: p.severity === "high",
+        });
     }
   }
 
-  const fmtHour = (h: number) => {
-    const hh = Math.floor(h);
-    const mm = Math.round((h - hh) * 60);
-    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-  };
+  const fmtH = (h: number) =>
+    `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
 
   return (
     <div className="em">
-      {/* Y axis */}
-      <div className="em-y">
-        <span>100</span>
-        <span>50</span>
-        <span>0</span>
-      </div>
       <div className="em-area">
-        {/* Grid lines */}
-        <div className="em-grid" style={{ top: "0%" }} />
-        <div className="em-grid" style={{ top: "50%" }} />
-        <div className="em-grid" style={{ top: "100%" }} />
-
-        {/* Pattern regions */}
-        {regions.map((r, i) => (
+        {/* Static annotation regions */}
+        {staticRegions.map((r, i) => (
           <div
-            key={i}
+            key={`s${i}`}
             className="em-region"
             style={{
               left: `${((r.start - 7) / 15) * 100}%`,
               width: `${((r.end - r.start) / 15) * 100}%`,
-              background:
-                r.severity === "high"
-                  ? "rgba(119,35,34,0.08)"
-                  : "rgba(119,35,34,0.04)",
             }}
           >
             <span className="em-region-label">{r.label}</span>
           </div>
         ))}
 
-        {/* Activity bars */}
+        {/* Dynamic pattern regions (highlighted) */}
+        {patternRegions.map((r, i) => (
+          <div
+            key={`p${i}`}
+            className={`em-region ${r.high ? "em-region-high" : ""}`}
+            style={{
+              left: `${((r.start - 7) / 15) * 100}%`,
+              width: `${((r.end - r.start) / 15) * 100}%`,
+            }}
+          >
+            <span
+              className={`em-region-label ${r.high ? "em-region-label-high" : ""}`}
+            >
+              {r.label}
+            </span>
+          </div>
+        ))}
+
+        {/* Bars */}
         {visible.map((b, i) => {
-          const h = b.hour ?? 0;
-          const leftPct = ((h - 7) / 15) * 100;
           const activity = b.activity ?? 0;
           if (activity === 0) return null;
+          const cls =
+            (b.errors ?? 0) > 0 ? "warn" : activity > 65 ? "peak" : "";
           return (
             <span
               key={i}
-              className={`em-bar ${(b.errors ?? 0) > 0 ? "warn" : activity > 65 ? "peak" : activity > 35 ? "mid" : ""}`}
-              style={{
-                left: `${leftPct}%`,
-                width: `${barW * 0.85}%`,
-                height: `${activity}%`,
-              }}
+              className={`em-bar ${cls}`}
+              style={{ left: `${i * w + w / 2}%`, height: `${activity}%` }}
               onMouseEnter={(e) => {
                 setHovered(b);
                 const rect =
@@ -132,41 +128,7 @@ function EnergyMap({
           );
         })}
 
-        {/* Error markers */}
-        {visible.map((b, i) => {
-          if ((b.errors ?? 0) <= 0) return null;
-          const h = b.hour ?? 0;
-          const leftPct = ((h - 7) / 15) * 100 + barW * 0.425;
-          return (
-            <span
-              key={`e${i}`}
-              className="em-error-dot"
-              style={{
-                left: `${leftPct}%`,
-                opacity: Math.min(1, (b.errors ?? 0) / 3),
-              }}
-            />
-          );
-        })}
-
-        {/* Session dots */}
-        {visible.map((b, i) => {
-          if ((b.sessions ?? 0) <= 0) return null;
-          const h = b.hour ?? 0;
-          const leftPct = ((h - 7) / 15) * 100 + barW * 0.425;
-          return (
-            <span
-              key={`s${i}`}
-              className="em-session-dot"
-              style={{
-                left: `${leftPct}%`,
-                opacity: Math.min(1, (b.sessions ?? 0) / 3),
-              }}
-            />
-          );
-        })}
-
-        {/* Now line */}
+        {/* NOW line */}
         {nowH >= 7 && nowH <= 22 && (
           <span
             className="em-now"
@@ -174,16 +136,19 @@ function EnergyMap({
           />
         )}
 
-        {/* Hover tooltip */}
+        {/* Tooltip */}
         {hovered && (
-          <div className="em-tooltip" style={{ left: Math.min(hoverX, 280) }}>
-            <div className="em-tooltip-time">{fmtHour(hovered.hour ?? 0)}</div>
+          <div
+            className="em-tooltip"
+            style={{ left: Math.min(Math.max(hoverX, 60), 300) }}
+          >
+            <div className="em-tooltip-time">{fmtH(hovered.hour ?? 0)}</div>
             <div className="em-tooltip-row">
               <span>Activity</span>
               <b>{hovered.activity ?? 0}</b>
             </div>
             <div className="em-tooltip-row">
-              <span>File saves</span>
+              <span>Saves</span>
               <b>{hovered.file_saves ?? 0}</b>
             </div>
             <div className="em-tooltip-row">
@@ -200,9 +165,9 @@ function EnergyMap({
         )}
       </div>
       <div className="em-x">
-        {hours.map((h) => (
+        {[7, 9, 11, 13, 15, 17, 19, 21].map((h) => (
           <span key={h} style={{ left: `${((h - 7) / 15) * 100}%` }}>
-            {h.toString().padStart(2, "0")}
+            {h.toString().padStart(2, "0")}:00
           </span>
         ))}
       </div>
@@ -336,22 +301,13 @@ export default function ReviewMode() {
             {energy_map.length > 0 && (
               <div className="em-legend">
                 <span>
-                  <i className="em-legend-bar peak"></i> peak
+                  <i className="em-legend-bar peak"></i> peak activity
                 </span>
                 <span>
-                  <i className="em-legend-bar mid"></i> active
+                  <i className="em-legend-bar"></i> normal
                 </span>
                 <span>
-                  <i className="em-legend-bar"></i> low
-                </span>
-                <span>
-                  <i className="em-legend-bar warn"></i> error bars
-                </span>
-                <span>
-                  <i className="em-legend-dot error"></i> errors
-                </span>
-                <span>
-                  <i className="em-legend-dot session"></i> sessions
+                  <i className="em-legend-bar warn"></i> errors
                 </span>
                 <span>
                   <i className="em-legend-now"></i> now
