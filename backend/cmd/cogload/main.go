@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"flag"
+
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -24,9 +24,6 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
-	reset := flag.Bool("reset", false, "Delete all data and start fresh")
-	flag.Parse()
-
 	dbPath := os.Getenv("COGLOAD_DB")
 	if dbPath == "" {
 		home, _ := os.UserHomeDir()
@@ -36,14 +33,6 @@ func main() {
 	if err := os.MkdirAll(dbPath[:len(dbPath)-len("/cogload.db")], 0755); err != nil {
 		slog.Error("failed to create data directory", "error", err)
 		os.Exit(1)
-	}
-
-	if *reset {
-		slog.Info("resetting database", "path", dbPath)
-		os.Remove(dbPath)
-		os.Remove(dbPath + "-wal")
-		os.Remove(dbPath + "-shm")
-		slog.Info("database reset complete")
 	}
 
 	db, err := store.Open(dbPath)

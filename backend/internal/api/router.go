@@ -90,7 +90,7 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 		r.Get("/sources", h.getSources)
 
 		// Reset
-		r.Post("/reset", h.resetDB)
+
 		r.Post("/sessions/cleanup", h.cleanupSessions)
 	})
 
@@ -788,19 +788,6 @@ func (h *handler) ingestEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]int{"ingested": len(req.Events)})
-}
-
-// ---------- Reset ----------
-
-func (h *handler) resetDB(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	if err := h.db.ResetAll(ctx); err != nil {
-		slog.Error("reset failed", "error", err)
-		http.Error(w, "internal error", 500)
-		return
-	}
-	slog.Info("database reset via API")
-	writeJSON(w, 200, map[string]string{"status": "reset"})
 }
 
 // ---------- Sources ----------
