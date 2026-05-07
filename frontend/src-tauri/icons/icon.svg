@@ -2,161 +2,141 @@
   <defs>
     <!-- Background -->
     <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024">
-      <stop offset="0%" stop-color="#0c0c10"/>
-      <stop offset="100%" stop-color="#101018"/>
+      <stop offset="0%" stop-color="#08080c"/>
+      <stop offset="100%" stop-color="#0e0e16"/>
     </linearGradient>
 
-    <!-- Core glow -->
-    <radialGradient id="core-glow" cx="512" cy="512" r="180" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#fff8f0" stop-opacity="0.4"/>
-      <stop offset="40%" stop-color="#e8a87c" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="#e8a87c" stop-opacity="0"/>
+    <!-- Corona outer glow — wide warm bloom -->
+    <radialGradient id="corona-outer" cx="512" cy="512" r="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#d4956a" stop-opacity="0"/>
+      <stop offset="55%" stop-color="#c4804a" stop-opacity="0.06"/>
+      <stop offset="75%" stop-color="#d4956a" stop-opacity="0.18"/>
+      <stop offset="85%" stop-color="#e8b080" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#e8b080" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- Tendril gradients — warm center to cool tips -->
-    <linearGradient id="t1" x1="512" y1="512" x2="512" y2="160" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#e8a87c"/><stop offset="50%" stop-color="#c77dba"/>
-      <stop offset="100%" stop-color="#6b8cce"/>
-    </linearGradient>
-    <linearGradient id="t2" x1="512" y1="512" x2="820" y2="250" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#e8a87c"/><stop offset="50%" stop-color="#d4789b"/>
-      <stop offset="100%" stop-color="#7b8fd0"/>
-    </linearGradient>
-    <linearGradient id="t3" x1="512" y1="512" x2="860" y2="580" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#e8a87c"/><stop offset="50%" stop-color="#c47db8"/>
-      <stop offset="100%" stop-color="#6898c4"/>
-    </linearGradient>
-    <linearGradient id="t4" x1="512" y1="512" x2="700" y2="850" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#e8a87c"/><stop offset="50%" stop-color="#b880be"/>
-      <stop offset="100%" stop-color="#6b8cce"/>
-    </linearGradient>
-    <linearGradient id="t5" x1="512" y1="512" x2="280" y2="800" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#e8a87c"/><stop offset="50%" stop-color="#d07ca0"/>
-      <stop offset="100%" stop-color="#7c94d2"/>
-    </linearGradient>
-    <linearGradient id="t6" x1="512" y1="512" x2="160" y2="520" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#e8a87c"/><stop offset="50%" stop-color="#c882b6"/>
-      <stop offset="100%" stop-color="#6d90cc"/>
-    </linearGradient>
-    <linearGradient id="t7" x1="512" y1="512" x2="240" y2="260" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#e8a87c"/><stop offset="50%" stop-color="#bc80b8"/>
-      <stop offset="100%" stop-color="#758ec8"/>
-    </linearGradient>
+    <!-- Corona ring — the bright edge -->
+    <radialGradient id="corona-ring" cx="512" cy="512" r="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="72%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="80%" stop-color="#e8a060" stop-opacity="0.5"/>
+      <stop offset="86%" stop-color="#f0c888" stop-opacity="0.9"/>
+      <stop offset="90%" stop-color="#fff0d8" stop-opacity="1"/>
+      <stop offset="94%" stop-color="#f0c888" stop-opacity="0.85"/>
+      <stop offset="98%" stop-color="#d08850" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#c07840" stop-opacity="0"/>
+    </radialGradient>
 
-    <!-- Synapse node glow -->
-    <radialGradient id="node-glow">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
-      <stop offset="50%" stop-color="#e8c8a0" stop-opacity="0.4"/>
-      <stop offset="100%" stop-color="#e8a87c" stop-opacity="0"/>
+    <!-- Inner shadow — the dark disk -->
+    <radialGradient id="disk" cx="512" cy="512" r="175" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#08080c"/>
+      <stop offset="85%" stop-color="#08080c"/>
+      <stop offset="100%" stop-color="#08080c" stop-opacity="0.95"/>
+    </radialGradient>
+
+    <!-- Diamond ring flare — the bright point -->
+    <radialGradient id="flare" cx="385" cy="385" r="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="20%" stop-color="#fff8e8" stop-opacity="0.8"/>
+      <stop offset="50%" stop-color="#f0d0a0" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#e8b070" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Soft rays -->
+    <radialGradient id="rays" cx="512" cy="512" r="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#e8a870" stop-opacity="0"/>
+      <stop offset="60%" stop-color="#e8a870" stop-opacity="0"/>
+      <stop offset="80%" stop-color="#d09060" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#c08050" stop-opacity="0"/>
     </radialGradient>
   </defs>
 
   <!-- Background -->
   <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
 
-  <!-- Very faint ambient warmth at center -->
-  <circle cx="512" cy="512" r="320" fill="url(#core-glow)"/>
-
-  <!-- === Dendrite tendrils — organic curves radiating from center === -->
-  <g fill="none" stroke-linecap="round">
-
-    <!-- Tendril 1: up -->
-    <path d="M512,512 C508,440 490,380 510,310 C530,240 500,190 510,160"
-      stroke="url(#t1)" stroke-width="5" opacity="0.8"/>
-    <path d="M510,310 C540,290 570,250 600,230"
-      stroke="url(#t1)" stroke-width="3" opacity="0.5"/>
-    <path d="M510,310 C480,280 450,260 430,230"
-      stroke="url(#t1)" stroke-width="2.5" opacity="0.4"/>
-
-    <!-- Tendril 2: upper-right -->
-    <path d="M512,512 C560,480 620,440 680,380 C740,320 790,280 820,250"
-      stroke="url(#t2)" stroke-width="5" opacity="0.8"/>
-    <path d="M680,380 C710,360 750,370 780,350"
-      stroke="url(#t2)" stroke-width="3" opacity="0.5"/>
-    <path d="M680,380 C700,410 730,400 760,420"
-      stroke="url(#t2)" stroke-width="2" opacity="0.35"/>
-
-    <!-- Tendril 3: right -->
-    <path d="M512,512 C570,520 640,540 720,550 C790,555 830,570 860,580"
-      stroke="url(#t3)" stroke-width="5" opacity="0.75"/>
-    <path d="M720,550 C740,520 770,500 800,490"
-      stroke="url(#t3)" stroke-width="2.5" opacity="0.4"/>
-
-    <!-- Tendril 4: lower-right -->
-    <path d="M512,512 C540,570 560,640 590,710 C620,770 670,820 700,850"
-      stroke="url(#t4)" stroke-width="5" opacity="0.8"/>
-    <path d="M590,710 C620,700 650,720 680,710"
-      stroke="url(#t4)" stroke-width="3" opacity="0.45"/>
-    <path d="M590,710 C570,740 560,770 540,790"
-      stroke="url(#t4)" stroke-width="2.5" opacity="0.4"/>
-
-    <!-- Tendril 5: lower-left -->
-    <path d="M512,512 C480,570 440,630 390,700 C340,760 300,790 280,800"
-      stroke="url(#t5)" stroke-width="5" opacity="0.8"/>
-    <path d="M390,700 C370,680 340,690 310,680"
-      stroke="url(#t5)" stroke-width="3" opacity="0.5"/>
-    <path d="M390,700 C410,730 400,760 420,790"
-      stroke="url(#t5)" stroke-width="2" opacity="0.35"/>
-
-    <!-- Tendril 6: left -->
-    <path d="M512,512 C450,508 380,490 310,500 C240,510 190,515 160,520"
-      stroke="url(#t6)" stroke-width="5" opacity="0.75"/>
-    <path d="M310,500 C290,470 260,460 230,450"
-      stroke="url(#t6)" stroke-width="2.5" opacity="0.4"/>
-    <path d="M310,500 C295,530 270,550 240,570"
-      stroke="url(#t6)" stroke-width="2" opacity="0.35"/>
-
-    <!-- Tendril 7: upper-left -->
-    <path d="M512,512 C470,470 420,410 360,340 C300,280 260,260 240,260"
-      stroke="url(#t7)" stroke-width="5" opacity="0.8"/>
-    <path d="M360,340 C340,360 310,350 280,360"
-      stroke="url(#t7)" stroke-width="3" opacity="0.45"/>
-    <path d="M360,340 C380,310 370,280 360,250"
-      stroke="url(#t7)" stroke-width="2.5" opacity="0.4"/>
+  <!-- Faint radial light rays from corona -->
+  <g opacity="0.35">
+    <line x1="512" y1="512" x2="512" y2="120" stroke="#d09868" stroke-width="1.5" opacity="0.15"/>
+    <line x1="512" y1="512" x2="820" y2="200" stroke="#d09868" stroke-width="1" opacity="0.1"/>
+    <line x1="512" y1="512" x2="900" y2="512" stroke="#d09868" stroke-width="1.5" opacity="0.12"/>
+    <line x1="512" y1="512" x2="800" y2="830" stroke="#d09868" stroke-width="1" opacity="0.1"/>
+    <line x1="512" y1="512" x2="512" y2="900" stroke="#d09868" stroke-width="1.5" opacity="0.12"/>
+    <line x1="512" y1="512" x2="200" y2="800" stroke="#d09868" stroke-width="1" opacity="0.1"/>
+    <line x1="512" y1="512" x2="130" y2="512" stroke="#d09868" stroke-width="1.5" opacity="0.12"/>
+    <line x1="512" y1="512" x2="220" y2="210" stroke="#d09868" stroke-width="1" opacity="0.1"/>
+    <!-- Diagonal rays -->
+    <line x1="512" y1="512" x2="710" y2="140" stroke="#d09868" stroke-width="0.8" opacity="0.06"/>
+    <line x1="512" y1="512" x2="880" y2="350" stroke="#d09868" stroke-width="0.8" opacity="0.06"/>
+    <line x1="512" y1="512" x2="870" y2="700" stroke="#d09868" stroke-width="0.8" opacity="0.06"/>
+    <line x1="512" y1="512" x2="660" y2="890" stroke="#d09868" stroke-width="0.8" opacity="0.06"/>
+    <line x1="512" y1="512" x2="340" y2="880" stroke="#d09868" stroke-width="0.8" opacity="0.06"/>
+    <line x1="512" y1="512" x2="140" y2="680" stroke="#d09868" stroke-width="0.8" opacity="0.06"/>
+    <line x1="512" y1="512" x2="150" y2="340" stroke="#d09868" stroke-width="0.8" opacity="0.06"/>
+    <line x1="512" y1="512" x2="320" y2="150" stroke="#d09868" stroke-width="0.8" opacity="0.06"/>
   </g>
 
-  <!-- === Synapse nodes — glowing dots at branch points and tips === -->
-  <g>
-    <!-- Main branch points -->
-    <circle cx="510" cy="310" r="7" fill="url(#node-glow)"/>
-    <circle cx="680" cy="380" r="7" fill="url(#node-glow)"/>
-    <circle cx="720" cy="550" r="6" fill="url(#node-glow)"/>
-    <circle cx="590" cy="710" r="7" fill="url(#node-glow)"/>
-    <circle cx="390" cy="700" r="7" fill="url(#node-glow)"/>
-    <circle cx="310" cy="500" r="6" fill="url(#node-glow)"/>
-    <circle cx="360" cy="340" r="7" fill="url(#node-glow)"/>
+  <!-- Corona outer bloom -->
+  <circle cx="512" cy="512" r="340" fill="url(#corona-outer)"/>
 
-    <!-- Tips — smaller, cooler -->
-    <circle cx="510" cy="160" r="4.5" fill="#8ba8d8" opacity="0.8"/>
-    <circle cx="600" cy="230" r="3.5" fill="#8ba8d8" opacity="0.6"/>
-    <circle cx="430" cy="230" r="3" fill="#8ba8d8" opacity="0.5"/>
-    <circle cx="820" cy="250" r="4.5" fill="#8ba8d8" opacity="0.8"/>
-    <circle cx="780" cy="350" r="3.5" fill="#8ba8d8" opacity="0.6"/>
-    <circle cx="760" cy="420" r="3" fill="#8ba8d8" opacity="0.5"/>
-    <circle cx="860" cy="580" r="4.5" fill="#8ba8d8" opacity="0.75"/>
-    <circle cx="800" cy="490" r="3" fill="#8ba8d8" opacity="0.5"/>
-    <circle cx="700" cy="850" r="4.5" fill="#8ba8d8" opacity="0.8"/>
-    <circle cx="680" cy="710" r="3.5" fill="#8ba8d8" opacity="0.6"/>
-    <circle cx="540" cy="790" r="3" fill="#8ba8d8" opacity="0.5"/>
-    <circle cx="280" cy="800" r="4.5" fill="#8ba8d8" opacity="0.8"/>
-    <circle cx="310" cy="680" r="3.5" fill="#8ba8d8" opacity="0.6"/>
-    <circle cx="420" cy="790" r="3" fill="#8ba8d8" opacity="0.5"/>
-    <circle cx="160" cy="520" r="4.5" fill="#8ba8d8" opacity="0.75"/>
-    <circle cx="230" cy="450" r="3" fill="#8ba8d8" opacity="0.5"/>
-    <circle cx="240" cy="570" r="3" fill="#8ba8d8" opacity="0.5"/>
-    <circle cx="240" cy="260" r="4.5" fill="#8ba8d8" opacity="0.8"/>
-    <circle cx="280" cy="360" r="3.5" fill="#8ba8d8" opacity="0.55"/>
-    <circle cx="360" cy="250" r="3" fill="#8ba8d8" opacity="0.5"/>
+  <!-- Corona ring — the luminous edge -->
+  <circle cx="512" cy="512" r="220" fill="url(#corona-ring)"/>
+
+  <!-- Secondary corona wisps — asymmetric streaks for realism -->
+  <g opacity="0.3" fill="none" stroke-linecap="round">
+    <!-- Upper-left wisp -->
+    <path d="M400,390 C350,340 310,300 280,260"
+      stroke="#e8b880" stroke-width="3" opacity="0.4"/>
+    <path d="M410,380 C370,330 340,290 320,250"
+      stroke="#f0c890" stroke-width="1.5" opacity="0.5"/>
+    <!-- Upper-right wisp -->
+    <path d="M620,400 C670,350 710,310 740,270"
+      stroke="#e8b880" stroke-width="2.5" opacity="0.35"/>
+    <path d="M630,390 C680,340 720,300 750,260"
+      stroke="#f0c890" stroke-width="1.5" opacity="0.45"/>
+    <!-- Lower-right wisp -->
+    <path d="M630,630 C670,670 710,720 740,770"
+      stroke="#d0a070" stroke-width="2.5" opacity="0.3"/>
+    <path d="M620,640 C660,680 700,730 720,760"
+      stroke="#e0b080" stroke-width="1.5" opacity="0.4"/>
+    <!-- Lower-left wisp -->
+    <path d="M390,620 C340,670 300,710 260,750"
+      stroke="#d0a070" stroke-width="3" opacity="0.35"/>
+    <path d="M400,630 C350,680 310,720 280,760"
+      stroke="#e0b080" stroke-width="1.5" opacity="0.45"/>
   </g>
 
-  <!-- === Central core — the focused mind === -->
-  <!-- Warm halo rings -->
-  <circle cx="512" cy="512" r="44" fill="none" stroke="#e8a87c" stroke-width="1" opacity="0.2"/>
-  <circle cx="512" cy="512" r="32" fill="none" stroke="#e8c09c" stroke-width="1" opacity="0.3"/>
+  <!-- Dark center disk — the void of focus -->
+  <circle cx="512" cy="512" r="175" fill="url(#disk)"/>
 
-  <!-- Inner glow -->
-  <circle cx="512" cy="512" r="22" fill="#e8a87c" opacity="0.35"/>
-  <circle cx="512" cy="512" r="14" fill="#f0d0b0" opacity="0.7"/>
-  <circle cx="512" cy="512" r="8" fill="#fff4e8" opacity="0.9"/>
-  <circle cx="512" cy="512" r="4" fill="#ffffff"/>
+  <!-- Thin bright corona edge — sharp inner rim -->
+  <circle cx="512" cy="512" r="178" fill="none" stroke="#f0d0a0" stroke-width="2" opacity="0.7"/>
+  <circle cx="512" cy="512" r="182" fill="none" stroke="#e8b878" stroke-width="1" opacity="0.3"/>
+
+  <!-- Diamond ring effect — bright flare at upper-left edge -->
+  <circle cx="385" cy="385" r="40" fill="url(#flare)"/>
+  <circle cx="385" cy="385" r="6" fill="#ffffff" opacity="0.95"/>
+  <circle cx="385" cy="385" r="3" fill="#ffffff"/>
+
+  <!-- Secondary smaller flare — opposite side, dimmer -->
+  <circle cx="625" cy="645" r="18" fill="url(#flare)" opacity="0.3"
+    transform="translate(113,133) scale(0.5) translate(-113,-133)"/>
+  <circle cx="632" cy="632" r="2.5" fill="#ffffff" opacity="0.5"/>
+
+  <!-- Faint dust/star specks in the background -->
+  <g fill="#ffffff">
+    <circle cx="160" cy="180" r="1.2" opacity="0.25"/>
+    <circle cx="860" cy="160" r="1.0" opacity="0.2"/>
+    <circle cx="880" cy="860" r="1.2" opacity="0.25"/>
+    <circle cx="150" cy="840" r="1.0" opacity="0.2"/>
+    <circle cx="300" cy="140" r="0.8" opacity="0.15"/>
+    <circle cx="750" cy="130" r="0.8" opacity="0.15"/>
+    <circle cx="900" cy="440" r="1.0" opacity="0.2"/>
+    <circle cx="120" cy="580" r="0.8" opacity="0.15"/>
+    <circle cx="440" cy="900" r="0.8" opacity="0.15"/>
+    <circle cx="600" cy="130" r="1.0" opacity="0.18"/>
+    <circle cx="130" cy="400" r="0.8" opacity="0.15"/>
+    <circle cx="890" cy="620" r="0.8" opacity="0.15"/>
+    <circle cx="780" cy="880" r="0.8" opacity="0.12"/>
+    <circle cx="220" cy="880" r="0.8" opacity="0.12"/>
+  </g>
 </svg>
