@@ -1,30 +1,16 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useAppStore } from "../../store/app-store";
 import { api } from "../../api/client";
 
 export default function FocusMode() {
-  const { focus, tickFocus, pauseFocus, exitFocus } = useAppStore();
+  const { focus, pauseFocus, exitFocus } = useAppStore();
   const [showWhy, setShowWhy] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Start/stop the tick interval based on pause state
+  // Body class for focus-specific styles
   useEffect(() => {
     document.body.classList.add("in-focus");
-
-    if (!focus.isPaused && focus.task) {
-      intervalRef.current = setInterval(() => {
-        tickFocus();
-      }, 1000);
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      document.body.classList.remove("in-focus");
-    };
-  }, [focus.isPaused, focus.task, tickFocus]);
+    return () => document.body.classList.remove("in-focus");
+  }, []);
 
   const totalSecs = 90 * 60;
   const remaining = focus.remainingSecs;

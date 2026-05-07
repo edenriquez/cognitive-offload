@@ -56,6 +56,7 @@ export default function App() {
     setTasks,
     setBandwidth,
     focus,
+    tickFocus,
     toast,
     setToast,
     now,
@@ -68,6 +69,13 @@ export default function App() {
     const t = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(t);
   }, [setNow]);
+
+  // Focus timer — runs globally so switching tabs doesn't pause the countdown
+  useEffect(() => {
+    if (!focus.task || focus.isPaused) return;
+    const t = setInterval(() => tickFocus(), 1000);
+    return () => clearInterval(t);
+  }, [focus.task, focus.isPaused, tickFocus]);
 
   // WebSocket signal stream + offline detection
   const [offline, setOffline] = useState(isOffline());

@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- Galaxy core radial gradient -->
+    <radialGradient id="core" cx="512" cy="512" r="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f0e6ff" stop-opacity="0.95"/>
+      <stop offset="40%" stop-color="#c4a8ff" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#8b6cc7" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Arm gradient -->
+    <radialGradient id="arms" cx="512" cy="512" r="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#c4a8ff" stop-opacity="0.6"/>
+      <stop offset="50%" stop-color="#7c5cbf" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#4a3080" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Background gradient -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024">
+      <stop offset="0%" stop-color="#0f0f14"/>
+      <stop offset="50%" stop-color="#12111a"/>
+      <stop offset="100%" stop-color="#0d0c12"/>
+    </linearGradient>
+    <!-- Subtle outer glow -->
+    <radialGradient id="glow" cx="512" cy="512" r="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6b4fa0" stop-opacity="0.12"/>
+      <stop offset="60%" stop-color="#4a3080" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#1a1a2e" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background rounded rect (macOS icon shape) -->
+  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+
+  <!-- Outer ambient glow -->
+  <circle cx="512" cy="512" r="420" fill="url(#glow)"/>
+
+  <!-- Galaxy spiral arms (two main arms, logarithmic spiral approximation) -->
+  <g opacity="0.55">
+    <!-- Arm 1 -->
+    <path d="M512,512
+      C530,460 570,400 540,340
+      C510,280 440,240 370,260
+      C300,280 260,340 270,400
+      C280,460 340,500 360,540
+      C380,580 350,640 300,680
+      C250,720 180,720 140,680"
+      fill="none" stroke="#9b7ed8" stroke-width="28" stroke-linecap="round"
+      opacity="0.5" filter="url(#blur1)"/>
+    <path d="M512,512
+      C530,460 570,400 540,340
+      C510,280 440,240 370,260
+      C300,280 260,340 270,400
+      C280,460 340,500 360,540
+      C380,580 350,640 300,680
+      C250,720 180,720 140,680"
+      fill="none" stroke="#c4a8ff" stroke-width="12" stroke-linecap="round"
+      opacity="0.7"/>
+
+    <!-- Arm 2 (180° rotated) -->
+    <path d="M512,512
+      C494,564 454,624 484,684
+      C514,744 584,784 654,764
+      C724,744 764,684 754,624
+      C744,564 684,524 664,484
+      C644,444 674,384 724,344
+      C774,304 844,304 884,344"
+      fill="none" stroke="#9b7ed8" stroke-width="28" stroke-linecap="round"
+      opacity="0.5"/>
+    <path d="M512,512
+      C494,564 454,624 484,684
+      C514,744 584,784 654,764
+      C724,744 764,684 754,624
+      C744,564 684,524 664,484
+      C644,444 674,384 724,344
+      C774,304 844,304 884,344"
+      fill="none" stroke="#c4a8ff" stroke-width="12" stroke-linecap="round"
+      opacity="0.7"/>
+
+    <!-- Faint tertiary arm fragments -->
+    <path d="M512,512 C480,440 420,410 380,430 C340,450 330,510 370,540"
+      fill="none" stroke="#8b6cc7" stroke-width="8" stroke-linecap="round" opacity="0.3"/>
+    <path d="M512,512 C544,584 604,614 644,594 C684,574 694,514 654,484"
+      fill="none" stroke="#8b6cc7" stroke-width="8" stroke-linecap="round" opacity="0.3"/>
+  </g>
+
+  <!-- Galaxy core (bright center) -->
+  <circle cx="512" cy="512" r="60" fill="url(#core)"/>
+  <circle cx="512" cy="512" r="24" fill="#ede4ff" opacity="0.9"/>
+  <circle cx="512" cy="512" r="10" fill="#ffffff" opacity="0.95"/>
+
+  <!-- Star field — scattered dots -->
+  <g fill="#ffffff">
+    <!-- Bright stars -->
+    <circle cx="180" cy="200" r="2.5" opacity="0.9"/>
+    <circle cx="820" cy="180" r="2.0" opacity="0.85"/>
+    <circle cx="760" cy="780" r="2.5" opacity="0.9"/>
+    <circle cx="240" cy="800" r="2.0" opacity="0.8"/>
+    <circle cx="400" cy="160" r="3.0" opacity="0.7"/>
+    <circle cx="680" cy="860" r="2.5" opacity="0.75"/>
+    <circle cx="140" cy="520" r="2.0" opacity="0.8"/>
+    <circle cx="880" cy="500" r="2.5" opacity="0.85"/>
+
+    <!-- Medium stars -->
+    <circle cx="300" cy="300" r="1.5" opacity="0.6"/>
+    <circle cx="720" cy="280" r="1.5" opacity="0.55"/>
+    <circle cx="650" cy="720" r="1.5" opacity="0.6"/>
+    <circle cx="350" cy="700" r="1.5" opacity="0.5"/>
+    <circle cx="200" cy="420" r="1.5" opacity="0.55"/>
+    <circle cx="830" cy="400" r="1.5" opacity="0.6"/>
+    <circle cx="460" cy="840" r="1.5" opacity="0.5"/>
+    <circle cx="560" cy="180" r="1.5" opacity="0.55"/>
+    <circle cx="150" cy="680" r="1.5" opacity="0.5"/>
+    <circle cx="870" cy="660" r="1.5" opacity="0.55"/>
+
+    <!-- Faint stars -->
+    <circle cx="260" cy="160" r="1.0" opacity="0.35"/>
+    <circle cx="780" cy="140" r="1.0" opacity="0.3"/>
+    <circle cx="900" cy="320" r="1.0" opacity="0.35"/>
+    <circle cx="120" cy="360" r="1.0" opacity="0.3"/>
+    <circle cx="340" cy="880" r="1.0" opacity="0.35"/>
+    <circle cx="700" cy="160" r="1.0" opacity="0.3"/>
+    <circle cx="160" cy="600" r="1.0" opacity="0.3"/>
+    <circle cx="860" cy="580" r="1.0" opacity="0.35"/>
+    <circle cx="440" cy="130" r="1.0" opacity="0.3"/>
+    <circle cx="580" cy="890" r="1.0" opacity="0.3"/>
+    <circle cx="220" cy="740" r="1.0" opacity="0.25"/>
+    <circle cx="800" cy="840" r="1.0" opacity="0.3"/>
+    <circle cx="680" cy="200" r="1.0" opacity="0.25"/>
+    <circle cx="340" cy="240" r="1.0" opacity="0.3"/>
+    <circle cx="480" cy="760" r="1.0" opacity="0.25"/>
+    <circle cx="750" cy="450" r="1.0" opacity="0.3"/>
+    <circle cx="280" cy="550" r="1.0" opacity="0.25"/>
+    <circle cx="620" cy="140" r="1.0" opacity="0.3"/>
+    <circle cx="380" cy="580" r="1.0" opacity="0.2"/>
+    <circle cx="640" cy="440" r="1.0" opacity="0.2"/>
+  </g>
+
+  <!-- Tiny "c" lettermark in bottom-right, very subtle -->
+  <text x="880" y="910" font-family="-apple-system, system-ui, sans-serif"
+    font-size="48" font-weight="500" font-style="italic"
+    fill="#c4a8ff" opacity="0.3" text-anchor="middle">c</text>
+</svg>
