@@ -119,62 +119,78 @@ func (z *ZedWatcher) poll(ctx context.Context) {
 		prevUpdated, known := z.knownIDs[id]
 
 		if !known {
-			// New thread
-			events = append(events, models.RawEvent{
-				Timestamp: now,
-				Source:    "llm",
-				Kind:      "zed_thread_start",
-				Day:       day,
-				Metadata: map[string]any{
-					"thread_id":    id,
-					"summary":      truncate(summary, 200),
-					"folder_paths": folderPaths.String,
-				},
-			})
-
-			// Also upsert as a session
-			startedAt := now
+			// Only create sessions for threads created today
+			threadDay := ""
 			if createdAt.Valid {
 				if t, err := time.Parse(time.RFC3339Nano, createdAt.String); err == nil {
-					startedAt = t
+					threadDay = t.Format("2006-01-02")
 				}
 			}
-			session := models.Session{
-				ID:        "zed-" + id,
-				Label:     "Zed: " + truncate(summary, 60),
-				StartedAt: startedAt,
-				Status:    "open",
-				Day:       day,
-			}
-			z.db.UpsertSession(ctx, session)
 
-			if z.onActivity != nil {
-				z.onActivity()
-			}
+			// Always track the ID so we detect updates, but only create events/sessions for today
+			if threadDay == day {
+				events = append(events, models.RawEvent{
+					Timestamp: now,
+					Source:    "llm",
+					Kind:      "zed_thread_start",
+					Day:       day,
+					Metadata: map[string]any{
+						"thread_id":    id,
+						"summary":      truncate(summary, 200),
+						"folder_paths": folderPaths.String,
+					},
+				})
 
-			slog.Debug("zed new thread", "summary", truncate(summary, 50))
+				startedAt := now
+				if createdAt.Valid {
+					if t, err := time.Parse(time.RFC3339Nano, createdAt.String); err == nil {
+						startedAt = t
+					}
+				}
+				session := models.Session{
+					ID:        "zed-" + id,
+					Label:     "Zed: " + truncate(summary, 60),
+					StartedAt: startedAt,
+					Status:    "open",
+					Day:       day,
+				}
+				z.db.UpsertSession(ctx, session)
+
+				if z.onActivity != nil {
+					z.onActivity()
+				}
+
+				slog.Debug("zed new thread", "summary", truncate(summary, 50))
+			}
 
 		} else if updatedAt != prevUpdated {
-			// Updated thread — new activity
-			events = append(events, models.RawEvent{
-				Timestamp: now,
-				Source:    "llm",
-				Kind:      "zed_thread_update",
-				Day:       day,
-				Metadata: map[string]any{
-					"thread_id": id,
-					"summary":   truncate(summary, 200),
-				},
-			})
-
-			// Increment session message count
-			z.db.IncrementSessionMessages(ctx, "zed-"+id)
-
-			if z.onActivity != nil {
-				z.onActivity()
+			// Only track updates for threads active today
+			threadUpdatedDay := ""
+			if t, err := time.Parse(time.RFC3339Nano, updatedAt); err == nil {
+				threadUpdatedDay = t.Format("2006-01-02")
 			}
 
-			slog.Debug("zed thread updated", "summary", truncate(summary, 50))
+			if threadUpdatedDay == day {
+				events = append(events, models.RawEvent{
+					Timestamp: now,
+					Source:    "llm",
+					Kind:      "zed_thread_update",
+					Day:       day,
+					Metadata: map[string]any{
+						"thread_id": id,
+						"summary":   truncate(summary, 200),
+					},
+				})
+
+				// Increment session message count
+				z.db.IncrementSessionMessages(ctx, "zed-"+id)
+
+				if z.onActivity != nil {
+					z.onActivity()
+				}
+
+				slog.Debug("zed thread updated", "summary", truncate(summary, 50))
+			}
 		}
 
 		z.knownIDs[id] = updatedAt

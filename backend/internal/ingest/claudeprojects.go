@@ -191,16 +191,20 @@ func (c *ClaudeProjectScanner) parseConversation(ctx context.Context, filePath s
 			})
 		}
 
-		// Update session with richer info
-		if msg.SessionID != "" {
-			session := models.Session{
-				ID:        msg.SessionID,
-				Label:     "Claude: " + decodePath(projectName),
-				StartedAt: parseTimestamp(msg.Timestamp, now),
-				Status:    "open",
-				Day:       day,
+		// Only create/update sessions for today's messages
+		if msg.SessionID != "" && day == now.Format("2006-01-02") {
+			msgTime := parseTimestamp(msg.Timestamp, now)
+			msgDay := msgTime.Format("2006-01-02")
+			if msgDay == day {
+				session := models.Session{
+					ID:        msg.SessionID,
+					Label:     "Claude: " + decodePath(projectName),
+					StartedAt: parseTimestamp(msg.Timestamp, now),
+					Status:    "open",
+					Day:       day,
+				}
+				c.db.UpsertSession(ctx, session)
 			}
-			c.db.UpsertSession(ctx, session)
 		}
 	}
 

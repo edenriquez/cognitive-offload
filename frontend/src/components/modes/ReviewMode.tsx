@@ -37,7 +37,6 @@ function EnergyMap({
     );
   }
 
-  const w = 100 / buckets.length;
   const hours = [7, 9, 11, 13, 15, 17, 19, 21];
   const nowH = new Date().getHours() + new Date().getMinutes() / 60;
 
@@ -81,13 +80,18 @@ function EnergyMap({
             <span className="em-region-label">{r.label}</span>
           </div>
         ))}
-        {buckets.map((b, i) => (
-          <span
-            key={i}
-            className={`em-bar ${(b.activity ?? 0) > 65 ? "peak" : (b.errors ?? 0) > 0 ? "warn" : ""}`}
-            style={{ left: `${i * w + w / 2}%`, height: `${b.activity ?? 0}%` }}
-          />
-        ))}
+        {buckets.map((b, i) => {
+          const h = b.hour ?? 0;
+          if (h < 7 || h > 22) return null;
+          const leftPct = ((h - 7) / 15) * 100;
+          return (
+            <span
+              key={i}
+              className={`em-bar ${(b.activity ?? 0) > 65 ? "peak" : (b.errors ?? 0) > 0 ? "warn" : ""}`}
+              style={{ left: `${leftPct}%`, height: `${b.activity ?? 0}%` }}
+            />
+          );
+        })}
         {nowH >= 7 && nowH <= 22 && (
           <span
             className="em-now"
