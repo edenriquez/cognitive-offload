@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -53,22 +52,45 @@ func (c *ClaudeWatcher) Stop() {
 }
 
 func (c *ClaudeWatcher) tailFile(ctx context.Context) error {
-	// Open file and seek to end — we only want NEW entries
 	f, err := os.Open(c.filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			slog.Info("claude history file not found, waiting for it to appear", "path", c.filePath)
+			slog.Info("claude history file not found, waiting", "path", c.filePath)
 			return c.waitForFile(ctx)
 		}
 		return err
 	}
 	defer f.Close()
 
-	// Seek to end
-	if _, err := f.Seek(0, io.SeekEnd); err != nil {
-		return err
+	// Backfill: scan entire file for today's entries
+	today := time.Now().Format("2006-01-02")
+	backfilled := 0
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 256*1024), 256*1024)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) < 2 {
+			continue
+		}
+		var entry historyEntry
+		if err := json.Unmarshal(line, &entry); err != nil {
+			continue
+		}
+		if entry.SessionID == "" || entry.Timestamp == 0 {
+			continue
+		}
+		// Only backfill today's entries
+		ts := time.UnixMilli(entry.Timestamp)
+		if ts.Format("2006-01-02") == today {
+			c.processEntry(ctx, entry)
+			backfilled++
+		}
+	}
+	if backfilled > 0 {
+		slog.Info("claude watcher backfilled today's history", "entries", backfilled)
 	}
 
+	// Now tail for new entries
 	reader := bufio.NewReader(f)
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()

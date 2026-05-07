@@ -82,16 +82,17 @@ func (c *ClaudeProjectScanner) scan(ctx context.Context) {
 		return
 	}
 
+	today := time.Now().Format("2006-01-02")
 	for _, projectDir := range entries {
 		if !projectDir.IsDir() {
 			continue
 		}
 		projectPath := filepath.Join(c.baseDir, projectDir.Name())
-		c.scanProject(ctx, projectPath, projectDir.Name())
+		c.scanProject(ctx, projectPath, projectDir.Name(), today)
 	}
 }
 
-func (c *ClaudeProjectScanner) scanProject(ctx context.Context, projectPath, projectName string) {
+func (c *ClaudeProjectScanner) scanProject(ctx context.Context, projectPath, projectName, today string) {
 	files, err := os.ReadDir(projectPath)
 	if err != nil {
 		return

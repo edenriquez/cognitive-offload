@@ -131,16 +131,23 @@ func (g *GitMonitor) poll(ctx context.Context, repos []string) {
 func (g *GitMonitor) findGitRepos() []string {
 	var repos []string
 	seen := make(map[string]bool)
+
 	for _, root := range g.paths {
-		// Check if root itself is a git repo
-		if isGitRepo(root) {
-			if !seen[root] {
-				repos = append(repos, root)
-				seen[root] = true
-			}
+		// Check root itself
+		if isGitRepo(root) && !seen[root] {
+			repos = append(repos, root)
+			seen[root] = true
 			continue
 		}
-		// Check immediate children (don't recurse deeply)
+
+		// Check parent (common: running from backend/ but .git is at project root)
+		parent := filepath.Dir(root)
+		if isGitRepo(parent) && !seen[parent] {
+			repos = append(repos, parent)
+			seen[parent] = true
+		}
+
+		// Check immediate children
 		entries, err := os.ReadDir(root)
 		if err != nil {
 			continue
