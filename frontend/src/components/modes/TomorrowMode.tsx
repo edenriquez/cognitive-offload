@@ -3,6 +3,17 @@ import { useAppStore } from "../../store/app-store";
 import { api } from "../../api/client";
 import type { Plan } from "../../types";
 
+const RULE_ICONS: Record<string, string> = {
+  CUTOFF: "🛑",
+  THREAD_CAP: "🔒",
+  RECOVERY: "🌿",
+  CHECKPOINT: "📌",
+  CLOSE_LOOPS: "🧹",
+  FOCUS_BLOCK: "🎯",
+  CONTINUE: "▶️",
+  PREFLIGHT: "🔧",
+};
+
 export default function TomorrowMode() {
   const setMode = useAppStore((s) => s.setMode);
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -42,7 +53,7 @@ export default function TomorrowMode() {
         <div className="tomorrow-inner">
           <div className="tom-h">No plan generated yet</div>
           <h1 className="tom-headline">
-            {error ?? "Start the backend to generate tomorrow's plan."}
+            {error ?? "Work today to auto-generate tomorrow's plan."}
           </h1>
           <div className="tom-cta">
             <button className="btn-secondary" onClick={() => setMode("today")}>
@@ -80,53 +91,112 @@ export default function TomorrowMode() {
         </div>
         <h1 className="tom-headline">{headline}</h1>
 
+        {/* Constraints — enforced rules */}
         {constraints.length > 0 && (
-          <div style={{ marginBottom: 32 }}>
+          <div className="tom-constraints">
+            <div className="tom-section-label">Constraints · enforced</div>
             {constraints.map((c, i) => (
-              <div
-                key={i}
-                style={{
-                  fontSize: 13,
-                  color: "var(--color-metal)",
-                  padding: "6px 0",
-                  borderBottom: "1px solid var(--color-stone)",
-                }}
-              >
-                {c.locked && (
-                  <span
-                    style={{
-                      color: "var(--color-action-blue)",
-                      marginRight: 8,
-                    }}
-                  >
-                    ⌷
-                  </span>
-                )}
-                <b style={{ color: "var(--color-ink)" }}>{c.title ?? ""}</b>{" "}
-                <span>{c.description ?? ""}</span>
+              <div key={i} className="tom-constraint">
+                <div className="tom-constraint-icon">
+                  {RULE_ICONS[c.rule] ?? "⌷"}
+                </div>
+                <div className="tom-constraint-body">
+                  <div className="tom-constraint-title">{c.title ?? ""}</div>
+                  <div className="tom-constraint-desc">
+                    {c.description ?? ""}
+                  </div>
+                </div>
+                {c.locked && <div className="tom-constraint-lock">locked</div>}
               </div>
             ))}
           </div>
         )}
 
+        {/* Bandwidth */}
+        {plan.bandwidth && (
+          <div className="tom-bandwidth">
+            <div className="tom-section-label">Bandwidth · adjusted</div>
+            <div className="tom-bw-bars">
+              <div className="tom-bw-row">
+                <span className="tom-bw-cat">Work</span>
+                <div className="tom-bw-track">
+                  <span
+                    className="tom-bw-fill"
+                    style={{
+                      width: `${plan.bandwidth.work}%`,
+                      background: "var(--color-ink)",
+                    }}
+                  ></span>
+                </div>
+                <span className="tom-bw-pct">{plan.bandwidth.work}%</span>
+              </div>
+              <div className="tom-bw-row">
+                <span className="tom-bw-cat">Personal</span>
+                <div className="tom-bw-track">
+                  <span
+                    className="tom-bw-fill"
+                    style={{
+                      width: `${plan.bandwidth.personal}%`,
+                      background: "var(--color-action-blue)",
+                    }}
+                  ></span>
+                </div>
+                <span className="tom-bw-pct">{plan.bandwidth.personal}%</span>
+              </div>
+              <div className="tom-bw-row">
+                <span className="tom-bw-cat">Admin</span>
+                <div className="tom-bw-track">
+                  <span
+                    className="tom-bw-fill"
+                    style={{
+                      width: `${plan.bandwidth.admin}%`,
+                      background: "var(--color-overcast)",
+                    }}
+                  ></span>
+                </div>
+                <span className="tom-bw-pct">{plan.bandwidth.admin}%</span>
+              </div>
+              <div className="tom-bw-row">
+                <span className="tom-bw-cat">Learning</span>
+                <div className="tom-bw-track">
+                  <span
+                    className="tom-bw-fill"
+                    style={{
+                      width: `${plan.bandwidth.learning}%`,
+                      background: "var(--color-slate)",
+                    }}
+                  ></span>
+                </div>
+                <span className="tom-bw-pct">{plan.bandwidth.learning}%</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tasks */}
         {tasks.length > 0 ? (
-          <div className="tom-list">
-            {tasks.map((t, i) => (
-              <div key={t.id ?? i} className="tom-item">
-                <span className={`tom-rank ${i === 0 ? "locked" : ""}`}>
-                  {String(i + 1).padStart(2, "0")}
-                  {i === 0 ? " ◆" : ""}
-                </span>
-                <div>
-                  <div className="tom-task">{t.text ?? ""}</div>
-                  <div className="tom-meta">
-                    {t.kind === "personal" ? "protected window · " : ""}
-                    {t.kind ?? "must"} task
+          <>
+            <div className="tom-section-label" style={{ marginTop: 32 }}>
+              Tasks · pre-selected
+            </div>
+            <div className="tom-list">
+              {tasks.map((t, i) => (
+                <div key={t.id ?? i} className="tom-item">
+                  <span className={`tom-rank ${i === 0 ? "locked" : ""}`}>
+                    {String(i + 1).padStart(2, "0")}
+                    {i === 0 ? " ◆" : ""}
+                  </span>
+                  <div>
+                    <div className="tom-task">{t.text ?? ""}</div>
+                    <div className="tom-meta">
+                      {t.kind === "personal" ? "protected window · " : ""}
+                      {t.kind ?? "must"} task
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         ) : (
           <div
             style={{
