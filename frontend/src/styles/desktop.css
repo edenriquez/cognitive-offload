@@ -313,6 +313,18 @@
     pointer-events: auto;
 }
 
+/* Invisible hover zone — extends the hit area along the right edge */
+.sr-edge-zone {
+    position: fixed;
+    right: 0;
+    top: 30%;
+    width: 28px;
+    height: 40%;
+    pointer-events: auto;
+    cursor: default;
+    z-index: 1;
+}
+
 /* Handle — flush with right edge (only child in normal flow) */
 .sr-handle {
     width: 24px;

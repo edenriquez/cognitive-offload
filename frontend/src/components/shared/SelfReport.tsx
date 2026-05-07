@@ -109,6 +109,29 @@ export default function SelfReport() {
   const hasDragged = useRef(false);
   const [dragOffset, setDragOffset] = useState(0);
   const [confirming, setConfirming] = useState<number | null>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Right-edge hover zone — mouse lingers near the handle for 1.5s to auto-open
+  const onEdgeEnter = useCallback(() => {
+    if (selfReportOpen) return;
+    hoverTimerRef.current = setTimeout(() => {
+      setSelfReportOpen(true);
+    }, 1500);
+  }, [selfReportOpen, setSelfReportOpen]);
+
+  const onEdgeLeave = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  }, []);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    };
+  }, []);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     isDragging.current = true;
@@ -193,6 +216,15 @@ export default function SelfReport() {
             : undefined
         }
       >
+        {/* Invisible hover zone along right edge — triggers open after 1.5s */}
+        {!selfReportOpen && (
+          <div
+            className="sr-edge-zone"
+            onMouseEnter={onEdgeEnter}
+            onMouseLeave={onEdgeLeave}
+          />
+        )}
+
         {/* Handle */}
         <div
           className="sr-handle"
@@ -200,6 +232,8 @@ export default function SelfReport() {
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onClick={onHandleClick}
+          onMouseEnter={onEdgeEnter}
+          onMouseLeave={onEdgeLeave}
         >
           <StateIcon level={lastSelfReport?.level ?? 3} size={12} />
         </div>
