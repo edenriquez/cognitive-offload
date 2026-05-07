@@ -815,10 +815,11 @@
 .em-bar {
     position: absolute;
     bottom: 0;
-    width: 4px;
+    min-width: 3px;
     background: var(--color-slate);
     border-radius: 1px 1px 0 0;
     transform: translateX(-50%);
+    transition: height 0.2s var(--ease);
 }
 .em-bar.peak {
     background: var(--color-ink);

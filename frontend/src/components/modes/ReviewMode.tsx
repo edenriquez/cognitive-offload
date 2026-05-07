@@ -84,11 +84,17 @@ function EnergyMap({
           const h = b.hour ?? 0;
           if (h < 7 || h > 22) return null;
           const leftPct = ((h - 7) / 15) * 100;
+          const activity = b.activity ?? 0;
+          if (activity === 0) return null;
           return (
             <span
               key={i}
-              className={`em-bar ${(b.activity ?? 0) > 65 ? "peak" : (b.errors ?? 0) > 0 ? "warn" : ""}`}
-              style={{ left: `${leftPct}%`, height: `${b.activity ?? 0}%` }}
+              className={`em-bar ${activity > 65 ? "peak" : (b.errors ?? 0) > 0 ? "warn" : ""}`}
+              style={{
+                left: `${leftPct}%`,
+                height: `${Math.max(activity, 3)}%`,
+                width: `${Math.max(100 / 90, 0.8)}%`,
+              }}
             />
           );
         })}
@@ -142,7 +148,8 @@ export default function ReviewMode() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const day = new Date().toISOString().slice(0, 10);
+    const n = new Date();
+    const day = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
     api
       .getReview(day)
       .then((data) => {

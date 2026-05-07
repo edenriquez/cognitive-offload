@@ -122,7 +122,8 @@ func (a *Aggregator) countEventsInWindow(ctx context.Context, day string, start,
 			c.fileSaves += count
 		case "error":
 			c.errors += count
-		case "session_start":
+		case "session_start", "prompt", "zed_thread_start", "zed_thread_update",
+			"claude_user_msg", "claude_assistant_msg", "claude_tool_use":
 			c.sessions += count
 		}
 	}
