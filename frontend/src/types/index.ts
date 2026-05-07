@@ -4,7 +4,8 @@ export type Mode =
   | "capture"
   | "review"
   | "tomorrow"
-  | "sources";
+  | "sources"
+  | "settings";
 
 export interface Task {
   id: string;

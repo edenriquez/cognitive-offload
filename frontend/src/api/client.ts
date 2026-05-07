@@ -148,6 +148,10 @@ export const api = {
       lunch_start: number;
       lunch_end: number;
       thread_cap: number;
+      watch_paths: string[];
+      ignore_dirs: string[];
+      max_watch_dirs: number;
+      disabled_rules: string[];
     }>("GET", "/api/v1/config"),
 
   updateConfig: (updates: Record<string, unknown>) =>

@@ -130,26 +130,6 @@
 
 **Exit criteria:** User can plan their entire day from the Today tab without touching the terminal.
 
----
-
-## Phase 4 — Seed Data & Demo Mode (3 days)
-
-> Goal: New users see a realistic populated state on first launch, not empty screens.
-
-| # | What | Where |
-|---|------|-------|
-| 4.1 | `store/seed.go` — insert realistic sessions, buckets, patterns for today | Backend |
-| 4.2 | Seed 11 LLM sessions with varied statuses (open/closed/stalled/orphan) | `seed.go` |
-| 4.3 | Seed 90 buckets covering 07:00–22:00 with realistic activity curves | `seed.go` |
-| 4.4 | Seed 6 patterns (perf-degradation, crash, stuck, cold-start, overwork, open-loops) | `seed.go` |
-| 4.5 | Seed 4 tasks, 4 captures, 1 tomorrow plan | `seed.go` |
-| 4.6 | Only seed on first boot (check if `tasks` table is empty for today) | `seed.go` |
-| 4.7 | `--demo` CLI flag to force re-seed | `main.go` |
-
-**Exit criteria:** `go run ./cmd/cogload` → open app → all 5 modes show rich data immediately.
-
----
-
 ## Phase 5 — Data Collection: File Watcher (1 week)
 
 > Goal: First real data source. Watch project directories, record file events, aggregate into buckets.

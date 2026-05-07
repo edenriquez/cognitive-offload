@@ -1,7 +1,23 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  DragOverlay,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
 import { useAppStore } from "../../store/app-store";
 import { api } from "../../api/client";
 import Ring from "../shared/Ring";
+import { SortableTaskItem } from "../shared/SortableTaskItem";
 import type { Task } from "../../types";
 
 type TaskKind = "must" | "personal" | "small";
@@ -31,6 +47,12 @@ export default function TodayMode() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
+
+  // Drag state
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
 
   const hour = now.getHours() + now.getMinutes() / 60;
   const greet =
@@ -112,6 +134,53 @@ export default function TodayMode() {
     setEditingId(task.id);
     setEditText(task.text);
   };
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string);
+  }, []);
+
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      setActiveDragId(null);
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+
+      const oldIndex = tasks.findIndex((t) => t.id === active.id);
+      const newIndex = tasks.findIndex((t) => t.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      // Optimistic reorder
+      const reordered = arrayMove(tasks, oldIndex, newIndex).map((t, i) => ({
+        ...t,
+        idx: i + 1,
+      }));
+      setTasks(reordered);
+
+      // Persist to backend
+      try {
+        await api.reorderTasks(
+          reordered.map((t, i) => ({ id: t.id, idx: i + 1 })),
+        );
+      } catch {
+        // Rollback on failure
+        api
+          .getToday()
+          .then((d) => {
+            if (d.tasks) setTasks(d.tasks);
+          })
+          .catch(() => {});
+      }
+    },
+    [tasks, setTasks],
+  );
+
+  const handleDragCancel = useCallback(() => {
+    setActiveDragId(null);
+  }, []);
+
+  const activeDragTask = activeDragId
+    ? (tasks.find((t) => t.id === activeDragId) ?? null)
+    : null;
 
   const commitEdit = async () => {
     if (!editingId) return;
@@ -233,67 +302,60 @@ export default function TodayMode() {
             <div>Add your first task below to get started.</div>
           </div>
         ) : (
-          <div className="ttasks">
-            {tasks.map((t) => (
-              <div
-                key={t.id}
-                className={`ttask ${t.done ? "done" : ""} ${t.id === nextTask?.id ? "active" : ""}`}
-              >
-                <span className={`ttask-rank ${t.kind}`}>
-                  {t.kind === "must"
-                    ? `Must ${t.idx}`
-                    : t.kind === "personal"
-                      ? "Personal"
-                      : "Small"}
-                </span>
-
-                {editingId === t.id ? (
-                  <input
-                    ref={editRef}
-                    className="ttask-edit-input"
-                    value={editText}
-                    onChange={(e) => setEditText(e.target.value)}
-                    onKeyDown={(e) => {
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+          >
+            <SortableContext
+              items={tasks.map((t) => t.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="ttasks">
+                {tasks.map((t) => (
+                  <SortableTaskItem
+                    key={t.id}
+                    task={t}
+                    isNext={t.id === nextTask?.id}
+                    isEditing={editingId === t.id}
+                    editText={editText}
+                    editRef={editRef}
+                    onEditTextChange={setEditText}
+                    onEditKeyDown={(e) => {
                       if (e.key === "Enter") commitEdit();
                       if (e.key === "Escape") setEditingId(null);
                     }}
-                    onBlur={commitEdit}
+                    onEditBlur={commitEdit}
+                    onStartEdit={startEdit}
+                    onToggle={handleToggle}
+                    onDelete={handleDelete}
+                    onFocus={handleFocus}
                   />
-                ) : (
-                  <div
-                    className="ttask-text"
-                    onClick={() => !t.done && startEdit(t)}
-                    style={{ cursor: t.done ? "default" : "text" }}
-                  >
-                    {t.text}
-                  </div>
-                )}
-
-                <div className="ttask-actions">
-                  {t.id === nextTask?.id && !t.done ? (
-                    <button
-                      className="ttask-go"
-                      onClick={() => handleFocus(t.text)}
-                    >
-                      Focus
-                    </button>
-                  ) : (
-                    <span
-                      className="ttask-check"
-                      onClick={() => handleToggle(t.id)}
-                    ></span>
-                  )}
-                  <span
-                    className="ttask-delete"
-                    onClick={() => handleDelete(t.id)}
-                    title="Delete"
-                  >
-                    ×
-                  </span>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+            <DragOverlay>
+              {activeDragTask ? (
+                <div
+                  className="ttask ttask-drag-overlay"
+                  style={{ gridTemplateColumns: "24px 90px 1fr auto" }}
+                >
+                  <span className="ttask-drag-handle">⠿</span>
+                  <span className={`ttask-rank ${activeDragTask.kind}`}>
+                    {activeDragTask.kind === "must"
+                      ? `Must ${activeDragTask.idx}`
+                      : activeDragTask.kind === "personal"
+                        ? "Personal"
+                        : "Small"}
+                  </span>
+                  <div className="ttask-text">{activeDragTask.text}</div>
+                  <div className="ttask-actions" />
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )}
 
         {/* Inline task creation */}

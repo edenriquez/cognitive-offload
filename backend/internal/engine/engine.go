@@ -6,6 +6,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/cogload/backend/internal/config"
 	"github.com/cogload/backend/internal/models"
 	"github.com/cogload/backend/internal/store"
 )
@@ -198,7 +199,8 @@ func (e *Engine) ComputeSignals(ctx context.Context) (Signals, error) {
 	}
 
 	// ---------- Cutoff + Work actual ----------
-	s.CutoffHour = 16.5 // TODO: read from config
+	cfg := config.Load()
+	s.CutoffHour = cfg.CutoffHour
 
 	// Compute work actual percentage from today's activity
 	allBuckets, _ := e.db.BucketsByDay(ctx, today)
@@ -349,6 +351,22 @@ func (e *Engine) EvaluateRules(s Signals, hour float64) []models.Intervention {
 			Evidence: []string{fmt.Sprintf("actual: %d%%", s.WorkActualPct), fmt.Sprintf("planned: %d%%", s.WorkPlannedPct)},
 			Action:   models.Action{Label: "Accept", Kind: "accept"},
 		})
+	}
+
+	// Filter disabled rules
+	cfg := config.Load()
+	if len(cfg.DisabledRules) > 0 {
+		disabled := make(map[string]bool, len(cfg.DisabledRules))
+		for _, r := range cfg.DisabledRules {
+			disabled[r] = true
+		}
+		filtered := out[:0]
+		for _, iv := range out {
+			if !disabled[iv.Rule] {
+				filtered = append(filtered, iv)
+			}
+		}
+		out = filtered
 	}
 
 	return out

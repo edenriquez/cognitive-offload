@@ -841,6 +841,9 @@ func (h *handler) updateConfig(w http.ResponseWriter, r *http.Request) {
 	if len(updates.WatchPaths) > 0 {
 		cfg.WatchPaths = updates.WatchPaths
 	}
+	if updates.DisabledRules != nil {
+		cfg.DisabledRules = updates.DisabledRules
+	}
 	config.Save(cfg)
 	slog.Info("config updated", "cutoff", cfg.CutoffHour, "lunch", cfg.LunchStart, "thread_cap", cfg.ThreadCap)
 	writeJSON(w, 200, cfg)

@@ -8,13 +8,14 @@ import (
 )
 
 type Config struct {
-	WatchPaths   []string `json:"watch_paths"`
-	IgnoreDirs   []string `json:"ignore_dirs"`
-	MaxWatchDirs int      `json:"max_watch_dirs"`
-	CutoffHour   float64  `json:"cutoff_hour"`
-	LunchStart   float64  `json:"lunch_start"`
-	LunchEnd     float64  `json:"lunch_end"`
-	ThreadCap    int      `json:"thread_cap"`
+	WatchPaths    []string `json:"watch_paths"`
+	IgnoreDirs    []string `json:"ignore_dirs"`
+	MaxWatchDirs  int      `json:"max_watch_dirs"`
+	CutoffHour    float64  `json:"cutoff_hour"`
+	LunchStart    float64  `json:"lunch_start"`
+	LunchEnd      float64  `json:"lunch_end"`
+	ThreadCap     int      `json:"thread_cap"`
+	DisabledRules []string `json:"disabled_rules"`
 }
 
 func DefaultConfig() Config {
@@ -33,11 +34,12 @@ func DefaultConfig() Config {
 			".turbo", ".nuxt", ".output", ".svelte-kit",
 			"coverage", ".nyc_output", "tmp", "temp",
 		},
-		MaxWatchDirs: 500,
-		CutoffHour:   16.5,
-		LunchStart:   12.5,
-		LunchEnd:     13.5,
-		ThreadCap:    1,
+		MaxWatchDirs:  500,
+		CutoffHour:    16.5,
+		LunchStart:    12.5,
+		LunchEnd:      13.5,
+		ThreadCap:     1,
+		DisabledRules: []string{},
 	}
 }
 
