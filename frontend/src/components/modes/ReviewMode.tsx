@@ -304,7 +304,36 @@ export default function ReviewMode() {
   const patterns = review.patterns ?? [];
   const leaks = review.leaks ?? [];
   const rootCauses = review.root_causes ?? [];
-  const sessions = review.sessions ?? [];
+  const [sessions, setSessions] = useState(review.sessions ?? []);
+
+  const closeSession = async (id: string) => {
+    try {
+      await api.closeSession(id);
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === id ? { ...s, status: "closed" as const } : s,
+        ),
+      );
+    } catch {}
+  };
+
+  const closeAllOpen = async () => {
+    const open = sessions.filter(
+      (s) => s.status === "open" || s.status === "stalled",
+    );
+    for (const s of open) {
+      try {
+        await api.closeSession(s.id);
+      } catch {}
+    }
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.status === "open" || s.status === "stalled"
+          ? { ...s, status: "closed" as const }
+          : s,
+      ),
+    );
+  };
 
   const hasMeaningfulData =
     summary.deep_work_min > 0 ||
@@ -445,13 +474,27 @@ export default function ReviewMode() {
         {/* Sessions */}
         {sessions.length > 0 && (
           <div className="section">
-            <h2 className="section-h">Sessions</h2>
+            <div className="review-sess-header">
+              <h2 className="section-h">Sessions</h2>
+              {sessions.some(
+                (s) => s.status === "open" || s.status === "stalled",
+              ) && (
+                <button
+                  className="btn-secondary"
+                  style={{ fontSize: 12, padding: "4px 10px" }}
+                  onClick={closeAllOpen}
+                >
+                  Close all open
+                </button>
+              )}
+            </div>
             <div className="review-sessions">
               <div className="review-sess-head">
                 <span>Thread</span>
                 <span>Started</span>
                 <span>Msgs</span>
                 <span>Status</span>
+                <span></span>
               </div>
               {sessions.map((s, i) => (
                 <div key={s.id ?? i} className={`review-sess-row ${s.status}`}>
@@ -465,6 +508,11 @@ export default function ReviewMode() {
                   <span className="review-sess-msgs">{s.message_count}</span>
                   <span className={`review-sess-status ${s.status}`}>
                     {s.status}
+                  </span>
+                  <span className="review-sess-action">
+                    {(s.status === "open" || s.status === "stalled") && (
+                      <button onClick={() => closeSession(s.id)}>close</button>
+                    )}
                   </span>
                 </div>
               ))}

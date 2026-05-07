@@ -1195,9 +1195,18 @@
     border-radius: var(--radius-cards);
     overflow: hidden;
 }
+.review-sess-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0;
+}
+.review-sess-header .section-h {
+    margin-bottom: 20px;
+}
 .review-sess-head {
     display: grid;
-    grid-template-columns: 1fr 70px 50px 70px;
+    grid-template-columns: 1fr 70px 50px 70px 50px;
     gap: 12px;
     padding: 8px 14px;
     background: var(--color-ash);
@@ -1209,12 +1218,26 @@
 }
 .review-sess-row {
     display: grid;
-    grid-template-columns: 1fr 70px 50px 70px;
+    grid-template-columns: 1fr 70px 50px 70px 50px;
     gap: 12px;
     padding: 10px 14px;
     border-top: 1px solid var(--color-stone);
     font-size: 13px;
     letter-spacing: -0.14px;
+}
+.review-sess-action button {
+    font-size: 11px;
+    color: var(--color-overcast);
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 4px;
+    transition:
+        color 0.15s,
+        background 0.15s;
+}
+.review-sess-action button:hover {
+    color: var(--color-ink);
+    background: var(--color-ash);
 }
 .review-sess-label {
     color: var(--color-ink);
