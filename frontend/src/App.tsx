@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useAppStore } from "./store/app-store";
 import type { Mode } from "./types";
 import FocusMode from "./components/modes/FocusMode";
@@ -122,12 +122,19 @@ export default function App() {
     .toString()
     .padStart(2, "0");
 
-  // Hover-to-switch nav with 200ms delay
+  // Hover-to-switch nav — 80ms is fast but prevents accidental flickers
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [transitioning, setTransitioning] = useState(false);
   const handleNavHover = useCallback(
     (id: Mode) => {
       if (hoverTimer.current) clearTimeout(hoverTimer.current);
-      hoverTimer.current = setTimeout(() => setMode(id), 200);
+      hoverTimer.current = setTimeout(() => {
+        setTransitioning(true);
+        setTimeout(() => {
+          setMode(id);
+          setTransitioning(false);
+        }, 120); // fade out duration
+      }, 80);
     },
     [setMode],
   );
@@ -221,7 +228,9 @@ export default function App() {
 
       {/* Main content */}
       <div className="content-area">
-        <div className="stage">
+        <div
+          className={`stage ${transitioning ? "stage-exit" : "stage-enter"}`}
+        >
           <ErrorBoundary key={mode}>
             {mode === "focus" && <FocusMode />}
             {mode === "today" && <TodayMode />}
