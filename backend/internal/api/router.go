@@ -503,14 +503,24 @@ func (h *handler) getTomorrow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if plan == nil {
-		// No plan exists — return an empty draft, don't auto-create fake tasks
-		plan = &models.Plan{
-			Day:         day,
-			Status:      "draft",
-			Headline:    "No plan yet. Review today first, or create tasks manually.",
-			Constraints: []models.Constraint{},
-			Bandwidth:   models.Bandwidth{Work: 60, Personal: 15, Admin: 15, Learning: 10},
-			Tasks:       []models.Task{},
+		// Auto-generate from today's data
+		todayStr := today()
+		generated := engine.GeneratePlan(ctx, h.db, todayStr, day)
+
+		if generated != nil && (len(generated.Constraints) > 0 || len(generated.Tasks) > 0) {
+			// Save the generated plan
+			h.db.UpsertPlan(ctx, *generated)
+			plan = generated
+		} else {
+			// No data to generate from — return empty draft
+			plan = &models.Plan{
+				Day:         day,
+				Status:      "draft",
+				Headline:    "No plan yet. Work today to generate tomorrow's plan.",
+				Constraints: []models.Constraint{},
+				Bandwidth:   models.Bandwidth{Work: 60, Personal: 15, Admin: 15, Learning: 10},
+				Tasks:       []models.Task{},
+			}
 		}
 	}
 
