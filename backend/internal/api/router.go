@@ -95,6 +95,10 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 		r.Put("/config", h.updateConfig)
 
 		r.Post("/sessions/cleanup", h.cleanupSessions)
+
+		// Self-reports
+		r.Post("/self-report", h.createSelfReport)
+		r.Get("/self-reports", h.listSelfReports)
 	})
 
 	return r
@@ -488,13 +492,19 @@ func (h *handler) getReview(w http.ResponseWriter, r *http.Request) {
 		sessions = []models.Session{}
 	}
 
+	selfReports, _ := h.db.SelfReportsByDay(ctx, day)
+	if selfReports == nil {
+		selfReports = []models.SelfReport{}
+	}
+
 	review := models.ReviewSummary{
-		Summary:    summary,
-		EnergyMap:  buckets,
-		Patterns:   patterns,
-		Leaks:      leaks,
-		RootCauses: rootCauses,
-		Sessions:   sessions,
+		Summary:     summary,
+		EnergyMap:   buckets,
+		Patterns:    patterns,
+		Leaks:       leaks,
+		RootCauses:  rootCauses,
+		Sessions:    sessions,
+		SelfReports: selfReports,
 	}
 
 	writeJSON(w, 200, review)
@@ -834,6 +844,54 @@ func (h *handler) updateConfig(w http.ResponseWriter, r *http.Request) {
 	config.Save(cfg)
 	slog.Info("config updated", "cutoff", cfg.CutoffHour, "lunch", cfg.LunchStart, "thread_cap", cfg.ThreadCap)
 	writeJSON(w, 200, cfg)
+}
+
+// ---------- Self Reports ----------
+
+type selfReportReq struct {
+	Level int    `json:"level"` // 1-5
+	Label string `json:"label"`
+	Note  string `json:"note"`
+}
+
+func (h *handler) createSelfReport(w http.ResponseWriter, r *http.Request) {
+	var req selfReportReq
+	if err := readJSON(r, &req); err != nil || req.Level < 1 || req.Level > 5 {
+		http.Error(w, "bad request: level must be 1-5", 400)
+		return
+	}
+	now := time.Now()
+	day := today()
+	bucketIdx := (now.Hour()*60 + now.Minute()) / 10
+
+	if req.Label == "" {
+		labels := []string{"", "fresh", "focused", "loaded", "tired", "degraded"}
+		req.Label = labels[req.Level]
+	}
+
+	if err := h.db.InsertSelfReport(r.Context(), day, req.Level, req.Label, now.UnixMilli(), bucketIdx, req.Note); err != nil {
+		slog.Error("create self-report", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	writeJSON(w, 201, map[string]any{"status": "recorded", "level": req.Level, "label": req.Label, "bucket_idx": bucketIdx})
+}
+
+func (h *handler) listSelfReports(w http.ResponseWriter, r *http.Request) {
+	day := r.URL.Query().Get("day")
+	if day == "" {
+		day = today()
+	}
+	reports, err := h.db.SelfReportsByDay(r.Context(), day)
+	if err != nil {
+		slog.Error("list self-reports", "error", err)
+		http.Error(w, "internal error", 500)
+		return
+	}
+	if reports == nil {
+		reports = []models.SelfReport{}
+	}
+	writeJSON(w, 200, reports)
 }
 
 func (h *handler) cleanupSessions(w http.ResponseWriter, r *http.Request) {

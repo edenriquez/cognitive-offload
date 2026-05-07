@@ -88,7 +88,7 @@ export interface Intervention {
 }
 
 export interface SignalSnapshot {
-  focus_state: "thrashing" | "fragmented" | "stable";
+  focus_state: "degraded" | "fragmented" | "stable";
   active_threads: number;
   error_rate: number;
   error_baseline: number;
@@ -129,12 +129,23 @@ export interface ReviewSummary {
   leaks: Leak[];
   root_causes: RootCause[];
   sessions: Session[];
+  self_reports: SelfReport[];
 }
 
 export interface Capture {
   id: string;
   text: string;
   created_at: string;
+}
+
+export interface SelfReport {
+  id: number;
+  day: string;
+  level: number; // 1-5: fresh, focused, loaded, tired, degraded
+  label: string;
+  ts: number; // Unix ms
+  bucket_idx: number;
+  note: string;
 }
 
 export interface TodayResponse {

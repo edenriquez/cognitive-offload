@@ -9,6 +9,7 @@ import TomorrowMode from "./components/modes/TomorrowMode";
 import SourcesMode from "./components/modes/SourcesMode";
 import { startSignalStream, stopSignalStream } from "./store/ws-client";
 import ErrorBoundary from "./components/shared/ErrorBoundary";
+import SelfReport from "./components/shared/SelfReport";
 import { api } from "./api/client";
 import "./styles/desktop.css";
 import "./styles/modes.css";
@@ -239,7 +240,7 @@ export default function App() {
       <div className="signals">
         <div className="signal">
           <span
-            className={`sd ${sig.focus_state === "thrashing" ? "danger" : sig.active_threads >= 2 ? "warn" : ""}`}
+            className={`sd ${sig.focus_state === "degraded" ? "danger" : sig.active_threads >= 2 ? "warn" : ""}`}
           ></span>
           <span className="signal-label">Focus</span>
           <b>{sig.focus_state}</b>
@@ -331,6 +332,9 @@ export default function App() {
         )}
         <span>v0.5 · synced</span>
       </div>
+
+      {/* Self-report edge panel */}
+      <SelfReport />
 
       {/* Toast */}
       {toast && mode !== "focus" && (

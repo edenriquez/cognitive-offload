@@ -141,7 +141,7 @@
 | 4.1 | `store/seed.go` — insert realistic sessions, buckets, patterns for today | Backend |
 | 4.2 | Seed 11 LLM sessions with varied statuses (open/closed/stalled/orphan) | `seed.go` |
 | 4.3 | Seed 90 buckets covering 07:00–22:00 with realistic activity curves | `seed.go` |
-| 4.4 | Seed 6 patterns (thrashing, crash, stuck, cold-start, overwork, open-loops) | `seed.go` |
+| 4.4 | Seed 6 patterns (perf-degradation, crash, stuck, cold-start, overwork, open-loops) | `seed.go` |
 | 4.5 | Seed 4 tasks, 4 captures, 1 tomorrow plan | `seed.go` |
 | 4.6 | Only seed on first boot (check if `tasks` table is empty for today) | `seed.go` |
 | 4.7 | `--demo` CLI flag to force re-seed | `main.go` |
@@ -200,11 +200,11 @@
 | 7.5 | Thread counts — active, new-last-10min, orphan from session table | `engine.go` |
 | 7.6 | Cognitive threshold — weighted: threads×15 + loops×10 + errorRate×10 | `engine.go` |
 | 7.7 | Post-lunch crash — compare 13:00-15:00 buckets vs 09:00-11:00 peak | New `engine/patterns.go` |
-| 7.8 | Thrashing — detect >5 sessions in 10min window with <3min avg | `patterns.go` |
+| 7.8 | Performance degradation — detect >5 sessions in 10min window with <3min avg | `patterns.go` |
 | 7.9 | Stuck task — task open >90min with <20% progress (commits vs estimate) | `engine.go` |
 | 7.10 | Broadcast real signals via WebSocket every 5s (already wired, now with real data) | `main.go` |
 
-**Exit criteria:** Open 5 LLM sessions fast → signal strip shows "thrashing". Work past 16:30 → cutoff warning fires. Error rate spikes → fatigue rule triggers.
+**Exit criteria:** Open 5 LLM sessions fast → signal strip shows "performance degradation". Work past 16:30 → cutoff warning fires. Error rate spikes → fatigue rule triggers.
 
 ---
 
@@ -240,7 +240,7 @@
 | 9.5 | Review endpoint returns computed data, not hardcoded leaks | `router.go` |
 | 9.6 | Multi-day trend storage for 7/30 day views | `store.go`, `models.go` |
 
-**Exit criteria:** End of day → Review shows real deep work time, patterns from actual thrashing/fatigue, and genuine leaks.
+**Exit criteria:** End of day → Review shows real deep work time, patterns from actual performance degradation/fatigue, and genuine leaks.
 
 ---
 
@@ -251,7 +251,7 @@
 | # | What | Where |
 |---|------|-------|
 | 10.1 | Plan generator — review + open loops + patterns → plan | New `engine/planner.go` |
-| 10.2 | Constraint derivation — fatigue → cutoff, thrashing → cap | `planner.go` |
+| 10.2 | Constraint derivation — fatigue → cutoff, perf-degradation → cap | `planner.go` |
 | 10.3 | Bandwidth adjustment — planned vs actual, auto-shift | `planner.go` |
 | 10.4 | Task pre-selection from open loops | `planner.go` |
 | 10.5 | Plan rollover at midnight | `planner.go` |

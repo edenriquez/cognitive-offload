@@ -156,4 +156,19 @@ export const api = {
   // ---------- Interventions ----------
   listInterventions: () =>
     request<import("../types").Intervention[]>("GET", "/api/v1/interventions"),
+
+  // ---------- Self Reports ----------
+  createSelfReport: (level: number, label: string, note: string = "") =>
+    request<{
+      status: string;
+      level: number;
+      label: string;
+      bucket_idx: number;
+    }>("POST", "/api/v1/self-report", { level, label, note }),
+
+  listSelfReports: (day?: string) =>
+    request<import("../types").SelfReport[]>(
+      "GET",
+      `/api/v1/self-reports${day ? `?day=${day}` : ""}`,
+    ),
 };

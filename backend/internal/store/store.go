@@ -117,6 +117,17 @@ func (d *DB) Migrate() error {
 		outcome    TEXT NOT NULL DEFAULT 'active'
 	);
 	CREATE INDEX IF NOT EXISTS idx_focus_day ON focus_sessions(started_at);
+
+	CREATE TABLE IF NOT EXISTS self_reports (
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		day        TEXT NOT NULL,
+		level      INTEGER NOT NULL,
+		label      TEXT NOT NULL,
+		ts         INTEGER NOT NULL,
+		bucket_idx INTEGER NOT NULL,
+		note       TEXT NOT NULL DEFAULT ''
+	);
+	CREATE INDEX IF NOT EXISTS idx_self_reports_day ON self_reports(day);
 	`
 	_, err := d.db.Exec(schema)
 	return err
@@ -736,6 +747,34 @@ func (d *DB) ActiveFocusMinutes(ctx context.Context) (int, error) {
 	}
 	elapsed := time.Since(time.Unix(startedAt.Int64, 0))
 	return int(elapsed.Minutes()), nil
+}
+
+// ---------- Self Reports ----------
+
+func (d *DB) InsertSelfReport(ctx context.Context, day string, level int, label string, ts int64, bucketIdx int, note string) error {
+	_, err := d.db.ExecContext(ctx,
+		`INSERT INTO self_reports (day, level, label, ts, bucket_idx, note) VALUES (?, ?, ?, ?, ?, ?)`,
+		day, level, label, ts, bucketIdx, note)
+	return err
+}
+
+func (d *DB) SelfReportsByDay(ctx context.Context, day string) ([]models.SelfReport, error) {
+	rows, err := d.db.QueryContext(ctx,
+		`SELECT id, day, level, label, ts, bucket_idx, note FROM self_reports WHERE day = ? ORDER BY ts`, day)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []models.SelfReport
+	for rows.Next() {
+		var r models.SelfReport
+		if err := rows.Scan(&r.ID, &r.Day, &r.Level, &r.Label, &r.Ts, &r.BucketIdx, &r.Note); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, nil
 }
 
 // ---------- Helpers ----------

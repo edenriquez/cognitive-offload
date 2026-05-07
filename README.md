@@ -23,7 +23,7 @@ Built with **Tauri 2** (Rust native shell) + **React 18** + **TypeScript** front
 - **Enforcement Engine** — 11 rule-based interventions (block/warn/info) from real-time signals
 - **Signal Strip** — Live indicators: focus state, active threads, error rate, open loops, cutoff timer
 - **Energy Map** — Time-series activity visualization with annotated problem regions
-- **Thread Management** — Thrashing detection, orphan tracking, gravity cards
+- **Thread Management** — Performance degradation detection, orphan tracking, gravity cards
 - **Bandwidth Allocation** — Donut chart tracking work/personal/admin/learning time splits
 
 ## Architecture

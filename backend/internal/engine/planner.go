@@ -56,13 +56,13 @@ func deriveConstraints(patterns []models.Pattern, summary models.DaySummary) []m
 				})
 			}
 
-		case "thrashing":
+		case "perf-degradation":
 			if !seen["thread_cap"] {
 				seen["thread_cap"] = true
 				constraints = append(constraints, models.Constraint{
 					Rule:        "THREAD_CAP",
 					Title:       "1 active thread cap.",
-					Description: "Session thrashing detected. New sessions blocked until close-or-archive.",
+					Description: "Performance degradation detected. High context-switch rate — consider reducing concurrent threads.",
 					Locked:      true,
 				})
 			}
@@ -164,27 +164,27 @@ func generateHeadline(patterns []models.Pattern, summary models.DaySummary) stri
 	}
 
 	hasFatigue := false
-	hasThrashing := false
+	hasPerfDegradation := false
 	hasCrash := false
 	for _, p := range patterns {
 		switch p.Kind {
 		case "fatigue":
 			hasFatigue = true
-		case "thrashing":
-			hasThrashing = true
+		case "perf-degradation":
+			hasPerfDegradation = true
 		case "crash":
 			hasCrash = true
 		}
 	}
 
-	if hasFatigue && hasThrashing {
-		return "Recovery day. One thread, earlier cutoff, no fatigue work."
+	if hasFatigue && hasPerfDegradation {
+		return "Recovery day. Fewer threads, earlier cutoff, protect your energy."
 	}
 	if hasFatigue {
 		return "Protect your energy. Earlier cutoff, lighter load."
 	}
-	if hasThrashing {
-		return "Focus day. One thread at a time, close before opening."
+	if hasPerfDegradation {
+		return "Focus day. Reduce concurrent threads to recover performance."
 	}
 	if hasCrash {
 		return "Adjust your rhythm. Light tasks after lunch, deep work in the morning."

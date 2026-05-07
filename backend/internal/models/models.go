@@ -40,7 +40,7 @@ type Bucket struct {
 type Pattern struct {
 	ID         string         `json:"id"`
 	Day        string         `json:"day"`
-	Kind       string         `json:"kind"`     // thrashing | crash | stuck | fatigue | cold-start | open-loops | overwork
+	Kind       string         `json:"kind"`     // perf-degradation | crash | stuck | fatigue | cold-start | open-loops | overwork
 	Severity   string         `json:"severity"` // high | medium | low
 	Title      string         `json:"title"`
 	Detail     string         `json:"detail"`
@@ -163,12 +163,13 @@ type SessionBrief struct {
 
 // ReviewSummary is a full daily audit payload.
 type ReviewSummary struct {
-	Summary    DaySummary  `json:"summary"`
-	EnergyMap  []Bucket    `json:"energy_map"`
-	Patterns   []Pattern   `json:"patterns"`
-	Leaks      []Leak      `json:"leaks"`
-	RootCauses []RootCause `json:"root_causes"`
-	Sessions   []Session   `json:"sessions"`
+	Summary     DaySummary   `json:"summary"`
+	EnergyMap   []Bucket     `json:"energy_map"`
+	Patterns    []Pattern    `json:"patterns"`
+	Leaks       []Leak       `json:"leaks"`
+	RootCauses  []RootCause  `json:"root_causes"`
+	Sessions    []Session    `json:"sessions"`
+	SelfReports []SelfReport `json:"self_reports"`
 }
 
 type DaySummary struct {
@@ -176,6 +177,17 @@ type DaySummary struct {
 	LeakedMin     int `json:"leaked_min"`
 	OpenLoops     int `json:"open_loops"`
 	SessionsCount int `json:"sessions_count"`
+}
+
+// SelfReport is a user-reported subjective cognitive state.
+type SelfReport struct {
+	ID        int    `json:"id"`
+	Day       string `json:"day"`
+	Level     int    `json:"level"`      // 1-5: fresh, focused, loaded, tired, degraded
+	Label     string `json:"label"`      // Human label for the level
+	Ts        int64  `json:"ts"`         // Unix milliseconds
+	BucketIdx int    `json:"bucket_idx"` // Which 10-min bucket this falls in
+	Note      string `json:"note"`       // Optional free-text note
 }
 
 // TodayResponse bundles everything the Today view needs.

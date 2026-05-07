@@ -55,7 +55,7 @@ func ComputeLeaks(ctx context.Context, db *store.DB, day string) []models.Leak {
 		}
 	}
 
-	// 3. Session thrashing windows (many sessions, low file saves)
+	// 3. Session context-fragmentation windows (many sessions, low file saves)
 	for _, b := range buckets {
 		if b.Sessions >= 3 && b.FileSaves <= 1 && b.Activity > 10 {
 			leaks = append(leaks, models.Leak{

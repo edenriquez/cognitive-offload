@@ -242,11 +242,11 @@ func (e *Engine) EvaluateRules(s Signals, hour float64) []models.Intervention {
 		})
 	}
 
-	// 3. Thread thrashing
+	// 3. Performance degradation
 	if s.NewThreadsLast10m >= 5 {
 		out = append(out, models.Intervention{
-			ID: "thrashing", Severity: "block", Rule: "THREAD.THRASHING",
-			Title: "You are thrashing. Resume previous thread or stop.",
+			ID: "perf-degradation", Severity: "block", Rule: "LOAD.PERF_DEGRADATION",
+			Title: "Performance degradation detected. Too many concurrent threads.",
 			Body:  fmt.Sprintf("%d new threads in last 10 min. Resume one or take a break.", s.NewThreadsLast10m),
 			Evidence: []string{
 				fmt.Sprintf("%d new threads in last 10 min", s.NewThreadsLast10m),
@@ -368,7 +368,7 @@ func (e *Engine) SignalSnapshot(ctx context.Context) (models.SignalSnapshot, err
 
 	focusState := "stable"
 	if s.NewThreadsLast10m >= 5 {
-		focusState = "thrashing"
+		focusState = "degraded"
 	} else if s.ActiveThreads >= 3 {
 		focusState = "fragmented"
 	} else if s.ActiveThreads >= 2 {

@@ -39,6 +39,13 @@ interface AppState {
 
   now: Date;
   setNow: (d: Date) => void;
+
+  selfReportOpen: boolean;
+  setSelfReportOpen: (open: boolean) => void;
+  lastSelfReport: { level: number; label: string; ts: number } | null;
+  setLastSelfReport: (
+    r: { level: number; label: string; ts: number } | null,
+  ) => void;
 }
 
 const FOCUS_BLOCK_SECS = 90 * 60; // 90 minutes
@@ -161,4 +168,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   now: new Date(),
   setNow: (d) => set({ now: d }),
+
+  selfReportOpen: false,
+  setSelfReportOpen: (open) => set({ selfReportOpen: open }),
+  lastSelfReport: null,
+  setLastSelfReport: (r) => set({ lastSelfReport: r }),
 }));

@@ -22,7 +22,7 @@ func InferRootCauses(ctx context.Context, db *store.DB, day string) []models.Roo
 
 	for _, p := range patterns {
 		switch p.Kind {
-		case "thrashing":
+		case "perf-degradation":
 			count := 0
 			if v, ok := p.Evidence["count"]; ok {
 				if n, ok := v.(float64); ok {
@@ -31,7 +31,7 @@ func InferRootCauses(ctx context.Context, db *store.DB, day string) []models.Roo
 			}
 			causes = append(causes, models.RootCause{
 				Signal:     fmt.Sprintf("%d sessions / 30m", count),
-				Cause:      "No active-thread cap — context-switch tax",
+				Cause:      "High context-switch rate — performance degradation from too many concurrent threads",
 				Confidence: 90,
 			})
 

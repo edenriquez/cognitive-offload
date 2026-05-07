@@ -1627,3 +1627,55 @@
     color: var(--color-overcast);
     letter-spacing: -0.11px;
 }
+
+/* ============================================================
+   SELF-REPORT TIMELINE (Review mode)
+============================================================ */
+.sr-timeline {
+    margin-top: 8px;
+}
+.sr-timeline-track {
+    position: relative;
+    height: 32px;
+    background: var(--color-ash);
+    border-radius: var(--radius-cards);
+    border: 1px solid var(--color-stone);
+    margin-bottom: 8px;
+}
+.sr-timeline-dot {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: default;
+}
+.sr-timeline-time {
+    font-size: 9px;
+    color: var(--color-overcast);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+.sr-timeline-labels {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    font-size: 12px;
+    color: var(--color-metal);
+    letter-spacing: -0.11px;
+}
+.sr-timeline-label-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.sr-timeline-label-item b {
+    color: var(--color-ink);
+    font-weight: 500;
+    text-transform: capitalize;
+}
+.sr-timeline-label-item svg {
+    flex-shrink: 0;
+}

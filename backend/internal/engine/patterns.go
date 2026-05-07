@@ -23,8 +23,8 @@ func DetectPatterns(ctx context.Context, db *store.DB, day string) ([]models.Pat
 	var patterns []models.Pattern
 	now := time.Now()
 
-	// 1. Thrashing detection — windows with many short sessions
-	patterns = append(patterns, detectThrashing(sessions, day, now)...)
+	// 1. Performance degradation — windows with many short sessions
+	patterns = append(patterns, detectPerfDegradation(sessions, day, now)...)
 
 	// 2. Post-lunch crash — activity drop 13:00-15:00 vs morning peak
 	if p := detectPostLunchCrash(buckets, day, now); p != nil {
@@ -52,7 +52,7 @@ func DetectPatterns(ctx context.Context, db *store.DB, day string) ([]models.Pat
 	return patterns, nil
 }
 
-func detectThrashing(sessions []models.Session, day string, now time.Time) []models.Pattern {
+func detectPerfDegradation(sessions []models.Session, day string, now time.Time) []models.Pattern {
 	if len(sessions) < 5 {
 		return nil
 	}
@@ -93,9 +93,9 @@ func detectThrashing(sessions []models.Session, day string, now time.Time) []mod
 			}
 			endTime := w.start.Add(30 * time.Minute)
 			patterns = append(patterns, models.Pattern{
-				ID:         fmt.Sprintf("thrash-%s-%d", day, w.start.Unix()),
+				ID:         fmt.Sprintf("perf-deg-%s-%d", day, w.start.Unix()),
 				Day:        day,
-				Kind:       "thrashing",
+				Kind:       "perf-degradation",
 				Severity:   "high",
 				Title:      fmt.Sprintf("%d sessions in 30 min", w.count),
 				Detail:     fmt.Sprintf("Avg duration %dm. Likely context fragmentation.", avgMin),

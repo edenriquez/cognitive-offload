@@ -9,6 +9,7 @@ import type {
   RootCause,
   Session,
 } from "../../types";
+import { StateIcon } from "../shared/SelfReport";
 
 // ---------- Energy Map (matches v8 design) ----------
 function EnergyMap({
@@ -236,7 +237,7 @@ function fmtMin(mins: unknown): string {
 }
 
 const KIND_ICONS: Record<string, string> = {
-  thrashing: "⚡",
+  "perf-degradation": "⚡",
   crash: "📉",
   fatigue: "🔥",
   stuck: "🔄",
@@ -400,6 +401,48 @@ export default function ReviewMode() {
             )}
           </div>
         </div>
+
+        {/* Self-Report Timeline */}
+        {review.self_reports && review.self_reports.length > 0 && (
+          <div className="section">
+            <h3 className="section-h">Self-Reported State</h3>
+            <div className="sr-timeline">
+              <div className="sr-timeline-track">
+                {review.self_reports.map((r, i) => {
+                  const hour = Math.floor((r.bucket_idx * 10) / 60);
+                  const min = (r.bucket_idx * 10) % 60;
+                  const pct = (((r.bucket_idx * 10) / 60 - 7) / 15) * 100;
+                  return (
+                    <div
+                      key={i}
+                      className="sr-timeline-dot"
+                      style={{ left: `${Math.max(0, Math.min(100, pct))}%` }}
+                      title={`${hour}:${min.toString().padStart(2, "0")} — ${r.label}${r.note ? `: ${r.note}` : ""}`}
+                    >
+                      <StateIcon level={r.level} size={12} />
+                      <span className="sr-timeline-time">{`${hour}:${min.toString().padStart(2, "0")}`}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="sr-timeline-labels">
+                {review.self_reports.map((r, i) => {
+                  return (
+                    <span key={i} className="sr-timeline-label-item">
+                      <StateIcon level={r.level} size={11} />
+                      {new Date(r.ts).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}{" "}
+                      · <b>{r.label}</b>
+                      {r.note ? ` — ${r.note}` : ""}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Patterns */}
         {patterns.length > 0 && (
