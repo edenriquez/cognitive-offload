@@ -257,6 +257,7 @@ export default function ReviewMode() {
   const [review, setReview] = useState<ReviewSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<Session[]>([]);
 
   useEffect(() => {
     const n = new Date();
@@ -264,7 +265,10 @@ export default function ReviewMode() {
     api
       .getReview(day)
       .then((data) => {
-        if (data) setReview(data);
+        if (data) {
+          setReview(data);
+          setSessions(data.sessions ?? []);
+        }
       })
       .catch((err) => setError(err?.message ?? "Failed to load review"))
       .finally(() => setLoading(false));
@@ -304,7 +308,6 @@ export default function ReviewMode() {
   const patterns = review.patterns ?? [];
   const leaks = review.leaks ?? [];
   const rootCauses = review.root_causes ?? [];
-  const [sessions, setSessions] = useState(review.sessions ?? []);
 
   const closeSession = async (id: string) => {
     try {
