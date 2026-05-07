@@ -3,7 +3,7 @@ import { useAppStore } from "../../store/app-store";
 import { api } from "../../api/client";
 
 export default function FocusMode() {
-  const { focus, pauseFocus, exitFocus } = useAppStore();
+  const { focus, pauseFocus, exitFocus, tasks, toggleTask } = useAppStore();
   const [showWhy, setShowWhy] = useState(false);
 
   // Body class for focus-specific styles
@@ -29,11 +29,20 @@ export default function FocusMode() {
   };
 
   const handleDone = () => {
+    // Stop the focus session
     try {
       api.stopFocus("done").catch(() => {});
     } catch {
       /* ignore */
     }
+
+    // Mark the task as done in the task list
+    const task = tasks.find((t) => t.text === focus.task && !t.done);
+    if (task) {
+      toggleTask(task.id);
+      api.toggleTask(task.id).catch(() => {});
+    }
+
     exitFocus("done");
   };
 
