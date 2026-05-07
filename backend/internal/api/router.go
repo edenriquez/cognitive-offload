@@ -68,6 +68,8 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 		r.Get("/tomorrow", h.getTomorrow)
 		r.Post("/tomorrow/lock", h.lockTomorrow)
 		r.Put("/tomorrow", h.updateTomorrow)
+		r.Post("/tomorrow/regenerate", h.regenerateTomorrow)
+		r.Post("/tomorrow/rollover", h.rolloverTomorrow)
 
 		// Sessions
 		r.Get("/sessions", h.listSessions)
@@ -587,6 +589,79 @@ func (h *handler) updateTomorrow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, plan)
+}
+
+func (h *handler) regenerateTomorrow(w http.ResponseWriter, r *http.Request) {
+	day := tomorrow()
+	todayStr := today()
+	ctx := r.Context()
+
+	// Delete existing draft plan (only if not locked)
+	existing, _ := h.db.PlanByDay(ctx, day)
+	if existing != nil && existing.Status == "locked" {
+		http.Error(w, "plan is already locked \u2014 cannot regenerate", 409)
+		return
+	}
+
+	// Generate fresh plan from today's data
+	generated := engine.GeneratePlan(ctx, h.db, todayStr, day)
+	if generated == nil {
+		http.Error(w, "no data to generate plan from", 404)
+		return
+	}
+
+	h.db.UpsertPlan(ctx, *generated)
+	slog.Info("plan regenerated", "day", day)
+	writeJSON(w, 200, generated)
+}
+
+func (h *handler) rolloverTomorrow(w http.ResponseWriter, r *http.Request) {
+	tomorrowDay := tomorrow()
+	todayStr := today()
+	ctx := r.Context()
+
+	// Get the plan (locked or draft)
+	plan, _ := h.db.PlanByDay(ctx, tomorrowDay)
+	if plan == nil {
+		// Auto-generate first
+		plan = engine.GeneratePlan(ctx, h.db, todayStr, tomorrowDay)
+		if plan == nil {
+			http.Error(w, "no plan exists and none could be generated", 404)
+			return
+		}
+		h.db.UpsertPlan(ctx, *plan)
+	}
+
+	// Copy plan tasks into tomorrow's tasks table
+	tasks := plan.Tasks
+	if len(tasks) == 0 {
+		writeJSON(w, 200, map[string]any{"status": "rollover", "tasks_created": 0})
+		return
+	}
+
+	created := 0
+	for _, t := range tasks {
+		newTask := models.Task{
+			ID:   fmt.Sprintf("t-%d-%d", time.Now().UnixNano(), created),
+			Day:  tomorrowDay,
+			Kind: t.Kind,
+			Idx:  t.Idx,
+			Text: t.Text,
+			Done: false,
+		}
+		if err := h.db.CreateTask(ctx, newTask); err != nil {
+			slog.Error("rollover task create failed", "error", err, "text", t.Text)
+			continue
+		}
+		created++
+	}
+
+	// Mark plan as completed
+	plan.Status = "completed"
+	h.db.UpsertPlan(ctx, *plan)
+
+	slog.Info("plan rolled over", "day", tomorrowDay, "tasks_created", created)
+	writeJSON(w, 200, map[string]any{"status": "rollover", "tasks_created": created, "day": tomorrowDay})
 }
 
 // ---------- Sessions ----------

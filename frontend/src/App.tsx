@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useAppStore } from "./store/app-store";
 import type { Mode } from "./types";
 import FocusMode from "./components/modes/FocusMode";
@@ -122,6 +122,22 @@ export default function App() {
     .toString()
     .padStart(2, "0");
 
+  // Hover-to-switch nav with 200ms delay
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleNavHover = useCallback(
+    (id: Mode) => {
+      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+      hoverTimer.current = setTimeout(() => setMode(id), 200);
+    },
+    [setMode],
+  );
+  const handleNavLeave = useCallback(() => {
+    if (hoverTimer.current) {
+      clearTimeout(hoverTimer.current);
+      hoverTimer.current = null;
+    }
+  }, []);
+
   return (
     <div className="app-shell">
       {/* Top nav — sits under native titlebar overlay area */}
@@ -129,12 +145,13 @@ export default function App() {
         <div className="nav-brand">
           <i>c</i>Cogload
         </div>
-        <div className="nav-pills">
+        <div className="nav-pills" onMouseLeave={handleNavLeave}>
           {MODES.map((m) => (
             <button
               key={m.id}
               className={mode === m.id ? "on" : ""}
               onClick={() => setMode(m.id)}
+              onMouseEnter={() => handleNavHover(m.id)}
             >
               {m.label}
             </button>

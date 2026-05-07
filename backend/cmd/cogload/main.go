@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/cogload/backend/internal/config"
 	"github.com/cogload/backend/internal/engine"
 	"github.com/cogload/backend/internal/ingest"
+	"github.com/cogload/backend/internal/models"
 	"github.com/cogload/backend/internal/store"
 	"github.com/cogload/backend/internal/ws"
 )
@@ -93,6 +95,55 @@ func main() {
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
+
+	// Midnight rollover — auto-roll locked plans at midnight
+	go func() {
+		for {
+			now := time.Now()
+			nextMidnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 5, 0, now.Location())
+			sleepDur := nextMidnight.Sub(now)
+			slog.Info("midnight rollover scheduled", "in", sleepDur.Round(time.Minute))
+
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(sleepDur):
+			}
+
+			// It's midnight — check for a locked plan for today
+			todayStr := time.Now().Format("2006-01-02")
+			plan, err := db.PlanByDay(ctx, todayStr)
+			if err != nil || plan == nil {
+				slog.Debug("midnight rollover: no plan for today")
+				continue
+			}
+			if plan.Status != "locked" {
+				slog.Debug("midnight rollover: plan not locked, skipping")
+				continue
+			}
+
+			// Roll tasks into today's task table
+			created := 0
+			for _, t := range plan.Tasks {
+				newTask := models.Task{
+					ID:   fmt.Sprintf("t-roll-%d-%d", time.Now().UnixNano(), created),
+					Day:  todayStr,
+					Kind: t.Kind,
+					Idx:  t.Idx,
+					Text: t.Text,
+					Done: false,
+				}
+				if err := db.CreateTask(ctx, newTask); err != nil {
+					continue
+				}
+				created++
+			}
+
+			plan.Status = "completed"
+			db.UpsertPlan(ctx, *plan)
+			slog.Info("midnight rollover complete", "day", todayStr, "tasks_created", created)
+		}
+	}()
 
 	// Start signal broadcast ticker
 	go func() {
