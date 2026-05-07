@@ -84,8 +84,10 @@ export default function TomorrowMode() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchPlan = () => {
+    setLoading(true);
     api
       .getTomorrow()
       .then((data) => {
@@ -93,13 +95,51 @@ export default function TomorrowMode() {
       })
       .catch((err) => setError(err?.message ?? "Failed to load plan"))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchPlan();
   }, []);
 
   const handleLock = async () => {
     try {
       const locked = await api.lockTomorrow();
       if (locked) setPlan(locked);
+      setActionMsg("Plan locked ✓");
+      setTimeout(() => setActionMsg(null), 3000);
     } catch {}
+  };
+
+  const handleRegenerate = async () => {
+    setActionMsg(null);
+    try {
+      const fresh = await api.regenerateTomorrow();
+      if (fresh) setPlan(fresh);
+      setActionMsg("Plan regenerated from today's data ✓");
+      setTimeout(() => setActionMsg(null), 3000);
+    } catch (err: any) {
+      setActionMsg(
+        err?.message?.includes("locked")
+          ? "Cannot regenerate — plan is locked"
+          : "No data to generate from yet",
+      );
+      setTimeout(() => setActionMsg(null), 4000);
+    }
+  };
+
+  const handleRollover = async () => {
+    setActionMsg(null);
+    try {
+      const result = await api.rolloverTomorrow();
+      setActionMsg(
+        `Rolled over ${result.tasks_created} tasks into ${result.day} ✓`,
+      );
+      setTimeout(() => setActionMsg(null), 4000);
+      fetchPlan(); // refresh to show completed status
+    } catch {
+      setActionMsg("Rollover failed");
+      setTimeout(() => setActionMsg(null), 3000);
+    }
   };
 
   if (loading) {
@@ -274,16 +314,35 @@ export default function TomorrowMode() {
           </div>
         )}
 
+        {/* Action feedback */}
+        {actionMsg && <div className="tom-action-msg">{actionMsg}</div>}
+
+        {/* Actions */}
         <div className="tom-cta">
           <button className="btn-secondary" onClick={() => setMode("today")}>
             Back to today
           </button>
-          {plan.status !== "locked" && (
+          <button className="btn-secondary" onClick={handleRegenerate}>
+            Regenerate plan
+          </button>
+          {plan.status !== "locked" && plan.status !== "completed" && (
             <button className="btn-primary" onClick={handleLock}>
               Lock in plan
             </button>
           )}
+          {(plan.status === "locked" || plan.status === "draft") &&
+            plan.tasks.length > 0 && (
+              <button className="btn-primary" onClick={handleRollover}>
+                Roll over tasks now
+              </button>
+            )}
         </div>
+
+        {plan.status === "completed" && (
+          <div className="tom-completed-msg">
+            Plan completed — tasks have been rolled into your Today tab.
+          </div>
+        )}
       </div>
     </div>
   );

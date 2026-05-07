@@ -1040,6 +1040,26 @@
     gap: 8px;
     justify-content: center;
     margin-top: 40px;
+    flex-wrap: wrap;
+}
+.tom-action-msg {
+    text-align: center;
+    font-size: 13px;
+    color: var(--color-success-green);
+    font-weight: 500;
+    letter-spacing: -0.14px;
+    margin-top: 16px;
+    animation: fadein 0.2s var(--ease);
+}
+.tom-completed-msg {
+    text-align: center;
+    font-size: 13px;
+    color: var(--color-overcast);
+    letter-spacing: -0.14px;
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--color-ash);
+    border-radius: var(--radius-cards);
 }
 
 /* Constraints */

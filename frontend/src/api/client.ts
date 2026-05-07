@@ -105,6 +105,15 @@ export const api = {
 
   lockTomorrow: () => request<Plan>("POST", "/api/v1/tomorrow/lock"),
 
+  regenerateTomorrow: () =>
+    request<Plan>("POST", "/api/v1/tomorrow/regenerate"),
+
+  rolloverTomorrow: () =>
+    request<{ status: string; tasks_created: number; day: string }>(
+      "POST",
+      "/api/v1/tomorrow/rollover",
+    ),
+
   updateTomorrow: (plan: Partial<Plan>) =>
     request<Plan>("PUT", "/api/v1/tomorrow", plan),
 
