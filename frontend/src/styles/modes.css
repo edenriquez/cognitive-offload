@@ -831,107 +831,34 @@
     padding: 24px;
     box-shadow: var(--shadow-subtle-2);
 }
-.em {
-    display: grid;
-    grid-template-rows: 1fr 24px;
-    height: 200px;
-}
-.em-area {
+.em-svg-wrap {
     position: relative;
-    border-bottom: 1px solid var(--color-stone);
 }
-.em-empty {
+.em-svg {
+    display: block;
+    overflow: visible;
+    font-family: var(--font-inter), system-ui, sans-serif;
+}
+.em-svg-bar {
+    cursor: pointer;
+    transition: opacity 0.12s;
+}
+.em-svg-bar:hover {
+    opacity: 1 !important;
+}
+.em-empty-overlay {
+    position: absolute;
+    inset: 0;
     display: grid;
     place-items: center;
     color: var(--color-overcast);
     font-size: 13px;
-}
-.em-region {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    background: rgba(119, 35, 34, 0.05);
-    border-left: 1px dashed rgba(119, 35, 34, 0.3);
-    border-right: 1px dashed rgba(119, 35, 34, 0.3);
-}
-.em-region-label {
-    position: absolute;
-    top: 4px;
-    left: 4px;
-    font-size: 9px;
-    color: var(--color-danger-red);
-    font-weight: 500;
-    letter-spacing: -0.02em;
-    white-space: nowrap;
-    opacity: 0.8;
-}
-.em-bar {
-    position: absolute;
-    bottom: 0;
-    width: 4px;
-    background: var(--color-slate);
-    border-radius: 1px 1px 0 0;
-    transform: translateX(-50%);
-    cursor: pointer;
-    transition: background 0.15s;
-}
-.em-bar:hover {
-    background: var(--color-carbon);
-}
-.em-bar.peak {
-    background: var(--color-ink);
-}
-.em-bar.peak:hover {
-    background: var(--color-abyss);
-}
-.em-bar.warn {
-    background: var(--color-danger-red);
-}
-.em-bar.warn:hover {
-    background: #5a1a19;
-}
-.em-region:hover {
-    background: rgba(119, 35, 34, 0.08);
-    cursor: pointer;
-}
-.em-region-active {
-    background: rgba(119, 35, 34, 0.12) !important;
-    border-color: rgba(119, 35, 34, 0.5) !important;
-    z-index: 2;
-}
-.em-region-high {
-    background: rgba(119, 35, 34, 0.1) !important;
-    border-color: rgba(119, 35, 34, 0.4) !important;
-}
-.em-region-label-high {
-    color: var(--color-danger-red) !important;
-    font-weight: 600;
-}
-.em-dim {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.7);
     pointer-events: none;
-    z-index: 1;
-    transition: opacity 0.15s var(--ease);
-}
-.em-x {
-    position: relative;
-}
-.em-x span {
-    position: absolute;
-    top: 6px;
-    font-size: 11px;
-    color: var(--color-overcast);
-    transform: translateX(-50%);
-    letter-spacing: -0.11px;
 }
 
-/* Hover tooltip */
+/* Hover tooltip (HTML overlay on top of SVG) */
 .em-tooltip {
     position: absolute;
-    top: 8px;
     background: var(--color-ink);
     color: var(--color-white);
     border-radius: 6px;
@@ -963,23 +890,6 @@
 }
 .em-tooltip-row.warn b {
     color: #ff8a80;
-}
-.em-now {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    background: var(--color-action-blue);
-}
-.em-now::after {
-    content: "NOW";
-    position: absolute;
-    top: -16px;
-    left: -15px;
-    font-size: 10px;
-    color: var(--color-action-blue);
-    font-weight: 600;
-    letter-spacing: 0.04em;
 }
 
 /* Patterns */
@@ -1675,58 +1585,6 @@
 }
 
 /* ============================================================
-   SELF-REPORT TIMELINE (Review mode)
-============================================================ */
-.sr-timeline {
-    margin-top: 8px;
-}
-.sr-timeline-track {
-    position: relative;
-    height: 32px;
-    background: var(--color-ash);
-    border-radius: var(--radius-cards);
-    border: 1px solid var(--color-stone);
-    margin-bottom: 8px;
-}
-.sr-timeline-dot {
-    position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    cursor: default;
-}
-.sr-timeline-time {
-    font-size: 9px;
-    color: var(--color-overcast);
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.02em;
-}
-.sr-timeline-labels {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 14px;
-    font-size: 12px;
-    color: var(--color-metal);
-    letter-spacing: -0.11px;
-}
-.sr-timeline-label-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-.sr-timeline-label-item b {
-    color: var(--color-ink);
-    font-weight: 500;
-    text-transform: capitalize;
-}
-.sr-timeline-label-item svg {
-    flex-shrink: 0;
-}
-
-/* ============================================================
    SETTINGS MODE
 ============================================================ */
 .settings {
@@ -2074,4 +1932,270 @@
 }
 .settings-toggle:hover .settings-toggle-track {
     box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.04);
+}
+
+/* ============================================================
+   ONBOARDING WIZARD
+============================================================ */
+.onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: var(--color-white);
+    display: grid;
+    place-items: center;
+    padding: 40px 24px;
+}
+.onboarding-content {
+    max-width: 480px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 24px;
+    transition:
+        opacity 0.2s ease,
+        transform 0.2s ease;
+}
+.onboarding-fade-in {
+    opacity: 1;
+    transform: translateY(0);
+}
+.onboarding-fade-out {
+    opacity: 0;
+    transform: translateY(6px);
+}
+.onboarding-heading {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--color-ink);
+    letter-spacing: -0.3px;
+    margin: 0;
+    line-height: 1.2;
+}
+.onboarding-body {
+    font-size: 15px;
+    color: var(--color-metal);
+    line-height: 1.6;
+    margin: 0;
+    max-width: 400px;
+}
+.onboarding-features {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    text-align: left;
+    margin: 8px 0;
+}
+.onboarding-feature {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 15px;
+    color: var(--color-metal);
+    line-height: 1.6;
+}
+.onboarding-feature-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+    line-height: 1.5;
+}
+.onboarding-feature-text b {
+    color: var(--color-ink);
+    font-weight: 600;
+}
+.onboarding-btn {
+    background: var(--color-ink);
+    color: var(--color-white);
+    padding: 12px 32px;
+    border-radius: 99px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    border: none;
+    cursor: pointer;
+    letter-spacing: -0.14px;
+    transition: opacity 0.15s ease;
+    margin-top: 8px;
+}
+.onboarding-btn:hover {
+    opacity: 0.85;
+}
+.onboarding-dots {
+    display: flex;
+    gap: 8px;
+    margin-top: 24px;
+}
+.onboarding-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-stone);
+    transition: background 0.2s ease;
+}
+.onboarding-dot.active {
+    background: var(--color-ink);
+}
+.onboarding-setup {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    margin: 8px 0;
+}
+.onboarding-setup-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--color-stone);
+}
+.onboarding-setup-row:last-child {
+    border-bottom: none;
+}
+.onboarding-setup-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-ink);
+    letter-spacing: -0.14px;
+}
+.onboarding-select {
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-ink);
+    background: var(--color-ash);
+    border: 1px solid var(--color-stone);
+    border-radius: 8px;
+    padding: 7px 32px 7px 12px;
+    cursor: pointer;
+    outline: none;
+    min-width: 130px;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23999' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    transition: border-color 0.15s ease;
+}
+.onboarding-select:focus {
+    border-color: var(--color-ink);
+}
+.onboarding-select:hover {
+    border-color: var(--color-metal);
+}
+.onboarding-input {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-ink);
+    background: var(--color-ash);
+    border: 1px solid var(--color-stone);
+    border-radius: 8px;
+    padding: 7px 12px;
+    width: 80px;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.15s ease;
+    -moz-appearance: textfield;
+}
+.onboarding-input::-webkit-inner-spin-button,
+.onboarding-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.onboarding-input:focus {
+    border-color: var(--color-ink);
+}
+.onboarding-input:hover {
+    border-color: var(--color-metal);
+}
+
+/* ==========================================================
+   Skeleton loading primitives
+   ========================================================== */
+
+.skeleton-block {
+    border-radius: 4px;
+    background: linear-gradient(
+        90deg,
+        var(--color-ash) 25%,
+        var(--color-stone) 50%,
+        var(--color-ash) 75%
+    );
+    background-size: 200px 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+.skeleton-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.skeleton-circle {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: linear-gradient(
+        90deg,
+        var(--color-ash) 25%,
+        var(--color-stone) 50%,
+        var(--color-ash) 75%
+    );
+    background-size: 200px 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+/* ---------- Review skeleton ---------- */
+
+.review-skeleton {
+    padding-top: 8px;
+}
+
+/* ---------- Tomorrow skeleton ---------- */
+
+.tom-skeleton {
+    padding-top: 8px;
+}
+
+/* ---------- Capture skeleton & empty ---------- */
+
+.capture-skeleton {
+    padding-top: 4px;
+}
+
+.capture-empty {
+    text-align: center;
+    color: var(--color-overcast);
+    padding: 40px 16px;
+    font-size: 14px;
+    letter-spacing: 0.01em;
+    line-height: 1.6;
+}
+
+/* Cutoff line — red vertical marker on energy map */
+
+/* ---------- Onboarding energy chart preview ---------- */
+
+.onboarding-chart {
+    display: block;
+    margin: 24px auto;
+    overflow: visible;
+}
+
+.onboarding-chart-label {
+    font-family: inherit;
+    pointer-events: none;
+}
+
+.onboarding-explanation {
+    font-size: 14px;
+    color: var(--color-metal);
+    line-height: 1.6;
+    max-width: 420px;
+    margin-bottom: 20px;
 }

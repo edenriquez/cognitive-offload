@@ -5,6 +5,7 @@ import { api } from "../../api/client";
 export default function CaptureMode() {
   const { captures, setCaptures, addCapture, setTasks, tasks } = useAppStore();
   const [draft, setDraft] = useState("");
+  const [initialLoading, setInitialLoading] = useState(true);
   const ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -13,7 +14,8 @@ export default function CaptureMode() {
       .then((caps) => {
         if (Array.isArray(caps)) setCaptures(caps);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setInitialLoading(false));
   }, [setCaptures]);
 
   useEffect(() => {
@@ -91,33 +93,57 @@ export default function CaptureMode() {
           <kbd>↵</kbd> to capture &nbsp; <kbd>esc</kbd> to leave
         </div>
         <div className="capture-recent">
-          {safeCaptures.slice(0, 10).map((c, i) => (
-            <div
-              key={c?.id ?? i}
-              className={`capture-recent-row ${i === 0 ? "fresh" : ""}`}
-            >
-              <div className="capture-row">
-                <span className="capture-row-text">{c?.text ?? ""}</span>
-                <span className="age">· {timeAgo(c?.created_at)}</span>
-                <div className="capture-row-actions">
-                  <button
-                    className="capture-action-btn promote"
-                    onClick={() => handlePromote(c.id)}
-                    title="Promote to task"
-                  >
-                    ↑ task
-                  </button>
-                  <button
-                    className="capture-action-btn delete"
-                    onClick={() => handleDelete(c.id)}
-                    title="Delete"
-                  >
-                    ×
-                  </button>
+          {initialLoading ? (
+            <div className="capture-skeleton">
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="skeleton-row"
+                  style={{
+                    padding: "14px 0",
+                    borderBottom: "1px solid var(--color-stone)",
+                  }}
+                >
+                  <div
+                    className="skeleton-block"
+                    style={{ width: "100%", height: 14 }}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : safeCaptures.length === 0 ? (
+            <div className="capture-empty">
+              No captures yet — type something and press Enter
+            </div>
+          ) : (
+            safeCaptures.slice(0, 10).map((c, i) => (
+              <div
+                key={c?.id ?? i}
+                className={`capture-recent-row ${i === 0 ? "fresh" : ""}`}
+              >
+                <div className="capture-row">
+                  <span className="capture-row-text">{c?.text ?? ""}</span>
+                  <span className="age">· {timeAgo(c?.created_at)}</span>
+                  <div className="capture-row-actions">
+                    <button
+                      className="capture-action-btn promote"
+                      onClick={() => handlePromote(c?.id)}
+                      title="Promote to task"
+                    >
+                      ↑ task
+                    </button>
+                    <button
+                      className="capture-action-btn delete"
+                      onClick={() => handleDelete(c?.id)}
+                      title="Delete"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>

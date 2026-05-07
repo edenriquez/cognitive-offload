@@ -43,7 +43,6 @@ interface Config {
   cutoff_hour: number;
   lunch_start: number;
   lunch_end: number;
-  thread_cap: number;
   watch_paths: string[];
   ignore_dirs: string[];
   max_watch_dirs: number;
@@ -54,7 +53,6 @@ const DEFAULT_CONFIG: Config = {
   cutoff_hour: 16.5,
   lunch_start: 12,
   lunch_end: 13,
-  thread_cap: 3,
   watch_paths: [],
   ignore_dirs: [],
   max_watch_dirs: 50,
@@ -83,7 +81,6 @@ export default function SettingsMode() {
           cutoff_hour: data.cutoff_hour ?? DEFAULT_CONFIG.cutoff_hour,
           lunch_start: data.lunch_start ?? DEFAULT_CONFIG.lunch_start,
           lunch_end: data.lunch_end ?? DEFAULT_CONFIG.lunch_end,
-          thread_cap: data.thread_cap ?? DEFAULT_CONFIG.thread_cap,
           watch_paths: data.watch_paths ?? DEFAULT_CONFIG.watch_paths,
           ignore_dirs: data.ignore_dirs ?? DEFAULT_CONFIG.ignore_dirs,
           max_watch_dirs: data.max_watch_dirs ?? DEFAULT_CONFIG.max_watch_dirs,
@@ -229,9 +226,7 @@ export default function SettingsMode() {
               Configure thresholds, paths, and engine rules
             </div>
           </div>
-          <span className={`settings-saved ${saved ? "on" : ""}`}>
-            ✓ Saved
-          </span>
+          <span className={`settings-saved ${saved ? "on" : ""}`}>✓ Saved</span>
         </div>
 
         {/* ---- Time & Thresholds ---- */}
@@ -304,28 +299,6 @@ export default function SettingsMode() {
 
           <div className="settings-row">
             <div className="settings-label-group">
-              <span className="settings-label">Thread cap</span>
-              <span className="settings-desc">
-                Max concurrent active threads before alerting
-              </span>
-            </div>
-            <input
-              type="number"
-              className="settings-input"
-              min={1}
-              max={10}
-              value={config.thread_cap}
-              onChange={(e) => {
-                const v = parseInt(e.target.value, 10);
-                if (!isNaN(v) && v >= 1 && v <= 10) {
-                  updateField("thread_cap", v);
-                }
-              }}
-            />
-          </div>
-
-          <div className="settings-row">
-            <div className="settings-label-group">
               <span className="settings-label">Max watch dirs</span>
               <span className="settings-desc">
                 Maximum number of directories to watch for file changes
@@ -368,7 +341,9 @@ export default function SettingsMode() {
               </div>
             ))}
             {config.watch_paths.length === 0 && (
-              <div className="settings-list-empty">No watch paths configured</div>
+              <div className="settings-list-empty">
+                No watch paths configured
+              </div>
             )}
           </div>
           <div className="settings-add-row">
@@ -460,6 +435,28 @@ export default function SettingsMode() {
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* ---- About ---- */}
+        <div className="settings-section">
+          <div className="settings-section-title">About</div>
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <span className="settings-label">Onboarding</span>
+              <span className="settings-desc">
+                Re-run the welcome wizard to reconfigure initial settings
+              </span>
+            </div>
+            <button
+              className="settings-add-btn"
+              onClick={() => {
+                localStorage.removeItem("cogload_onboarded");
+                window.location.reload();
+              }}
+            >
+              Re-run
+            </button>
           </div>
         </div>
       </div>

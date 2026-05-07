@@ -23,11 +23,11 @@ function RuleIcon({ rule }: { rule: string }) {
           <path d="M4 4l16 16" />
         </svg>
       );
-    case "THREAD_CAP": // lock
+    case "CONTEXT_SWITCH": // converging arrows — reduce switching
       return (
         <svg {...s}>
-          <rect x="5" y="11" width="14" height="10" rx="2" />
-          <path d="M8 11V7a4 4 0 018 0v4" />
+          <path d="M8 3v4l-4 4 4 4v4" />
+          <path d="M16 3v4l4 4-4 4v4" />
         </svg>
       );
     case "RECOVERY": // heart pulse
@@ -146,7 +146,102 @@ export default function TomorrowMode() {
     return (
       <div className="tomorrow">
         <div className="tomorrow-inner">
-          <div className="tom-h">Loading...</div>
+          <div className="tom-skeleton">
+            {/* Headline placeholder */}
+            <div
+              className="skeleton-block"
+              style={{ width: "40%", height: 14, marginBottom: 12 }}
+            />
+            <div
+              className="skeleton-block"
+              style={{ width: "75%", height: 24, marginBottom: 32 }}
+            />
+
+            {/* Task row skeletons */}
+            <div
+              className="skeleton-block"
+              style={{ width: 120, height: 12, marginBottom: 16 }}
+            />
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="skeleton-row"
+                style={{
+                  marginBottom: 12,
+                  padding: "12px 0",
+                  borderBottom: "1px solid var(--color-stone)",
+                }}
+              >
+                <div
+                  className="skeleton-block"
+                  style={{ width: 32, height: 14 }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div
+                    className="skeleton-block"
+                    style={{ width: "70%", height: 14, marginBottom: 6 }}
+                  />
+                  <div
+                    className="skeleton-block"
+                    style={{ width: "40%", height: 11 }}
+                  />
+                </div>
+              </div>
+            ))}
+
+            {/* Constraint card skeletons */}
+            <div
+              className="skeleton-block"
+              style={{
+                width: 140,
+                height: 12,
+                marginTop: 32,
+                marginBottom: 16,
+              }}
+            />
+            {[1, 2].map((i) => (
+              <div
+                key={i}
+                className="skeleton-row"
+                style={{
+                  marginBottom: 12,
+                  padding: "14px 0",
+                  borderBottom: "1px solid var(--color-stone)",
+                }}
+              >
+                <div className="skeleton-circle" />
+                <div style={{ flex: 1 }}>
+                  <div
+                    className="skeleton-block"
+                    style={{ width: "50%", height: 14, marginBottom: 6 }}
+                  />
+                  <div
+                    className="skeleton-block"
+                    style={{ width: "80%", height: 11 }}
+                  />
+                </div>
+              </div>
+            ))}
+
+            {/* Bandwidth bar skeleton */}
+            <div
+              className="skeleton-block"
+              style={{
+                width: 130,
+                height: 12,
+                marginTop: 32,
+                marginBottom: 16,
+              }}
+            />
+            <div
+              className="skeleton-block"
+              style={{
+                width: "100%",
+                height: 56,
+                borderRadius: "var(--radius-cards)",
+              }}
+            />
+          </div>
         </div>
       </div>
     );
@@ -210,7 +305,7 @@ export default function TomorrowMode() {
             </button>
           )}
           {(plan.status === "locked" || plan.status === "draft") &&
-            plan.tasks.length > 0 && (
+            tasks.length > 0 && (
               <button className="btn-primary" onClick={handleRollover}>
                 Roll over tasks now
               </button>

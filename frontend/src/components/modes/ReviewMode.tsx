@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useAppStore } from "../../store/app-store";
 import { api } from "../../api/client";
 import type {
@@ -8,10 +8,35 @@ import type {
   Leak,
   RootCause,
   Session,
+  SelfReport,
 } from "../../types";
-import { StateIcon } from "../shared/SelfReport";
+import { StateIcon, STATE_COLORS } from "../shared/SelfReport";
 
-// ---------- Energy Map (matches v8 design) ----------
+// ---------- Energy Map (SVG-based, matches onboarding chart style) ----------
+// Chart constants
+const START_HOUR = 7;
+const END_HOUR = 22;
+const HOUR_SPAN = END_HOUR - START_HOUR; // 15
+const PAD_TOP = 22; // room for labels above chart
+const PAD_BOTTOM = 24; // room for x-axis labels
+const BAR_GAP = 3;
+
+function hourToFrac(h: number): number {
+  return (h - START_HOUR) / HOUR_SPAN;
+}
+
+function formatHour(h: number): string {
+  const hh = Math.floor(h);
+  const mm = Math.round((h % 1) * 60);
+  const ampm = hh >= 12 ? "PM" : "AM";
+  const display = hh > 12 ? hh - 12 : hh === 0 ? 12 : hh;
+  return `${display}:${String(mm).padStart(2, "0")} ${ampm}`;
+}
+
+function fmtH24(h: number): string {
+  return `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
+}
+
 function EnergyMap({
   buckets,
   patterns,
@@ -19,17 +44,30 @@ function EnergyMap({
   buckets: Bucket[];
   patterns: Pattern[];
 }) {
-  const [hovered, setHovered] = useState<Bucket | null>(null);
-  const [hoverX, setHoverX] = useState(0);
-  const [activeRegion, setActiveRegion] = useState<{
-    start: number;
-    end: number;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [hovered, setHovered] = useState<{
+    bucket: Bucket;
+    x: number;
+    y: number;
   } | null>(null);
   const [cfg, setCfg] = useState<{
     cutoff_hour: number;
     lunch_start: number;
     lunch_end: number;
   } | null>(null);
+  const [svgW, setSvgW] = useState(600);
+
+  // Responsive width
+  useEffect(() => {
+    const el = svgRef.current?.parentElement;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) setSvgW(e.contentRect.width);
+    });
+    ro.observe(el);
+    setSvgW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     api
@@ -38,191 +76,554 @@ function EnergyMap({
       .catch(() => {});
   }, []);
 
+  const SVG_H = 200;
+  const barAreaH = SVG_H - PAD_TOP - PAD_BOTTOM;
+
+  const visible = useMemo(
+    () =>
+      (buckets ?? []).filter(
+        (b) => (b.hour ?? 0) >= START_HOUR && (b.hour ?? 0) <= END_HOUR,
+      ),
+    [buckets],
+  );
+
+  const maxActivity = useMemo(
+    () => Math.max(1, ...visible.map((b) => b.activity ?? 0)),
+    [visible],
+  );
+
+  const barW =
+    visible.length > 0 ? Math.max(2, svgW / visible.length - BAR_GAP) : 4;
+
+  const nowH = new Date().getHours() + new Date().getMinutes() / 60;
+  const lunchStart = cfg?.lunch_start ?? 12.5;
+  const lunchEnd = cfg?.lunch_end ?? 13.5;
+  const cutoff = cfg?.cutoff_hour ?? 16.5;
+
+  // Regions
+  const regions = useMemo(() => {
+    const static_ = [
+      { label: "lunch", start: lunchStart, end: lunchEnd, high: false },
+      {
+        label: "post-lunch dip",
+        start: lunchEnd,
+        end: lunchEnd + 1,
+        high: false,
+      },
+    ];
+    const dynamic: {
+      label: string;
+      start: number;
+      end: number;
+      high: boolean;
+    }[] = [];
+    for (const p of patterns ?? []) {
+      if (p.window?.includes("\u2013")) {
+        const [s, e] = p.window.split("\u2013").map((t) => {
+          const parts = t.trim().split(":");
+          return parts.length === 2
+            ? parseInt(parts[0]) + parseInt(parts[1]) / 60
+            : 0;
+        });
+        if (s > 0 && e > s)
+          dynamic.push({
+            label: p.kind,
+            start: s,
+            end: e,
+            high: p.severity === "high",
+          });
+      }
+    }
+    return [...static_, ...dynamic];
+  }, [lunchStart, lunchEnd, patterns]);
+
+  // Hover handler
+  const handleBarEnter = useCallback(
+    (b: Bucket, e: React.MouseEvent<SVGRectElement>) => {
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      setHovered({
+        bucket: b,
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    },
+    [],
+  );
+
+  const handleBarLeave = useCallback(() => setHovered(null), []);
+
+  // Helper to convert hour to x pixel
+  const hToX = useCallback((h: number) => hourToFrac(h) * svgW, [svgW]);
+
   if (!buckets || buckets.length === 0) {
     return (
-      <div className="em">
-        <div className="em-area em-empty">No energy data yet</div>
-        <div className="em-x"></div>
+      <div className="em-card">
+        <div className="em-svg-wrap">
+          <svg ref={svgRef} width="100%" height={SVG_H} />
+          <div className="em-empty-overlay">No energy data yet</div>
+        </div>
       </div>
     );
   }
 
-  const visible = buckets.filter(
-    (b) => (b.hour ?? 0) >= 7 && (b.hour ?? 0) <= 22,
-  );
-  const w = 100 / visible.length;
-  const nowH = new Date().getHours() + new Date().getMinutes() / 60;
-
-  // Static regions from config (adjustable)
-  const lunchStart = cfg?.lunch_start ?? 12.5;
-  const lunchEnd = cfg?.lunch_end ?? 13.5;
-  const cutoff = cfg?.cutoff_hour ?? 16.5;
-  const staticRegions = [
-    { label: "lunch", start: lunchStart, end: lunchEnd },
-    { label: "post-lunch dip", start: lunchEnd, end: lunchEnd + 1 },
-    { label: "past cutoff", start: cutoff, end: cutoff + 1.5 },
-  ];
-
-  // Dynamic regions from detected patterns
-  const patternRegions: {
-    label: string;
-    start: number;
-    end: number;
-    high: boolean;
-  }[] = [];
-  for (const p of patterns ?? []) {
-    if (p.window?.includes("–")) {
-      const [s, e] = p.window.split("–").map((t) => {
-        const parts = t.trim().split(":");
-        return parts.length === 2
-          ? parseInt(parts[0]) + parseInt(parts[1]) / 60
-          : 0;
-      });
-      if (s > 0 && e > s)
-        patternRegions.push({
-          label: p.kind,
-          start: s,
-          end: e,
-          high: p.severity === "high",
-        });
-    }
-  }
-
-  const fmtH = (h: number) =>
-    `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
-
   return (
-    <div className="em">
-      <div className="em-area">
-        {/* Static annotation regions */}
-        {staticRegions.map((r, i) => (
-          <div
-            key={`s${i}`}
-            className={`em-region ${activeRegion?.start === r.start ? "em-region-active" : ""}`}
-            style={{
-              left: `${((r.start - 7) / 15) * 100}%`,
-              width: `${((r.end - r.start) / 15) * 100}%`,
-            }}
-            onMouseEnter={() => setActiveRegion({ start: r.start, end: r.end })}
-            onMouseLeave={() => setActiveRegion(null)}
-          >
-            <span className="em-region-label">{r.label}</span>
-          </div>
-        ))}
+    <div className="em-card">
+      <div className="em-svg-wrap">
+        <svg
+          ref={svgRef}
+          width="100%"
+          height={SVG_H}
+          viewBox={`0 0 ${svgW} ${SVG_H}`}
+          className="em-svg"
+        >
+          {/* Region overlays */}
+          {regions.map((r, i) => {
+            const rx = hToX(r.start);
+            const rw = hToX(r.end) - rx;
+            return (
+              <g key={`r${i}`}>
+                <rect
+                  x={rx}
+                  y={PAD_TOP}
+                  width={rw}
+                  height={barAreaH}
+                  fill={
+                    r.high ? "rgba(123,35,34,0.10)" : "rgba(123,35,34,0.04)"
+                  }
+                />
+                <line
+                  x1={rx}
+                  y1={PAD_TOP}
+                  x2={rx}
+                  y2={PAD_TOP + barAreaH}
+                  stroke="rgba(123,35,34,0.25)"
+                  strokeWidth="1"
+                  strokeDasharray="3 2"
+                />
+                <line
+                  x1={rx + rw}
+                  y1={PAD_TOP}
+                  x2={rx + rw}
+                  y2={PAD_TOP + barAreaH}
+                  stroke="rgba(123,35,34,0.25)"
+                  strokeWidth="1"
+                  strokeDasharray="3 2"
+                />
+                <text
+                  x={rx + 4}
+                  y={PAD_TOP + 12}
+                  fill="var(--color-danger-red)"
+                  fontSize="9"
+                  fontWeight="500"
+                  opacity="0.75"
+                >
+                  {r.label}
+                </text>
+              </g>
+            );
+          })}
 
-        {/* Dynamic pattern regions */}
-        {patternRegions.map((r, i) => (
-          <div
-            key={`p${i}`}
-            className={`em-region ${r.high ? "em-region-high" : ""} ${activeRegion?.start === r.start ? "em-region-active" : ""}`}
-            style={{
-              left: `${((r.start - 7) / 15) * 100}%`,
-              width: `${((r.end - r.start) / 15) * 100}%`,
-            }}
-            onMouseEnter={() => setActiveRegion({ start: r.start, end: r.end })}
-            onMouseLeave={() => setActiveRegion(null)}
-          >
-            <span
-              className={`em-region-label ${r.high ? "em-region-label-high" : ""}`}
+          {/* Cutoff zone fill */}
+          {cutoff >= START_HOUR && cutoff <= END_HOUR && (
+            <rect
+              x={hToX(cutoff)}
+              y={PAD_TOP}
+              width={Math.max(0, svgW - hToX(cutoff))}
+              height={barAreaH}
+              fill="rgba(123,35,34,0.06)"
+            />
+          )}
+
+          {/* Activity bars */}
+          {visible.map((b, i) => {
+            const activity = b.activity ?? 0;
+            if (activity === 0) return null;
+            const bH = (activity / maxActivity) * (barAreaH - 8);
+            const bx = i * (barW + BAR_GAP) + BAR_GAP / 2;
+            const by = PAD_TOP + barAreaH - bH;
+            const hasError = (b.errors ?? 0) > 0;
+            const isPeak = activity / maxActivity > 0.65;
+            const fill = hasError
+              ? "var(--color-danger-red)"
+              : isPeak
+                ? "var(--color-ink)"
+                : "var(--color-slate)";
+            return (
+              <rect
+                key={i}
+                x={bx}
+                y={by}
+                width={barW}
+                height={bH}
+                rx={2}
+                fill={fill}
+                opacity={0.85}
+                className="em-svg-bar"
+                onMouseEnter={(e) => handleBarEnter(b, e)}
+                onMouseLeave={handleBarLeave}
+              />
+            );
+          })}
+
+          {/* Cutoff dashed line */}
+          {cutoff >= START_HOUR && cutoff <= END_HOUR && (
+            <>
+              <line
+                x1={hToX(cutoff)}
+                y1={PAD_TOP}
+                x2={hToX(cutoff)}
+                y2={PAD_TOP + barAreaH}
+                stroke="var(--color-danger-red)"
+                strokeWidth="1.5"
+                strokeDasharray="4 3"
+              />
+              <text
+                x={hToX(cutoff)}
+                y={PAD_TOP - 6}
+                textAnchor="middle"
+                fill="var(--color-danger-red)"
+                fontSize="10"
+                fontWeight="600"
+              >
+                {formatHour(cutoff)}
+              </text>
+            </>
+          )}
+
+          {/* NOW line */}
+          {nowH >= START_HOUR && nowH <= END_HOUR && (
+            <>
+              <line
+                x1={hToX(nowH)}
+                y1={PAD_TOP}
+                x2={hToX(nowH)}
+                y2={PAD_TOP + barAreaH}
+                stroke="var(--color-action-blue)"
+                strokeWidth="1"
+              />
+              <text
+                x={hToX(nowH)}
+                y={PAD_TOP - 6}
+                textAnchor="middle"
+                fill="var(--color-action-blue)"
+                fontSize="9"
+                fontWeight="600"
+                letterSpacing="0.04em"
+              >
+                NOW
+              </text>
+            </>
+          )}
+
+          {/* X-axis labels */}
+          {[7, 9, 11, 13, 15, 17, 19, 21].map((h) => (
+            <text
+              key={h}
+              x={hToX(h)}
+              y={SVG_H - 4}
+              textAnchor="middle"
+              fill="var(--color-overcast)"
+              fontSize="10"
             >
-              {r.label}
-            </span>
-          </div>
-        ))}
+              {h > 12 ? h - 12 : h}
+              {h >= 12 ? "PM" : "AM"}
+            </text>
+          ))}
 
-        {/* Dim overlay when region is hovered */}
-        {activeRegion && (
-          <>
-            <div
-              className="em-dim"
-              style={{
-                left: 0,
-                width: `${((activeRegion.start - 7) / 15) * 100}%`,
-              }}
-            />
-            <div
-              className="em-dim"
-              style={{
-                left: `${((activeRegion.end - 7) / 15) * 100}%`,
-                right: 0,
-              }}
-            />
-          </>
-        )}
-
-        {/* Bars */}
-        {visible.map((b, i) => {
-          const activity = b.activity ?? 0;
-          if (activity === 0) return null;
-          const cls =
-            (b.errors ?? 0) > 0 ? "warn" : activity > 65 ? "peak" : "";
-          return (
-            <span
-              key={i}
-              className={`em-bar ${cls}`}
-              style={{
-                left: `${i * w + w / 2}%`,
-                height: `${activity}%`,
-                opacity: activeRegion
-                  ? (b.hour ?? 0) >= activeRegion.start &&
-                    (b.hour ?? 0) < activeRegion.end
-                    ? 1
-                    : 0.15
-                  : undefined,
-              }}
-              onMouseEnter={(e) => {
-                setHovered(b);
-                const rect =
-                  e.currentTarget.parentElement?.getBoundingClientRect();
-                if (rect) setHoverX(e.clientX - rect.left);
-              }}
-              onMouseLeave={() => setHovered(null)}
-            />
-          );
-        })}
-
-        {/* NOW line */}
-        {nowH >= 7 && nowH <= 22 && (
-          <span
-            className="em-now"
-            style={{ left: `${((nowH - 7) / 15) * 100}%` }}
+          {/* Baseline */}
+          <line
+            x1={0}
+            y1={PAD_TOP + barAreaH}
+            x2={svgW}
+            y2={PAD_TOP + barAreaH}
+            stroke="var(--color-stone)"
+            strokeWidth="1"
           />
-        )}
+        </svg>
 
-        {/* Tooltip */}
+        {/* Hover tooltip (HTML overlay for rich styling) */}
         {hovered && (
           <div
             className="em-tooltip"
-            style={{ left: Math.min(Math.max(hoverX, 60), 300) }}
+            style={{
+              left: Math.min(Math.max(hovered.x, 70), svgW - 140),
+              top: 28,
+            }}
           >
-            <div className="em-tooltip-time">{fmtH(hovered.hour ?? 0)}</div>
+            <div className="em-tooltip-time">
+              {fmtH24(hovered.bucket.hour ?? 0)}
+            </div>
             <div className="em-tooltip-row">
               <span>Activity</span>
-              <b>{hovered.activity ?? 0}</b>
+              <b>{hovered.bucket.activity ?? 0}</b>
             </div>
             <div className="em-tooltip-row">
               <span>Saves</span>
-              <b>{hovered.file_saves ?? 0}</b>
+              <b>{hovered.bucket.file_saves ?? 0}</b>
             </div>
             <div className="em-tooltip-row">
               <span>Sessions</span>
-              <b>{hovered.sessions ?? 0}</b>
+              <b>{hovered.bucket.sessions ?? 0}</b>
             </div>
-            {(hovered.errors ?? 0) > 0 && (
+            {(hovered.bucket.errors ?? 0) > 0 && (
               <div className="em-tooltip-row warn">
                 <span>Errors</span>
-                <b>{hovered.errors}</b>
+                <b>{hovered.bucket.errors}</b>
               </div>
             )}
           </div>
         )}
       </div>
-      <div className="em-x">
-        {[7, 9, 11, 13, 15, 17, 19, 21].map((h) => (
-          <span key={h} style={{ left: `${((h - 7) / 15) * 100}%` }}>
-            {h.toString().padStart(2, "0")}:00
-          </span>
-        ))}
+    </div>
+  );
+}
+
+// ---------- Self-Report Chart (SVG, matches energy map style) ----------
+const SR_LEVELS = [
+  { level: 1, label: "fresh" },
+  { level: 2, label: "focused" },
+  { level: 3, label: "loaded" },
+  { level: 4, label: "tired" },
+  { level: 5, label: "degraded" },
+];
+
+const SR_PAD_TOP = 20;
+const SR_PAD_BOTTOM = 24;
+const SR_PAD_LEFT = 64; // room for y-axis labels
+const SR_H = 180;
+
+function SelfReportChart({ reports }: { reports: SelfReport[] }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [svgW, setSvgW] = useState(600);
+  const [hovered, setHovered] = useState<{
+    report: SelfReport;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const el = svgRef.current?.parentElement;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) setSvgW(e.contentRect.width);
+    });
+    ro.observe(el);
+    setSvgW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  const chartW = svgW - SR_PAD_LEFT;
+  const areaH = SR_H - SR_PAD_TOP - SR_PAD_BOTTOM;
+  const bandH = areaH / 5;
+
+  // Map report time to x
+  const reportToX = useCallback(
+    (r: SelfReport) => {
+      const h = r.ts
+        ? new Date(r.ts).getHours() + new Date(r.ts).getMinutes() / 60
+        : (r.bucket_idx * 10) / 60;
+      return SR_PAD_LEFT + hourToFrac(h) * chartW;
+    },
+    [chartW],
+  );
+
+  // Map level (1–5) to y center
+  const levelToY = useCallback(
+    (level: number) => {
+      const clamped = Math.max(1, Math.min(5, level));
+      return SR_PAD_TOP + (clamped - 0.5) * bandH;
+    },
+    [bandH],
+  );
+
+  // Sort reports by time
+  const sorted = useMemo(
+    () =>
+      [...reports].sort(
+        (a, b) => (a.ts ?? a.bucket_idx) - (b.ts ?? b.bucket_idx),
+      ),
+    [reports],
+  );
+
+  // Build SVG path for the connecting line
+  const linePath = useMemo(() => {
+    if (sorted.length < 2) return "";
+    return sorted
+      .map((r, i) => {
+        const x = reportToX(r);
+        const y = levelToY(r.level);
+        return `${i === 0 ? "M" : "L"}${x},${y}`;
+      })
+      .join(" ");
+  }, [sorted, reportToX, levelToY]);
+
+  const handleDotEnter = useCallback(
+    (r: SelfReport, e: React.MouseEvent<SVGCircleElement>) => {
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      setHovered({
+        report: r,
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    },
+    [],
+  );
+
+  return (
+    <div className="em-card">
+      <div className="em-svg-wrap">
+        <svg
+          ref={svgRef}
+          width="100%"
+          height={SR_H}
+          viewBox={`0 0 ${svgW} ${SR_H}`}
+          className="em-svg"
+        >
+          {/* Zone bands */}
+          {SR_LEVELS.map((l) => {
+            const y = SR_PAD_TOP + (l.level - 1) * bandH;
+            const isOdd = l.level % 2 === 1;
+            return (
+              <g key={l.level}>
+                <rect
+                  x={SR_PAD_LEFT}
+                  y={y}
+                  width={chartW}
+                  height={bandH}
+                  fill={isOdd ? "rgba(0,0,0,0.02)" : "transparent"}
+                />
+                {/* Y-axis label */}
+                <text
+                  x={SR_PAD_LEFT - 10}
+                  y={y + bandH / 2}
+                  textAnchor="end"
+                  dominantBaseline="central"
+                  fill={STATE_COLORS[l.level - 1]}
+                  fontSize="10"
+                  fontWeight="500"
+                >
+                  {l.label}
+                </text>
+                {/* Horizontal grid line */}
+                <line
+                  x1={SR_PAD_LEFT}
+                  y1={y}
+                  x2={svgW}
+                  y2={y}
+                  stroke="var(--color-stone)"
+                  strokeWidth="0.5"
+                />
+              </g>
+            );
+          })}
+          {/* Bottom grid line */}
+          <line
+            x1={SR_PAD_LEFT}
+            y1={SR_PAD_TOP + areaH}
+            x2={svgW}
+            y2={SR_PAD_TOP + areaH}
+            stroke="var(--color-stone)"
+            strokeWidth="1"
+          />
+
+          {/* Connecting line */}
+          {linePath && (
+            <path
+              d={linePath}
+              fill="none"
+              stroke="var(--color-slate)"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+              opacity="0.5"
+            />
+          )}
+
+          {/* Data points */}
+          {sorted.map((r, i) => {
+            const cx = reportToX(r);
+            const cy = levelToY(r.level);
+            const color = STATE_COLORS[r.level - 1] ?? STATE_COLORS[2];
+            return (
+              <g key={i}>
+                {/* Outer glow */}
+                <circle cx={cx} cy={cy} r={8} fill={color} opacity={0.12} />
+                {/* Main dot */}
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={5}
+                  fill="var(--color-white)"
+                  stroke={color}
+                  strokeWidth={2}
+                  className="em-svg-bar"
+                  onMouseEnter={(e) =>
+                    handleDotEnter(
+                      r,
+                      e as unknown as React.MouseEvent<SVGCircleElement>,
+                    )
+                  }
+                  onMouseLeave={() => setHovered(null)}
+                />
+              </g>
+            );
+          })}
+
+          {/* X-axis labels */}
+          {[7, 9, 11, 13, 15, 17, 19, 21].map((h) => (
+            <text
+              key={h}
+              x={SR_PAD_LEFT + hourToFrac(h) * chartW}
+              y={SR_H - 4}
+              textAnchor="middle"
+              fill="var(--color-overcast)"
+              fontSize="10"
+            >
+              {h > 12 ? h - 12 : h}
+              {h >= 12 ? "PM" : "AM"}
+            </text>
+          ))}
+        </svg>
+
+        {/* Tooltip */}
+        {hovered && (
+          <div
+            className="em-tooltip"
+            style={{
+              left: Math.min(Math.max(hovered.x, 70), svgW - 140),
+              top: Math.max(8, hovered.y - 70),
+            }}
+          >
+            <div className="em-tooltip-time">
+              {hovered.report.ts
+                ? new Date(hovered.report.ts).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "—"}
+            </div>
+            <div className="em-tooltip-row">
+              <span>State</span>
+              <b
+                style={{
+                  color: STATE_COLORS[hovered.report.level - 1],
+                  textTransform: "capitalize",
+                }}
+              >
+                {hovered.report.label}
+              </b>
+            </div>
+            {hovered.report.note && (
+              <div className="em-tooltip-row">
+                <span>Note</span>
+                <b>{hovered.report.note}</b>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -281,6 +682,62 @@ export default function ReviewMode() {
         <div className="review-inner">
           <h1 className="review-h">Today's review</h1>
           <div className="review-sub">Loading...</div>
+
+          {/* Summary stat skeletons */}
+          <div className="review-skeleton">
+            <div className="review-summary">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="rs-cell">
+                  <div
+                    className="skeleton-block"
+                    style={{ width: 48, height: 28, marginBottom: 8 }}
+                  />
+                  <div
+                    className="skeleton-block"
+                    style={{ width: 72, height: 12 }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Energy map skeleton */}
+            <div
+              className="skeleton-block"
+              style={{
+                width: "100%",
+                height: 180,
+                borderRadius: "var(--radius-cards)",
+                marginTop: 32,
+              }}
+            />
+
+            {/* Pattern card skeletons */}
+            <div style={{ marginTop: 32 }}>
+              <div
+                className="skeleton-block"
+                style={{ width: 120, height: 14, marginBottom: 16 }}
+              />
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="skeleton-row"
+                  style={{ marginBottom: 12 }}
+                >
+                  <div className="skeleton-circle" />
+                  <div style={{ flex: 1 }}>
+                    <div
+                      className="skeleton-block"
+                      style={{ width: "60%", height: 14, marginBottom: 8 }}
+                    />
+                    <div
+                      className="skeleton-block"
+                      style={{ width: "90%", height: 12 }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -402,45 +859,11 @@ export default function ReviewMode() {
           </div>
         </div>
 
-        {/* Self-Report Timeline */}
+        {/* Self-Report Chart */}
         {review.self_reports && review.self_reports.length > 0 && (
           <div className="section">
-            <h3 className="section-h">Self-Reported State</h3>
-            <div className="sr-timeline">
-              <div className="sr-timeline-track">
-                {review.self_reports.map((r, i) => {
-                  const hour = Math.floor((r.bucket_idx * 10) / 60);
-                  const min = (r.bucket_idx * 10) % 60;
-                  const pct = (((r.bucket_idx * 10) / 60 - 7) / 15) * 100;
-                  return (
-                    <div
-                      key={i}
-                      className="sr-timeline-dot"
-                      style={{ left: `${Math.max(0, Math.min(100, pct))}%` }}
-                      title={`${hour}:${min.toString().padStart(2, "0")} — ${r.label}${r.note ? `: ${r.note}` : ""}`}
-                    >
-                      <StateIcon level={r.level} size={12} />
-                      <span className="sr-timeline-time">{`${hour}:${min.toString().padStart(2, "0")}`}</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="sr-timeline-labels">
-                {review.self_reports.map((r, i) => {
-                  return (
-                    <span key={i} className="sr-timeline-label-item">
-                      <StateIcon level={r.level} size={11} />
-                      {new Date(r.ts).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}{" "}
-                      · <b>{r.label}</b>
-                      {r.note ? ` — ${r.note}` : ""}
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
+            <h2 className="section-h">Self-reported state</h2>
+            <SelfReportChart reports={review.self_reports} />
           </div>
         )}
 
@@ -546,10 +969,12 @@ export default function ReviewMode() {
                 <div key={s.id ?? i} className={`review-sess-row ${s.status}`}>
                   <span className="review-sess-label">{s.label}</span>
                   <span className="review-sess-time">
-                    {new Date(s.started_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {s.started_at
+                      ? new Date(s.started_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "—"}
                   </span>
                   <span className="review-sess-msgs">{s.message_count}</span>
                   <span className={`review-sess-status ${s.status}`}>

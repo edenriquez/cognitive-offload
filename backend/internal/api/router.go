@@ -835,9 +835,6 @@ func (h *handler) updateConfig(w http.ResponseWriter, r *http.Request) {
 	if updates.LunchEnd > 0 {
 		cfg.LunchEnd = updates.LunchEnd
 	}
-	if updates.ThreadCap > 0 {
-		cfg.ThreadCap = updates.ThreadCap
-	}
 	if len(updates.WatchPaths) > 0 {
 		cfg.WatchPaths = updates.WatchPaths
 	}
@@ -845,7 +842,7 @@ func (h *handler) updateConfig(w http.ResponseWriter, r *http.Request) {
 		cfg.DisabledRules = updates.DisabledRules
 	}
 	config.Save(cfg)
-	slog.Info("config updated", "cutoff", cfg.CutoffHour, "lunch", cfg.LunchStart, "thread_cap", cfg.ThreadCap)
+	slog.Info("config updated", "cutoff", cfg.CutoffHour, "lunch", cfg.LunchStart)
 	writeJSON(w, 200, cfg)
 }
 

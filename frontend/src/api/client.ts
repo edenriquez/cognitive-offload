@@ -16,30 +16,51 @@ async function request<T>(
   path: string,
   body?: unknown,
 ): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const MAX_RETRIES = 2;
+  let lastError: Error | null = null;
 
-  try {
-    const opts: RequestInit = {
-      method,
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-    };
-    if (body) opts.body = JSON.stringify(body);
-    const res = await fetch(`${BASE}${path}`, opts);
-    if (!res.ok) {
-      const text = await res.text().catch(() => "Unknown error");
-      throw new Error(`${method} ${path} → ${res.status}: ${text}`);
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, 500 * attempt));
     }
-    return res.json();
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") {
-      throw new Error(`${method} ${path} → timeout after 8s`);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const opts: RequestInit = {
+        method,
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+      };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(`${BASE}${path}`, opts);
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "Unknown error");
+        if ([502, 503, 504].includes(res.status) && attempt < MAX_RETRIES) {
+          lastError = new Error(`${method} ${path} → ${res.status}: ${text}`);
+          continue;
+        }
+        throw new Error(`${method} ${path} → ${res.status}: ${text}`);
+      }
+      return res.json();
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        throw new Error(`${method} ${path} → timeout after 8s`);
+      }
+      // Network error (TypeError from fetch) — retry if attempts remain
+      if (err instanceof TypeError && attempt < MAX_RETRIES) {
+        lastError = err;
+        continue;
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
     }
-    throw err;
-  } finally {
-    clearTimeout(timeout);
   }
+
+  throw lastError ?? new Error(`${method} ${path} → failed after retries`);
 }
 
 // ---------- Today ----------
@@ -147,7 +168,6 @@ export const api = {
       cutoff_hour: number;
       lunch_start: number;
       lunch_end: number;
-      thread_cap: number;
       watch_paths: string[];
       ignore_dirs: string[];
       max_watch_dirs: number;

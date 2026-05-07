@@ -57,12 +57,12 @@ func deriveConstraints(patterns []models.Pattern, summary models.DaySummary) []m
 			}
 
 		case "perf-degradation":
-			if !seen["thread_cap"] {
-				seen["thread_cap"] = true
+			if !seen["context_switching"] {
+				seen["context_switching"] = true
 				constraints = append(constraints, models.Constraint{
-					Rule:        "THREAD_CAP",
-					Title:       "1 active thread cap.",
-					Description: "Performance degradation detected. High context-switch rate — consider reducing concurrent threads.",
+					Rule:        "CONTEXT_SWITCH",
+					Title:       "Reduce context switching.",
+					Description: "Performance degradation detected yesterday. Consider focusing on fewer threads at a time tomorrow.",
 					Locked:      true,
 				})
 			}

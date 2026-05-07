@@ -1,19 +1,35 @@
-import { useEffect, useRef, useCallback, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useCallback,
+  useState,
+  lazy,
+  Suspense,
+} from "react";
 import { useAppStore } from "./store/app-store";
 import type { Mode } from "./types";
-import FocusMode from "./components/modes/FocusMode";
-import TodayMode from "./components/modes/TodayMode";
-import CaptureMode from "./components/modes/CaptureMode";
-import ReviewMode from "./components/modes/ReviewMode";
-import TomorrowMode from "./components/modes/TomorrowMode";
-import SourcesMode from "./components/modes/SourcesMode";
-import SettingsMode from "./components/modes/SettingsMode";
 import { startSignalStream, stopSignalStream } from "./store/ws-client";
+import {
+  startOfflineDetection,
+  stopOfflineDetection,
+  isOffline,
+  onOfflineChange,
+} from "./api/offline";
 import ErrorBoundary from "./components/shared/ErrorBoundary";
 import SelfReport from "./components/shared/SelfReport";
+import Onboarding from "./components/shared/Onboarding";
 import { api } from "./api/client";
 import "./styles/desktop.css";
 import "./styles/modes.css";
+
+// Lazy-load mode components — only the active mode is loaded
+const FocusMode = lazy(() => import("./components/modes/FocusMode"));
+const TodayMode = lazy(() => import("./components/modes/TodayMode"));
+const CaptureMode = lazy(() => import("./components/modes/CaptureMode"));
+const ReviewMode = lazy(() => import("./components/modes/ReviewMode"));
+const TomorrowMode = lazy(() => import("./components/modes/TomorrowMode"));
+const SourcesMode = lazy(() => import("./components/modes/SourcesMode"));
+const SettingsMode = lazy(() => import("./components/modes/SettingsMode"));
 
 const MODES: { id: Mode; label: string }[] = [
   { id: "focus", label: "Focus" },
@@ -53,10 +69,17 @@ export default function App() {
     return () => clearInterval(t);
   }, [setNow]);
 
-  // WebSocket signal stream
+  // WebSocket signal stream + offline detection
+  const [offline, setOffline] = useState(isOffline());
   useEffect(() => {
     startSignalStream();
-    return () => stopSignalStream();
+    startOfflineDetection();
+    const unsub = onOfflineChange(setOffline);
+    return () => {
+      stopSignalStream();
+      stopOfflineDetection();
+      unsub();
+    };
   }, []);
 
   // Drive toast from interventions
@@ -299,13 +322,27 @@ export default function App() {
           className={`stage ${transitioning ? "stage-exit" : "stage-enter"}`}
         >
           <ErrorBoundary key={mode}>
-            {mode === "focus" && <FocusMode />}
-            {mode === "today" && <TodayMode />}
-            {mode === "capture" && <CaptureMode />}
-            {mode === "review" && <ReviewMode />}
-            {mode === "tomorrow" && <TomorrowMode />}
-            {mode === "sources" && <SourcesMode />}
-            {mode === "settings" && <SettingsMode />}
+            <Suspense
+              fallback={
+                <div
+                  style={{
+                    padding: "48px",
+                    textAlign: "center",
+                    color: "var(--color-overcast)",
+                  }}
+                >
+                  Loading…
+                </div>
+              }
+            >
+              {mode === "focus" && <FocusMode />}
+              {mode === "today" && <TodayMode />}
+              {mode === "capture" && <CaptureMode />}
+              {mode === "review" && <ReviewMode />}
+              {mode === "tomorrow" && <TomorrowMode />}
+              {mode === "sources" && <SourcesMode />}
+              {mode === "settings" && <SettingsMode />}
+            </Suspense>
           </ErrorBoundary>
         </div>
       </div>
@@ -334,11 +371,14 @@ export default function App() {
             Triage threads →
           </span>
         )}
-        <span>v0.5 · synced</span>
+        <span>{offline ? "⚠ offline" : "v0.5 · synced"}</span>
       </div>
 
       {/* Self-report edge panel */}
       <SelfReport />
+
+      {/* Onboarding wizard — shown on first launch */}
+      <Onboarding />
 
       {/* Toast */}
       {toast && mode !== "focus" && (

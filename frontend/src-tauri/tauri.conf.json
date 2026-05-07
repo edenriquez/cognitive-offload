@@ -29,13 +29,17 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": [
-          "icons/icon.png"
-        ]
+    "icon": ["icons/icon.png"]
   },
   "plugins": {
     "shell": {
       "open": true
+    },
+    "updater": {
+      "endpoints": [
+        "https://releases.cogload.app/{{target}}/{{arch}}/{{current_version}}"
+      ],
+      "pubkey": "UPDATE_PUBKEY_PLACEHOLDER"
     }
   }
 }
