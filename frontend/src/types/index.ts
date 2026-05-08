@@ -98,6 +98,9 @@ export interface SignalSnapshot {
   cognitive_threshold_pct: number;
   interventions: Intervention[];
   active_session?: SessionBrief;
+  momentum_velocity: number;
+  momentum_peak: number;
+  wall_detected: boolean;
 }
 
 export interface Constraint {
@@ -174,4 +177,91 @@ export interface SourceStatus {
   status: "active" | "inactive" | "error" | "not_found";
   detail: string;
   events_today: number;
+}
+
+// V2 types
+
+export interface Project {
+  id: string;
+  name: string;
+  path: string;
+  kind: "work" | "personal" | "side";
+  color: string;
+}
+
+export interface BudgetEntry {
+  project_id: string;
+  pct: number;
+}
+
+export interface DailyBudget {
+  day: string;
+  allocations: BudgetEntry[];
+}
+
+export interface SessionScore {
+  session_id: string;
+  output_score: number;
+  file_saves: number;
+  commits: number;
+  message_count: number;
+  duration_min: number;
+}
+
+export interface SessionScoreSummary {
+  high_leverage: number;
+  low_output: number;
+  avg_high_score: number;
+  avg_low_score: number;
+  total_sessions: number;
+}
+
+export interface MomentumPoint {
+  hour: number;
+  cum_messages: number;
+  cum_saves: number;
+  cum_sessions: number;
+  output_per_msg: number;
+}
+
+export interface ReportSection {
+  title: string;
+  content: string;
+}
+
+export interface Suggestion {
+  priority: number;
+  title: string;
+  detail: string;
+  metric: string;
+}
+
+export interface DailyReport {
+  day: string;
+  sections: ReportSection[];
+  suggestions: Suggestion[];
+  wall_summary?: string;
+}
+
+export interface DailySummaryRecord {
+  day: string;
+  deep_work_min: number;
+  leaked_min: number;
+  sessions_count: number;
+  avg_session_score: number;
+  momentum_peak: number;
+  wall_time: string;
+  budget_adherence_pct: number;
+}
+
+export interface ProjectOutput {
+  project_path: string;
+  project_name: string;
+  kind: string;
+  session_count: number;
+  total_messages: number;
+  file_saves: number;
+  git_commits: number;
+  active_minutes: number;
+  avg_session_score: number;
 }

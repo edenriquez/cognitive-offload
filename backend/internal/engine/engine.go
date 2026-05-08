@@ -37,6 +37,8 @@ type Signals struct {
 	HasDailyPlan      bool
 	WorkActualPct     int
 	WorkPlannedPct    int
+	SelfReportLevel   int
+	SelfReportLabel   string
 }
 
 // DefaultSignals returns a clean baseline when no data exists yet.
@@ -192,6 +194,14 @@ func (e *Engine) ComputeSignals(ctx context.Context) (Signals, error) {
 		}
 	}
 
+	// ---------- Self-report ----------
+	selfReports, _ := e.db.SelfReportsByDay(ctx, today)
+	if len(selfReports) > 0 {
+		latest := selfReports[len(selfReports)-1]
+		s.SelfReportLevel = latest.Level
+		s.SelfReportLabel = latest.Label
+	}
+
 	// ---------- Stuck task ----------
 	focusMin, _ := e.db.ActiveFocusMinutes(ctx)
 	if focusMin > 0 {
@@ -278,6 +288,17 @@ func (e *Engine) EvaluateRules(s Signals, hour float64) []models.Intervention {
 			Body:     fmt.Sprintf("Error rate is %.1f× baseline. Quality may be degrading.", s.ErrorRate),
 			Evidence: []string{fmt.Sprintf("baseline: %.1f", s.Baseline), fmt.Sprintf("current: %.1f", s.ErrorRate)},
 			Action:   models.Action{Label: "Take 15m break", Kind: "break"},
+		})
+	}
+
+	// 5b. Self-reported fatigue
+	if s.SelfReportLevel >= 4 {
+		out = append(out, models.Intervention{
+			ID: "self-fatigue", Severity: "warn", Rule: "LOAD.SELF_FATIGUE",
+			Title:    "You reported feeling " + s.SelfReportLabel + ".",
+			Body:     "Consider switching to lighter tasks or taking a break.",
+			Evidence: []string{fmt.Sprintf("self-report: %s (level %d)", s.SelfReportLabel, s.SelfReportLevel)},
+			Action:   models.Action{Label: "Switch to light tasks", Kind: "admin"},
 		})
 	}
 
@@ -418,6 +439,12 @@ func (e *Engine) SignalSnapshot(ctx context.Context) (models.SignalSnapshot, err
 			LastTouchAgoSec: s.InactivityMin * 60,
 		}
 	}
+
+	// Compute momentum
+	mom := ComputeMomentum(ctx, e.db, today)
+	snap.MomentumVelocity = mom.Velocity
+	snap.MomentumPeak = mom.PeakVelocity
+	snap.WallDetected = mom.WallDetected
 
 	return snap, nil
 }

@@ -143,15 +143,18 @@ type Action struct {
 
 // SignalSnapshot is pushed via WebSocket every 5s.
 type SignalSnapshot struct {
-	FocusState      string         `json:"focus_state"`
-	ActiveThreads   int            `json:"active_threads"`
-	ErrorRate       float64        `json:"error_rate"`
-	ErrorBaseline   float64        `json:"error_baseline"`
-	OpenLoops       int            `json:"open_loops"`
-	CutoffHour      float64        `json:"cutoff_hour"`
-	CogThresholdPct int            `json:"cognitive_threshold_pct"`
-	Interventions   []Intervention `json:"interventions"`
-	ActiveSession   *SessionBrief  `json:"active_session,omitempty"`
+	FocusState       string         `json:"focus_state"`
+	ActiveThreads    int            `json:"active_threads"`
+	ErrorRate        float64        `json:"error_rate"`
+	ErrorBaseline    float64        `json:"error_baseline"`
+	OpenLoops        int            `json:"open_loops"`
+	CutoffHour       float64        `json:"cutoff_hour"`
+	CogThresholdPct  int            `json:"cognitive_threshold_pct"`
+	Interventions    []Intervention `json:"interventions"`
+	ActiveSession    *SessionBrief  `json:"active_session,omitempty"`
+	MomentumVelocity float64        `json:"momentum_velocity"`
+	MomentumPeak     float64        `json:"momentum_peak"`
+	WallDetected     bool           `json:"wall_detected"`
 }
 
 type SessionBrief struct {
@@ -198,4 +201,37 @@ type TodayResponse struct {
 	Greet        string        `json:"greet"`
 	Completed    int           `json:"completed"`
 	Total        int           `json:"total"`
+}
+
+// Project represents a detected or user-defined project.
+type Project struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Path  string `json:"path"`
+	Kind  string `json:"kind"`  // work, personal, side
+	Color string `json:"color"` // hex color
+}
+
+// DailyBudget holds the day's performance allocation.
+type DailyBudget struct {
+	Day         string        `json:"day"`
+	Allocations []BudgetEntry `json:"allocations"`
+}
+
+// BudgetEntry is a single project allocation within a DailyBudget.
+type BudgetEntry struct {
+	ProjectID string  `json:"project_id"`
+	Pct       float64 `json:"pct"`
+}
+
+// DailySummaryRecord is persisted for multi-day trends.
+type DailySummaryRecord struct {
+	Day             string  `json:"day"`
+	DeepWorkMin     int     `json:"deep_work_min"`
+	LeakedMin       int     `json:"leaked_min"`
+	SessionsCount   int     `json:"sessions_count"`
+	AvgSessionScore float64 `json:"avg_session_score"`
+	MomentumPeak    float64 `json:"momentum_peak"`
+	WallTime        string  `json:"wall_time"`
+	BudgetAdherence float64 `json:"budget_adherence_pct"`
 }

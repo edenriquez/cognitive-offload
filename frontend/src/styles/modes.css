@@ -2199,3 +2199,144 @@
     max-width: 420px;
     margin-bottom: 20px;
 }
+
+/* ============================================================
+   V2 — Daily Intelligence Report
+============================================================ */
+.review-report {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 12px;
+}
+.review-report-section {
+    padding: 14px 16px;
+    background: var(--color-ash);
+    border-radius: var(--radius-cards);
+    border: 1px solid var(--color-stone);
+}
+.review-report-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-overcast);
+    margin-bottom: 6px;
+}
+.review-report-content {
+    font-size: 13px;
+    color: var(--color-ink);
+    line-height: 1.6;
+    letter-spacing: -0.14px;
+    white-space: pre-line;
+}
+.review-report-suggestions {
+    padding: 14px 16px;
+    background: var(--color-white);
+    border-radius: var(--radius-cards);
+    border: 1px solid var(--color-stone);
+}
+.review-suggestion {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--color-stone);
+}
+.review-suggestion:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+.review-suggestion-num {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--color-ink);
+    color: var(--color-white);
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.review-suggestion-body {
+    flex: 1;
+}
+.review-suggestion-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-ink);
+    margin-bottom: 2px;
+}
+.review-suggestion-detail {
+    font-size: 12px;
+    color: var(--color-metal);
+    line-height: 1.5;
+    margin-bottom: 4px;
+}
+.review-suggestion-metric {
+    font-size: 11px;
+    color: var(--color-overcast);
+}
+
+/* Session scores */
+.review-sess-score {
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+.review-sess-score.high {
+    color: var(--color-success-green);
+}
+.review-sess-score.mid {
+    color: var(--color-warning-yellow);
+}
+.review-sess-score.low {
+    color: var(--color-danger-red);
+}
+.review-score-summary {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 10px;
+    font-size: 12px;
+}
+.review-score-high {
+    color: var(--color-success-green);
+    font-weight: 500;
+}
+.review-score-low {
+    color: var(--color-danger-red);
+    font-weight: 500;
+}
+
+/* V2 — Today progress bar */
+.today-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 4px;
+}
+.today-progress-label {
+    font-size: 12px;
+    color: var(--color-metal);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.today-progress-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--color-ash);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.today-progress-fill {
+    height: 100%;
+    background: var(--color-ink);
+    border-radius: 2px;
+    transition: width 0.3s var(--ease);
+}
+.today-wall-badge {
+    font-size: 11px;
+    color: var(--color-danger-red);
+    font-weight: 500;
+    white-space: nowrap;
+}

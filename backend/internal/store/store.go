@@ -128,6 +128,30 @@ func (d *DB) Migrate() error {
 		note       TEXT NOT NULL DEFAULT ''
 	);
 	CREATE INDEX IF NOT EXISTS idx_self_reports_day ON self_reports(day);
+
+	CREATE TABLE IF NOT EXISTS projects (
+		id    TEXT PRIMARY KEY,
+		name  TEXT NOT NULL,
+		path  TEXT NOT NULL UNIQUE,
+		kind  TEXT NOT NULL DEFAULT 'work',
+		color TEXT NOT NULL DEFAULT '#6b8cce'
+	);
+
+	CREATE TABLE IF NOT EXISTS budgets (
+		day         TEXT PRIMARY KEY,
+		allocations TEXT NOT NULL DEFAULT '[]'
+	);
+
+	CREATE TABLE IF NOT EXISTS daily_summaries (
+		day               TEXT PRIMARY KEY,
+		deep_work_min     INTEGER NOT NULL DEFAULT 0,
+		leaked_min        INTEGER NOT NULL DEFAULT 0,
+		sessions_count    INTEGER NOT NULL DEFAULT 0,
+		avg_session_score REAL NOT NULL DEFAULT 0,
+		momentum_peak     REAL NOT NULL DEFAULT 0,
+		wall_time         TEXT NOT NULL DEFAULT '',
+		budget_adherence  REAL NOT NULL DEFAULT 0
+	);
 	`
 	_, err := d.db.Exec(schema)
 	return err
@@ -751,6 +775,29 @@ func (d *DB) ActiveFocusMinutes(ctx context.Context) (int, error) {
 
 // ---------- Self Reports ----------
 
+// EventsByDay returns all raw events for a day, ordered by timestamp.
+func (d *DB) EventsByDay(ctx context.Context, day string) ([]models.RawEvent, error) {
+	rows, err := d.db.QueryContext(ctx,
+		"SELECT id, ts, source, kind, metadata, day FROM raw_events WHERE day=? ORDER BY ts", day)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.RawEvent
+	for rows.Next() {
+		var e models.RawEvent
+		var meta string
+		var tsMs int64
+		if err := rows.Scan(&e.ID, &tsMs, &e.Source, &e.Kind, &meta, &e.Day); err != nil {
+			return nil, err
+		}
+		e.Timestamp = time.UnixMilli(tsMs)
+		json.Unmarshal([]byte(meta), &e.Metadata)
+		out = append(out, e)
+	}
+	return out, nil
+}
+
 func (d *DB) InsertSelfReport(ctx context.Context, day string, level int, label string, ts int64, bucketIdx int, note string) error {
 	_, err := d.db.ExecContext(ctx,
 		`INSERT INTO self_reports (day, level, label, ts, bucket_idx, note) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -773,6 +820,98 @@ func (d *DB) SelfReportsByDay(ctx context.Context, day string) ([]models.SelfRep
 			return nil, err
 		}
 		out = append(out, r)
+	}
+	return out, nil
+}
+
+// ---------- Projects ----------
+
+func (d *DB) ListProjects(ctx context.Context) ([]models.Project, error) {
+	rows, err := d.db.QueryContext(ctx, "SELECT id, name, path, kind, color FROM projects ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Project
+	for rows.Next() {
+		var p models.Project
+		rows.Scan(&p.ID, &p.Name, &p.Path, &p.Kind, &p.Color)
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+func (d *DB) UpsertProject(ctx context.Context, p models.Project) error {
+	_, err := d.db.ExecContext(ctx,
+		`INSERT INTO projects (id, name, path, kind, color) VALUES (?, ?, ?, ?, ?)
+		 ON CONFLICT(path) DO UPDATE SET name=excluded.name, kind=excluded.kind, color=excluded.color`,
+		p.ID, p.Name, p.Path, p.Kind, p.Color)
+	return err
+}
+
+func (d *DB) DeleteProject(ctx context.Context, id string) error {
+	_, err := d.db.ExecContext(ctx, "DELETE FROM projects WHERE id=?", id)
+	return err
+}
+
+func (d *DB) ProjectByPath(ctx context.Context, path string) (models.Project, error) {
+	var p models.Project
+	err := d.db.QueryRowContext(ctx, "SELECT id, name, path, kind, color FROM projects WHERE path=?", path).
+		Scan(&p.ID, &p.Name, &p.Path, &p.Kind, &p.Color)
+	return p, err
+}
+
+// ---------- Budgets ----------
+
+func (d *DB) GetBudget(ctx context.Context, day string) (models.DailyBudget, error) {
+	var b models.DailyBudget
+	b.Day = day
+	var raw string
+	err := d.db.QueryRowContext(ctx, "SELECT allocations FROM budgets WHERE day=?", day).Scan(&raw)
+	if err != nil {
+		return b, err
+	}
+	json.Unmarshal([]byte(raw), &b.Allocations)
+	return b, nil
+}
+
+func (d *DB) UpsertBudget(ctx context.Context, b models.DailyBudget) error {
+	data, _ := json.Marshal(b.Allocations)
+	_, err := d.db.ExecContext(ctx,
+		`INSERT INTO budgets (day, allocations) VALUES (?, ?)
+		 ON CONFLICT(day) DO UPDATE SET allocations=excluded.allocations`,
+		b.Day, string(data))
+	return err
+}
+
+// ---------- Daily Summaries (Trends) ----------
+
+func (d *DB) UpsertDailySummary(ctx context.Context, s models.DailySummaryRecord) error {
+	_, err := d.db.ExecContext(ctx,
+		`INSERT INTO daily_summaries (day, deep_work_min, leaked_min, sessions_count, avg_session_score, momentum_peak, wall_time, budget_adherence)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(day) DO UPDATE SET
+		   deep_work_min=excluded.deep_work_min, leaked_min=excluded.leaked_min,
+		   sessions_count=excluded.sessions_count, avg_session_score=excluded.avg_session_score,
+		   momentum_peak=excluded.momentum_peak, wall_time=excluded.wall_time,
+		   budget_adherence=excluded.budget_adherence`,
+		s.Day, s.DeepWorkMin, s.LeakedMin, s.SessionsCount, s.AvgSessionScore,
+		s.MomentumPeak, s.WallTime, s.BudgetAdherence)
+	return err
+}
+
+func (d *DB) GetTrends(ctx context.Context, days int) ([]models.DailySummaryRecord, error) {
+	rows, err := d.db.QueryContext(ctx,
+		"SELECT day, deep_work_min, leaked_min, sessions_count, avg_session_score, momentum_peak, wall_time, budget_adherence FROM daily_summaries ORDER BY day DESC LIMIT ?", days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.DailySummaryRecord
+	for rows.Next() {
+		var s models.DailySummaryRecord
+		rows.Scan(&s.Day, &s.DeepWorkMin, &s.LeakedMin, &s.SessionsCount, &s.AvgSessionScore, &s.MomentumPeak, &s.WallTime, &s.BudgetAdherence)
+		out = append(out, s)
 	}
 	return out, nil
 }

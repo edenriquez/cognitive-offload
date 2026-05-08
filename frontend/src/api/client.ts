@@ -7,6 +7,11 @@ import type {
   Session,
   SignalSnapshot,
   FocusSession,
+  Project,
+  DailyBudget,
+  DailyReport,
+  DailySummaryRecord,
+  SessionScore,
 } from "../types";
 
 const BASE = ""; // Vite proxy handles /api → backend
@@ -194,5 +199,42 @@ export const api = {
     request<import("../types").SelfReport[]>(
       "GET",
       `/api/v1/self-reports${day ? `?day=${day}` : ""}`,
+    ),
+
+  // ---------- Projects ----------
+  listProjects: () => request<Project[]>("GET", "/api/v1/projects"),
+
+  upsertProject: (project: {
+    name: string;
+    path: string;
+    kind: string;
+    color: string;
+  }) => request<Project>("POST", "/api/v1/projects", project),
+
+  updateProject: (id: string, updates: Partial<Project>) =>
+    request<Project>("PUT", `/api/v1/projects/${id}`, updates),
+
+  deleteProject: (id: string) =>
+    request<{ status: string }>("DELETE", `/api/v1/projects/${id}`),
+
+  // ---------- Budget ----------
+  getBudget: () => request<DailyBudget>("GET", "/api/v1/budget"),
+
+  updateBudget: (budget: DailyBudget) =>
+    request<DailyBudget>("PUT", "/api/v1/budget", budget),
+
+  // ---------- Report ----------
+  getReport: (day: string) =>
+    request<DailyReport>("GET", `/api/v1/report/${day}`),
+
+  // ---------- Trends ----------
+  getTrends: (days: number = 7) =>
+    request<DailySummaryRecord[]>("GET", `/api/v1/trends?days=${days}`),
+
+  // ---------- Session Scores ----------
+  getSessionScores: (day?: string) =>
+    request<SessionScore[]>(
+      "GET",
+      `/api/v1/sessions/scores${day ? `?day=${day}` : ""}`,
     ),
 };

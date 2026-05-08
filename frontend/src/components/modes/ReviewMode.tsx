@@ -9,6 +9,8 @@ import type {
   RootCause,
   Session,
   SelfReport,
+  DailyReport,
+  SessionScore,
 } from "../../types";
 import { StateIcon, STATE_COLORS } from "../shared/SelfReport";
 
@@ -660,6 +662,8 @@ export default function ReviewMode() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [report, setReport] = useState<DailyReport | null>(null);
+  const [scores, setScores] = useState<SessionScore[]>([]);
 
   useEffect(() => {
     const n = new Date();
@@ -674,6 +678,14 @@ export default function ReviewMode() {
       })
       .catch((err) => setError(err?.message ?? "Failed to load review"))
       .finally(() => setLoading(false));
+    api
+      .getReport(day)
+      .then(setReport)
+      .catch(() => {});
+    api
+      .getSessionScores(day)
+      .then(setScores)
+      .catch(() => {});
   }, []);
 
   if (loading) {
@@ -835,6 +847,42 @@ export default function ReviewMode() {
           </div>
         </div>
 
+        {/* Daily Intelligence Report */}
+        {report && report.sections.length > 0 && (
+          <div className="section">
+            <h2 className="section-h">Daily intelligence</h2>
+            <div className="review-report">
+              {report.sections.map((s, i) => (
+                <div key={i} className="review-report-section">
+                  <div className="review-report-title">{s.title}</div>
+                  <div className="review-report-content">{s.content}</div>
+                </div>
+              ))}
+              {report.suggestions.length > 0 && (
+                <div className="review-report-suggestions">
+                  <div className="review-report-title">
+                    What to change tomorrow
+                  </div>
+                  {report.suggestions.map((s, i) => (
+                    <div key={i} className="review-suggestion">
+                      <span className="review-suggestion-num">{i + 1}</span>
+                      <div className="review-suggestion-body">
+                        <div className="review-suggestion-title">{s.title}</div>
+                        <div className="review-suggestion-detail">
+                          {s.detail}
+                        </div>
+                        <div className="review-suggestion-metric">
+                          📏 {s.metric}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Energy map */}
         <div className="section">
           <h2 className="section-h">Energy map</h2>
@@ -957,36 +1005,72 @@ export default function ReviewMode() {
                 </button>
               )}
             </div>
+            {scores.length > 0 &&
+              (() => {
+                const high = scores.filter((s) => s.output_score >= 60).length;
+                const low = scores.filter((s) => s.output_score < 30).length;
+                return high > 0 || low > 0 ? (
+                  <div className="review-score-summary">
+                    {high > 0 && (
+                      <span className="review-score-high">
+                        {high} high-leverage
+                      </span>
+                    )}
+                    {low > 0 && (
+                      <span className="review-score-low">{low} low-output</span>
+                    )}
+                  </div>
+                ) : null;
+              })()}
             <div className="review-sessions">
               <div className="review-sess-head">
                 <span>Thread</span>
                 <span>Started</span>
                 <span>Msgs</span>
+                <span>Score</span>
                 <span>Status</span>
                 <span></span>
               </div>
-              {sessions.map((s, i) => (
-                <div key={s.id ?? i} className={`review-sess-row ${s.status}`}>
-                  <span className="review-sess-label">{s.label}</span>
-                  <span className="review-sess-time">
-                    {s.started_at
-                      ? new Date(s.started_at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "—"}
-                  </span>
-                  <span className="review-sess-msgs">{s.message_count}</span>
-                  <span className={`review-sess-status ${s.status}`}>
-                    {s.status}
-                  </span>
-                  <span className="review-sess-action">
-                    {(s.status === "open" || s.status === "stalled") && (
-                      <button onClick={() => closeSession(s.id)}>close</button>
-                    )}
-                  </span>
-                </div>
-              ))}
+              {sessions.map((s, i) => {
+                const sessionScore = scores.find(
+                  (sc) => sc.session_id === s.id,
+                );
+                const score = sessionScore?.output_score ?? -1;
+                return (
+                  <div
+                    key={s.id ?? i}
+                    className={`review-sess-row ${s.status}`}
+                  >
+                    <span className="review-sess-label">{s.label}</span>
+                    <span className="review-sess-time">
+                      {s.started_at
+                        ? new Date(s.started_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "—"}
+                    </span>
+                    <span className="review-sess-msgs">{s.message_count}</span>
+                    <span
+                      className={`review-sess-score ${
+                        score >= 60 ? "high" : score < 30 ? "low" : "mid"
+                      }`}
+                    >
+                      {score >= 0 ? score : "—"}
+                    </span>
+                    <span className={`review-sess-status ${s.status}`}>
+                      {s.status}
+                    </span>
+                    <span className="review-sess-action">
+                      {(s.status === "open" || s.status === "stalled") && (
+                        <button onClick={() => closeSession(s.id)}>
+                          close
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

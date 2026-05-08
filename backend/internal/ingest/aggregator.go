@@ -85,6 +85,13 @@ func (a *Aggregator) Aggregate(ctx context.Context) {
 
 		hour := float64(idx*10) / 60.0
 
+		// Approximate idle seconds from activity density.
+		// A 10-min bucket = 600 seconds; idle is the complement of active time.
+		idleSec := 600 - (activity * 600 / 100)
+		if idleSec < 0 {
+			idleSec = 0
+		}
+
 		bucket := models.Bucket{
 			Day:       day,
 			BucketIdx: idx,
@@ -93,7 +100,7 @@ func (a *Aggregator) Aggregate(ctx context.Context) {
 			Errors:    counts.errors,
 			Sessions:  counts.sessions,
 			FileSaves: counts.fileSaves,
-			IdleSec:   0,
+			IdleSec:   idleSec,
 		}
 
 		if err := a.db.UpsertBucket(ctx, bucket); err != nil {

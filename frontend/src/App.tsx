@@ -150,6 +150,9 @@ export default function App() {
     cutoff_hour: 16.5,
     cognitive_threshold_pct: 0,
     interventions: [],
+    momentum_velocity: 0,
+    momentum_peak: 0,
+    wall_detected: false,
   };
 
   const cutoffHH = Math.floor(sig.cutoff_hour);
@@ -322,6 +325,13 @@ export default function App() {
           {(sig.interventions ?? []).length} active rule
           {(sig.interventions ?? []).length === 1 ? "" : "s"}
         </div>
+        {sig.wall_detected && (
+          <div className="signal" style={{ color: "var(--color-danger-red)" }}>
+            <span className="sd danger"></span>
+            <span className="signal-label">Wall</span>
+            <b>detected</b>
+          </div>
+        )}
       </div>
 
       {/* Main content */}
@@ -372,6 +382,15 @@ export default function App() {
           <b>
             {cutoffHH}:{cutoffMM}
           </b>
+        </span>
+        <span>
+          Velocity ·{" "}
+          <b>
+            {sig.momentum_velocity
+              ? `${Math.round(sig.momentum_velocity)}`
+              : "0"}
+          </b>{" "}
+          ev/h
         </span>
         <div className="sb-spacer"></div>
         {toast && (

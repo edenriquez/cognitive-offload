@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -99,6 +100,25 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 		// Self-reports
 		r.Post("/self-report", h.createSelfReport)
 		r.Get("/self-reports", h.listSelfReports)
+
+		// Projects
+		r.Get("/projects", h.listProjects)
+		r.Post("/projects", h.upsertProject)
+		r.Put("/projects/{id}", h.updateProject)
+		r.Delete("/projects/{id}", h.deleteProject)
+
+		// Budget
+		r.Get("/budget", h.getBudget)
+		r.Put("/budget", h.updateBudget)
+
+		// Report
+		r.Get("/report/{day}", h.getReport)
+
+		// Trends
+		r.Get("/trends", h.getTrends)
+
+		// Session scores
+		r.Get("/sessions/scores", h.getSessionScores)
 	})
 
 	return r
@@ -907,6 +927,121 @@ func (h *handler) cleanupSessions(w http.ResponseWriter, r *http.Request) {
 	}
 	slog.Info("sessions cleaned up", "closed", result)
 	writeJSON(w, 200, map[string]any{"status": "cleaned", "closed": result})
+}
+
+// ---------- Projects ----------
+
+func (h *handler) listProjects(w http.ResponseWriter, r *http.Request) {
+	projects, err := h.db.ListProjects(r.Context())
+	if err != nil {
+		projects = []models.Project{}
+	}
+	writeJSON(w, 200, projects)
+}
+
+func (h *handler) upsertProject(w http.ResponseWriter, r *http.Request) {
+	var p models.Project
+	if err := readJSON(r, &p); err != nil {
+		http.Error(w, "bad request", 400)
+		return
+	}
+	if p.ID == "" {
+		p.ID = fmt.Sprintf("p-%d", time.Now().UnixNano())
+	}
+	if err := h.db.UpsertProject(r.Context(), p); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, p)
+}
+
+func (h *handler) updateProject(w http.ResponseWriter, r *http.Request) {
+	var p models.Project
+	if err := readJSON(r, &p); err != nil {
+		http.Error(w, "bad request", 400)
+		return
+	}
+	p.ID = chi.URLParam(r, "id")
+	if err := h.db.UpsertProject(r.Context(), p); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, p)
+}
+
+func (h *handler) deleteProject(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	h.db.DeleteProject(r.Context(), id)
+	writeJSON(w, 200, map[string]string{"status": "ok"})
+}
+
+// ---------- Budget ----------
+
+func (h *handler) getBudget(w http.ResponseWriter, r *http.Request) {
+	day := time.Now().Format("2006-01-02")
+	budget, err := h.db.GetBudget(r.Context(), day)
+	if err != nil {
+		budget = models.DailyBudget{Day: day, Allocations: []models.BudgetEntry{}}
+	}
+	writeJSON(w, 200, budget)
+}
+
+func (h *handler) updateBudget(w http.ResponseWriter, r *http.Request) {
+	var budget models.DailyBudget
+	if err := readJSON(r, &budget); err != nil {
+		http.Error(w, "bad request", 400)
+		return
+	}
+	if budget.Day == "" {
+		budget.Day = time.Now().Format("2006-01-02")
+	}
+	if err := h.db.UpsertBudget(r.Context(), budget); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, budget)
+}
+
+// ---------- Report ----------
+
+func (h *handler) getReport(w http.ResponseWriter, r *http.Request) {
+	day := chi.URLParam(r, "day")
+	if day == "" {
+		day = time.Now().Format("2006-01-02")
+	}
+	report := engine.GenerateReport(r.Context(), h.db, day)
+	writeJSON(w, 200, report)
+}
+
+// ---------- Trends ----------
+
+func (h *handler) getTrends(w http.ResponseWriter, r *http.Request) {
+	daysStr := r.URL.Query().Get("days")
+	days := 7
+	if daysStr != "" {
+		if d, err := strconv.Atoi(daysStr); err == nil && d > 0 && d <= 90 {
+			days = d
+		}
+	}
+	trends, err := h.db.GetTrends(r.Context(), days)
+	if err != nil {
+		trends = []models.DailySummaryRecord{}
+	}
+	writeJSON(w, 200, trends)
+}
+
+// ---------- Session Scores ----------
+
+func (h *handler) getSessionScores(w http.ResponseWriter, r *http.Request) {
+	day := r.URL.Query().Get("day")
+	if day == "" {
+		day = time.Now().Format("2006-01-02")
+	}
+	scores := engine.ScoreAllSessions(r.Context(), h.db, day)
+	if scores == nil {
+		scores = []engine.SessionScore{}
+	}
+	writeJSON(w, 200, scores)
 }
 
 // Suppress unused import warning

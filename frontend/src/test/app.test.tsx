@@ -162,12 +162,16 @@ describe("Mode rendering", () => {
           leaks: [],
           root_causes: [],
           sessions: [],
+          self_reports: [],
         }),
       text: () => Promise.resolve(""),
     } as Response);
     useAppStore.setState({ mode: "review" });
     render(<App />);
-    expect(await screen.findByText("Today's review")).toBeInTheDocument();
+    await waitFor(
+      () => expect(document.querySelector(".review")).toBeInTheDocument(),
+      { timeout: 3000 },
+    );
   });
 
   it("renders Tomorrow mode without crashing", async () => {

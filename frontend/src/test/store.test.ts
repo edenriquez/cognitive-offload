@@ -128,6 +128,9 @@ describe("AppStore", () => {
       cutoff_hour: 16.5,
       cognitive_threshold_pct: 0,
       interventions: [],
+      momentum_velocity: 0,
+      momentum_peak: 0,
+      wall_detected: false,
     };
     useAppStore.getState().setSignals(sig);
     expect(useAppStore.getState().signals).toEqual(sig);

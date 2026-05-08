@@ -37,6 +37,8 @@ export default function TodayMode() {
   const [revealBw, setRevealBw] = useState(false);
   const [revealCtx, setRevealCtx] = useState(false);
   const [loading, setLoading] = useState(!tasks.length);
+  const [completed, setCompleted] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
   // New task input
   const [newText, setNewText] = useState("");
@@ -62,6 +64,8 @@ export default function TodayMode() {
   );
   const total =
     bandwidth.work + bandwidth.personal + bandwidth.admin + bandwidth.learning;
+  const dayNumber =
+    Math.floor((Date.now() - new Date("2025-04-23").getTime()) / 86400000) + 1;
 
   const activeThread = signals?.active_session ?? null;
   const interventions = signals?.interventions ?? [];
@@ -74,6 +78,8 @@ export default function TodayMode() {
       .getToday()
       .then((data) => {
         if (data.tasks) setTasks(data.tasks);
+        if (data.completed !== undefined) setCompleted(data.completed);
+        if (data.total !== undefined) setTotalCount(data.total);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -287,7 +293,25 @@ export default function TodayMode() {
           </div>
         )}
 
-        <div className="today-greet">{greet} · day 14</div>
+        <div className="today-greet">
+          {greet} · day {dayNumber}
+        </div>
+        <div className="today-progress">
+          <span className="today-progress-label">
+            {completed}/{totalCount} tasks
+          </span>
+          <div className="today-progress-bar">
+            <div
+              className="today-progress-fill"
+              style={{
+                width: `${totalCount > 0 ? (completed / totalCount) * 100 : 0}%`,
+              }}
+            />
+          </div>
+          {signals?.wall_detected && (
+            <span className="today-wall-badge">⚡ wall detected</span>
+          )}
+        </div>
         <div className="today-q">
           The one thing right now is{" "}
           <em>
@@ -422,8 +446,14 @@ export default function TodayMode() {
             </div>
           </div>
           <div className="ctx-line">
-            Allocated · {total}% &nbsp;·&nbsp; Cutoff · 16:30 &nbsp;·&nbsp;
-            Productive · 6h
+            Allocated · {total}% &nbsp;·&nbsp; Cutoff ·{" "}
+            {signals
+              ? `${Math.floor(signals.cutoff_hour)}:${String(Math.round((signals.cutoff_hour % 1) * 60)).padStart(2, "0")}`
+              : "—"}{" "}
+            &nbsp;·&nbsp; Velocity ·{" "}
+            {signals?.momentum_velocity
+              ? `${Math.round(signals.momentum_velocity)} ev/h`
+              : "—"}
           </div>
         </div>
 
