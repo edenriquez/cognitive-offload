@@ -1,11 +1,13 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -119,6 +121,12 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 
 		// Session scores
 		r.Get("/sessions/scores", h.getSessionScores)
+
+		// Calendar
+		r.Get("/calendar", h.getCalendar)
+
+		// LLM Analysis
+		r.Post("/analyze/{day}", h.analyzeDayLLM)
 	})
 
 	return r
@@ -526,6 +534,29 @@ func (h *handler) getReview(w http.ResponseWriter, r *http.Request) {
 		Sessions:    sessions,
 		SelfReports: selfReports,
 	}
+
+	// Auto-persist daily summary for calendar/trends
+	scores := engine.ScoreAllSessions(ctx, h.db, day)
+	scoreSummary := engine.SummarizeSessionScores(scores)
+	momentum := engine.ComputeMomentum(ctx, h.db, day)
+	avgScore := float64(0)
+	if scoreSummary.TotalSessions > 0 {
+		totalScore := 0
+		for _, s := range scores {
+			totalScore += s.OutputScore
+		}
+		avgScore = float64(totalScore) / float64(scoreSummary.TotalSessions)
+	}
+	h.db.UpsertDailySummary(ctx, models.DailySummaryRecord{
+		Day:             day,
+		DeepWorkMin:     summary.DeepWorkMin,
+		LeakedMin:       summary.LeakedMin,
+		SessionsCount:   summary.SessionsCount,
+		AvgSessionScore: avgScore,
+		MomentumPeak:    momentum.PeakVelocity,
+		WallTime:        momentum.WallTime,
+		BudgetAdherence: 0,
+	})
 
 	writeJSON(w, 200, review)
 }
@@ -1042,6 +1073,131 @@ func (h *handler) getSessionScores(w http.ResponseWriter, r *http.Request) {
 		scores = []engine.SessionScore{}
 	}
 	writeJSON(w, 200, scores)
+}
+
+// ---------- Calendar ----------
+
+func (h *handler) getCalendar(w http.ResponseWriter, r *http.Request) {
+	trends, err := h.db.GetTrends(r.Context(), 365)
+	if err != nil {
+		trends = []models.DailySummaryRecord{}
+	}
+	writeJSON(w, 200, trends)
+}
+
+// ---------- LLM Analysis ----------
+
+func (h *handler) analyzeDayLLM(w http.ResponseWriter, r *http.Request) {
+	day := chi.URLParam(r, "day")
+	ctx := r.Context()
+
+	summary := engine.ComputeDaySummary(ctx, h.db, day)
+	patterns, _ := engine.DetectPatterns(ctx, h.db, day)
+	leaks := engine.ComputeLeaks(ctx, h.db, day)
+	sessions, _ := h.db.SessionsByDay(ctx, day)
+	scores := engine.ScoreAllSessions(ctx, h.db, day)
+	momentum := engine.ComputeMomentum(ctx, h.db, day)
+	selfReports, _ := h.db.SelfReportsByDay(ctx, day)
+
+	llmContext := map[string]any{
+		"day": day,
+		"summary": map[string]any{
+			"deep_work_min":  summary.DeepWorkMin,
+			"leaked_min":     summary.LeakedMin,
+			"sessions_count": summary.SessionsCount,
+			"open_loops":     summary.OpenLoops,
+		},
+		"patterns":       patterns,
+		"leaks":          leaks,
+		"session_count":  len(sessions),
+		"session_scores": scores,
+		"momentum": map[string]any{
+			"total_messages": momentum.TotalMessages,
+			"total_saves":    momentum.TotalSaves,
+			"total_commits":  momentum.TotalCommits,
+			"peak_velocity":  momentum.PeakVelocity,
+			"wall_detected":  momentum.WallDetected,
+			"wall_time":      momentum.WallTime,
+		},
+		"self_reports": selfReports,
+	}
+
+	contextJSON, _ := json.MarshalIndent(llmContext, "", "  ")
+	prompt := fmt.Sprintf("You are Cogload, a cognitive load analyst. Analyze this developer's day and provide insights.\n\nData for %s:\n%s\n\nRespond with EXACTLY this JSON structure (no markdown, no code fences):\n{\n  \"headline\": \"One-sentence summary of the day\",\n  \"analysis\": [\n    {\"title\": \"Section title\", \"content\": \"2-3 sentence analysis\"}\n  ],\n  \"suggestions\": [\n    {\"title\": \"Actionable suggestion\", \"detail\": \"Specific recommendation\", \"metric\": \"How to measure improvement\"}\n  ],\n  \"cognitive_score\": 75,\n  \"productivity_rating\": \"high|medium|low\"\n}\n\nFocus on:\n1. How effectively AI sessions translated to code output\n2. When cognitive momentum peaked and declined\n3. Whether the developer hit the e-bike wall\n4. Specific, actionable changes for tomorrow\nKeep analysis concise — max 3 analysis sections and 3 suggestions.", day, string(contextJSON))
+
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	if apiKey == "" {
+		report := engine.GenerateReport(ctx, h.db, day)
+		writeJSON(w, 200, map[string]any{
+			"source":              "template",
+			"headline":            "Daily summary for " + day,
+			"analysis":            report.Sections,
+			"suggestions":         report.Suggestions,
+			"cognitive_score":     0,
+			"productivity_rating": "",
+		})
+		return
+	}
+
+	reqBody, _ := json.Marshal(map[string]any{
+		"model":      "claude-sonnet-4-20250514",
+		"max_tokens": 1024,
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
+		},
+	})
+
+	httpReq, _ := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(reqBody))
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("x-api-key", apiKey)
+	httpReq.Header.Set("anthropic-version", "2023-06-01")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		slog.Error("LLM analysis failed", "error", err)
+		report := engine.GenerateReport(ctx, h.db, day)
+		writeJSON(w, 200, map[string]any{
+			"source":      "template",
+			"headline":    "Daily summary for " + day,
+			"analysis":    report.Sections,
+			"suggestions": report.Suggestions,
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	var llmResp struct {
+		Content []struct {
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+	json.NewDecoder(resp.Body).Decode(&llmResp)
+
+	if len(llmResp.Content) == 0 {
+		report := engine.GenerateReport(ctx, h.db, day)
+		writeJSON(w, 200, map[string]any{
+			"source":      "template",
+			"analysis":    report.Sections,
+			"suggestions": report.Suggestions,
+		})
+		return
+	}
+
+	var analysis map[string]any
+	text := llmResp.Content[0].Text
+	if err := json.Unmarshal([]byte(text), &analysis); err != nil {
+		analysis = map[string]any{
+			"source":      "llm",
+			"headline":    "AI Analysis for " + day,
+			"analysis":    []map[string]string{{"title": "Analysis", "content": text}},
+			"suggestions": []any{},
+		}
+	} else {
+		analysis["source"] = "llm"
+	}
+
+	writeJSON(w, 200, analysis)
 }
 
 // Suppress unused import warning

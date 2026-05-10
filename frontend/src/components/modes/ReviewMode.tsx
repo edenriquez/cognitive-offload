@@ -10,9 +10,12 @@ import type {
   Session,
   SelfReport,
   DailyReport,
+  DailySummaryRecord,
   SessionScore,
 } from "../../types";
 import { StateIcon, STATE_COLORS } from "../shared/SelfReport";
+import ContributionCalendar from "../shared/ContributionCalendar";
+import WrapUp from "../shared/WrapUp";
 
 // ---------- Energy Map (SVG-based, matches onboarding chart style) ----------
 // Chart constants
@@ -664,6 +667,8 @@ export default function ReviewMode() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [report, setReport] = useState<DailyReport | null>(null);
   const [scores, setScores] = useState<SessionScore[]>([]);
+  const [calendarData, setCalendarData] = useState<DailySummaryRecord[]>([]);
+  const [wrapUpDay, setWrapUpDay] = useState<string | null>(null);
 
   useEffect(() => {
     const n = new Date();
@@ -685,6 +690,10 @@ export default function ReviewMode() {
     api
       .getSessionScores(day)
       .then(setScores)
+      .catch(() => {});
+    api
+      .getCalendar()
+      .then(setCalendarData)
       .catch(() => {});
   }, []);
 
@@ -847,47 +856,15 @@ export default function ReviewMode() {
           </div>
         </div>
 
-        {/* Daily Intelligence Report */}
+        {/* Activity Calendar */}
         <div className="section">
-          <h2 className="section-h">Daily intelligence</h2>
-          {!report ? (
-            <div className="review-report-empty">Generating report…</div>
-          ) : report.sections.length === 0 ? (
-            <div className="review-report-empty">
-              Not enough data yet. Keep working and the report will populate as
-              activity is recorded.
-            </div>
-          ) : (
-            <div className="review-report">
-              {report.sections.map((s, i) => (
-                <div key={i} className="review-report-section">
-                  <div className="review-report-title">{s.title}</div>
-                  <div className="review-report-content">{s.content}</div>
-                </div>
-              ))}
-              {report.suggestions.length > 0 && (
-                <div className="review-report-suggestions">
-                  <div className="review-report-title">
-                    What to change tomorrow
-                  </div>
-                  {report.suggestions.map((s, i) => (
-                    <div key={i} className="review-suggestion">
-                      <span className="review-suggestion-num">{i + 1}</span>
-                      <div className="review-suggestion-body">
-                        <div className="review-suggestion-title">{s.title}</div>
-                        <div className="review-suggestion-detail">
-                          {s.detail}
-                        </div>
-                        <div className="review-suggestion-metric">
-                          📏 {s.metric}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          <h2 className="section-h">Activity history</h2>
+          <div className="em-card">
+            <ContributionCalendar
+              data={calendarData}
+              onDayClick={(day) => setWrapUpDay(day)}
+            />
+          </div>
         </div>
 
         {/* Energy map */}
@@ -1111,6 +1088,10 @@ export default function ReviewMode() {
           </button>
         </div>
       </div>
+
+      {wrapUpDay && (
+        <WrapUp day={wrapUpDay} onClose={() => setWrapUpDay(null)} />
+      )}
     </div>
   );
 }

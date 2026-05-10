@@ -237,4 +237,19 @@ export const api = {
       "GET",
       `/api/v1/sessions/scores${day ? `?day=${day}` : ""}`,
     ),
+
+  // ---------- Calendar Heatmap ----------
+  getCalendar: () =>
+    request<import("../types").DailySummaryRecord[]>("GET", "/api/v1/calendar"),
+
+  // ---------- LLM Analysis ----------
+  analyzeDay: (day: string) =>
+    request<{
+      source: string;
+      headline?: string;
+      analysis: { title: string; content: string }[];
+      suggestions: { title: string; detail: string; metric: string }[];
+      cognitive_score?: number;
+      productivity_rating?: string;
+    }>("POST", `/api/v1/analyze/${day}`),
 };
