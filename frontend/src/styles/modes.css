@@ -2203,6 +2203,16 @@
 /* ============================================================
    V2 — Daily Intelligence Report
 ============================================================ */
+.review-report-empty {
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--color-overcast);
+    font-size: 13px;
+    background: var(--color-ash);
+    border-radius: var(--radius-cards);
+    border: 1px solid var(--color-stone);
+    margin-top: 12px;
+}
 .review-report {
     display: flex;
     flex-direction: column;

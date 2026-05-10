@@ -848,9 +848,16 @@ export default function ReviewMode() {
         </div>
 
         {/* Daily Intelligence Report */}
-        {report && report.sections.length > 0 && (
-          <div className="section">
-            <h2 className="section-h">Daily intelligence</h2>
+        <div className="section">
+          <h2 className="section-h">Daily intelligence</h2>
+          {!report ? (
+            <div className="review-report-empty">Generating report…</div>
+          ) : report.sections.length === 0 ? (
+            <div className="review-report-empty">
+              Not enough data yet. Keep working and the report will populate as
+              activity is recorded.
+            </div>
+          ) : (
             <div className="review-report">
               {report.sections.map((s, i) => (
                 <div key={i} className="review-report-section">
@@ -880,8 +887,8 @@ export default function ReviewMode() {
                 </div>
               )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Energy map */}
         <div className="section">
