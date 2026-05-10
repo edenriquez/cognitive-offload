@@ -208,15 +208,21 @@ export default function ContributionCalendar({
         )}
       </svg>
 
-      {/* Tooltip — show below when near top, above otherwise */}
+      {/* Tooltip — flip when near edges */}
       {tooltip && (
         <div
           className="em-tooltip"
           style={{
-            left: tooltip.x,
+            left: Math.max(70, tooltip.x),
             top: tooltip.y < 50 ? tooltip.y + CELL + 8 : tooltip.y,
             transform:
-              tooltip.y < 50 ? "translateX(-50%)" : "translate(-50%, -100%)",
+              tooltip.x < 70
+                ? tooltip.y < 50
+                  ? "translateX(0)"
+                  : "translateY(-100%)"
+                : tooltip.y < 50
+                  ? "translateX(-50%)"
+                  : "translate(-50%, -100%)",
             pointerEvents: "none",
           }}
         >
