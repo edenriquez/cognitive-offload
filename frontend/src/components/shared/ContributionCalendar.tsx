@@ -68,13 +68,10 @@ export default function ContributionCalendar({
     return m;
   }, [data]);
 
-  // Build 364-day grid working backwards from today
-  const { cells, monthLabels, todayStr } = useMemo(() => {
+  // Build grid from Jan 1 of current year to today
+  const { cells, monthLabels, todayStr, totalCols } = useMemo(() => {
     const today = new Date();
     const todayStr = formatDate(today);
-
-    // We want columns with Mon=row0..Sun=row6
-    // JS getDay(): Sun=0→row6, Mon=1→row0, …, Sat=6→row5
 
     const cells: {
       day: string;
@@ -84,9 +81,8 @@ export default function ContributionCalendar({
       isToday: boolean;
     }[] = [];
 
-    // Go back 363 days from today (364 days including today)
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - 363);
+    // Start from Jan 1 of current year
+    const startDate = new Date(today.getFullYear(), 0, 1);
 
     // Adjust startDate backwards to the nearest Monday
     const startDow = startDate.getDay();
@@ -99,7 +95,8 @@ export default function ContributionCalendar({
     const cursor = new Date(startDate);
     let col = 0;
 
-    while (col < COLS) {
+    // Iterate until we pass today (not fixed 52 cols)
+    while (cursor <= today || cursor.getDay() !== 1) {
       for (let row = 0; row < ROWS; row++) {
         const dayStr = formatDate(cursor);
         const isFuture = cursor > today;
@@ -122,14 +119,16 @@ export default function ContributionCalendar({
         }
 
         cursor.setDate(cursor.getDate() + 1);
+        if (isFuture && row === ROWS - 1) break;
       }
       col++;
+      if (cursor > today && cursor.getDay() === 1) break;
     }
 
-    return { cells, monthLabels, todayStr };
+    return { cells, monthLabels, todayStr, totalCols: col };
   }, [lookup]);
 
-  const svgW = LABEL_W + COLS * STEP;
+  const svgW = LABEL_W + totalCols * STEP;
   const svgH = TOP_PAD + ROWS * STEP;
 
   const handleMouseEnter = (
@@ -153,7 +152,7 @@ export default function ContributionCalendar({
     <div
       className="contrib-calendar"
       ref={wrapRef}
-      style={{ position: "relative" }}
+      style={{ position: "relative", margin: "40px 0" }}
     >
       <svg
         width={svgW}
