@@ -1078,10 +1078,33 @@ func (h *handler) getSessionScores(w http.ResponseWriter, r *http.Request) {
 // ---------- Calendar ----------
 
 func (h *handler) getCalendar(w http.ResponseWriter, r *http.Request) {
-	trends, err := h.db.GetTrends(r.Context(), 365)
+	ctx := r.Context()
+
+	// Get persisted daily summaries
+	trends, err := h.db.GetTrends(ctx, 365)
 	if err != nil {
 		trends = []models.DailySummaryRecord{}
 	}
+
+	// Get session counts for all days (includes days without summaries)
+	sessionCounts, _ := h.db.SessionCountsByDay(ctx, 365)
+
+	// Build a map of existing summaries
+	summaryMap := make(map[string]*models.DailySummaryRecord, len(trends))
+	for i := range trends {
+		summaryMap[trends[i].Day] = &trends[i]
+	}
+
+	// Merge: ensure every day with sessions has an entry
+	for day, count := range sessionCounts {
+		if _, exists := summaryMap[day]; !exists {
+			trends = append(trends, models.DailySummaryRecord{
+				Day:           day,
+				SessionsCount: count,
+			})
+		}
+	}
+
 	writeJSON(w, 200, trends)
 }
 

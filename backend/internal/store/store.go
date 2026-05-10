@@ -916,6 +916,25 @@ func (d *DB) GetTrends(ctx context.Context, days int) ([]models.DailySummaryReco
 	return out, nil
 }
 
+// SessionCountsByDay returns the number of sessions per day for the last N days.
+func (d *DB) SessionCountsByDay(ctx context.Context, days int) (map[string]int, error) {
+	cutoff := time.Now().AddDate(0, 0, -days).Format("2006-01-02")
+	rows, err := d.db.QueryContext(ctx,
+		"SELECT day, COUNT(*) FROM sessions WHERE day >= ? GROUP BY day ORDER BY day", cutoff)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	m := make(map[string]int)
+	for rows.Next() {
+		var day string
+		var count int
+		rows.Scan(&day, &count)
+		m[day] = count
+	}
+	return m, nil
+}
+
 // ---------- Helpers ----------
 
 func nilTime(t *time.Time) any {
