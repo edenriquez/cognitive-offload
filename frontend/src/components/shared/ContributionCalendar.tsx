@@ -14,12 +14,13 @@ const COLS = 52;
 const LABEL_W = 28;
 const TOP_PAD = 18;
 
-function color(minutes: number): string {
-  if (minutes <= 0) return "var(--color-ash)";
-  if (minutes < 30) return "#9be9a8";
-  if (minutes < 90) return "#40c463";
-  if (minutes < 180) return "#30a14e";
-  return "#216e39";
+function color(sessions: number): string {
+  if (sessions <= 0) return "var(--color-ash)";
+  if (sessions <= 2) return "#d0d0d0";
+  if (sessions <= 5) return "#a0a0a0";
+  if (sessions <= 10) return "#707070";
+  if (sessions <= 20) return "#404040";
+  return "#1a1a1a";
 }
 
 function formatDate(d: Date): string {
@@ -54,16 +55,17 @@ export default function ContributionCalendar({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<{
     day: string;
-    minutes: number;
+    sessions: number;
+    deepWork: number;
     x: number;
     y: number;
   } | null>(null);
 
-  // Build lookup map: day string → deep_work_min
+  // Build lookup map: day string → record
   const lookup = useMemo(() => {
-    const m = new Map<string, number>();
+    const m = new Map<string, DailySummaryRecord>();
     for (const rec of data) {
-      m.set(rec.day, rec.deep_work_min);
+      m.set(rec.day, rec);
     }
     return m;
   }, [data]);
@@ -77,7 +79,8 @@ export default function ContributionCalendar({
       day: string;
       col: number;
       row: number;
-      minutes: number;
+      sessions: number;
+      deepWork: number;
       isToday: boolean;
     }[] = [];
 
@@ -101,11 +104,13 @@ export default function ContributionCalendar({
         const dayStr = formatDate(cursor);
         const isFuture = cursor > today;
 
+        const rec = lookup.get(dayStr);
         cells.push({
           day: dayStr,
           col,
           row,
-          minutes: isFuture ? -1 : (lookup.get(dayStr) ?? 0),
+          sessions: isFuture ? -1 : (rec?.sessions_count ?? 0),
+          deepWork: isFuture ? 0 : (rec?.deep_work_min ?? 0),
           isToday: dayStr === todayStr,
         });
 
@@ -134,7 +139,8 @@ export default function ContributionCalendar({
   const handleMouseEnter = (
     e: React.MouseEvent<SVGRectElement>,
     day: string,
-    minutes: number,
+    sessions: number,
+    deepWork: number,
   ) => {
     const svg = wrapRef.current?.querySelector("svg");
     if (!svg) return;
@@ -142,7 +148,8 @@ export default function ContributionCalendar({
     const er = (e.target as SVGRectElement).getBoundingClientRect();
     setTooltip({
       day,
-      minutes,
+      sessions,
+      deepWork,
       x: er.left - rect.left + CELL / 2,
       y: er.top - rect.top - 8,
     });
@@ -190,7 +197,7 @@ export default function ContributionCalendar({
 
         {/* Day cells */}
         {cells.map((c) =>
-          c.minutes < 0 ? null : (
+          c.sessions < 0 ? null : (
             <rect
               key={c.day}
               className={`contrib-cell${c.isToday ? " contrib-today" : ""}`}
@@ -199,9 +206,11 @@ export default function ContributionCalendar({
               width={CELL}
               height={CELL}
               rx={2}
-              fill={color(c.minutes)}
+              fill={color(c.sessions)}
               onClick={() => onDayClick(c.day)}
-              onMouseEnter={(e) => handleMouseEnter(e, c.day, c.minutes)}
+              onMouseEnter={(e) =>
+                handleMouseEnter(e, c.day, c.sessions, c.deepWork)
+              }
               onMouseLeave={() => setTooltip(null)}
             />
           ),
@@ -228,7 +237,10 @@ export default function ContributionCalendar({
         >
           <div className="em-tooltip-time">{tooltip.day}</div>
           <div className="em-tooltip-row">
-            <b>{tooltip.minutes}m</b> deep work
+            <span>Sessions</span> <b>{tooltip.sessions}</b>
+          </div>
+          <div className="em-tooltip-row">
+            <span>Deep work</span> <b>{tooltip.deepWork}m</b>
           </div>
         </div>
       )}
