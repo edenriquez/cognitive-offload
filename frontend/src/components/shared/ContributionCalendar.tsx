@@ -152,7 +152,7 @@ export default function ContributionCalendar({
     <div
       className="contrib-calendar"
       ref={wrapRef}
-      style={{ position: "relative", margin: "40px 0" }}
+      style={{ position: "relative" }}
     >
       <svg
         width={svgW}
@@ -208,14 +208,15 @@ export default function ContributionCalendar({
         )}
       </svg>
 
-      {/* Tooltip */}
+      {/* Tooltip — show below when near top, above otherwise */}
       {tooltip && (
         <div
           className="em-tooltip"
           style={{
             left: tooltip.x,
-            top: tooltip.y,
-            transform: "translate(-50%, -100%)",
+            top: tooltip.y < 50 ? tooltip.y + CELL + 8 : tooltip.y,
+            transform:
+              tooltip.y < 50 ? "translateX(-50%)" : "translate(-50%, -100%)",
             pointerEvents: "none",
           }}
         >
