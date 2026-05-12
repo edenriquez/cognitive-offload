@@ -77,6 +77,57 @@ export default function App() {
     return () => clearInterval(t);
   }, [focus.task, focus.isPaused, tickFocus]);
 
+  // Claude status
+  const [claudeOnline, setClaudeOnline] = useState(false);
+  const [claudeMasked, setClaudeMasked] = useState("");
+  const [claudePanel, setClaudePanel] = useState(false);
+  const [claudeKeyInput, setClaudeKeyInput] = useState("");
+  const [claudeKeySaving, setClaudeKeySaving] = useState(false);
+  const [claudeKeyError, setClaudeKeyError] = useState("");
+  const [claudeKeySaved, setClaudeKeySaved] = useState(false);
+  const claudeInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    api
+      .claudeStatus()
+      .then((s) => {
+        setClaudeOnline(s.online);
+        if (s.masked_key) setClaudeMasked(s.masked_key);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Focus input when panel opens
+  useEffect(() => {
+    if (claudePanel && claudeInputRef.current) {
+      claudeInputRef.current.focus();
+    }
+  }, [claudePanel]);
+
+  const handleSetClaudeKey = async () => {
+    const key = claudeKeyInput.trim();
+    if (!key) return;
+    setClaudeKeySaving(true);
+    setClaudeKeyError("");
+    try {
+      await api.setClaudeKey(key);
+      setClaudeOnline(true);
+      setClaudeKeyInput("");
+      // Show saved confirmation then collapse
+      const masked =
+        key.length > 8 ? key.slice(0, 4) + "..." + key.slice(-4) : "****";
+      setClaudeMasked(masked);
+      setClaudeKeySaved(true);
+      setTimeout(() => {
+        setClaudeKeySaved(false);
+        setClaudePanel(false);
+      }, 1500);
+    } catch {
+      setClaudeKeyError("Failed to save key. Is the backend running?");
+    }
+    setClaudeKeySaving(false);
+  };
+
   // WebSocket signal stream + offline detection
   const [offline, setOffline] = useState(isOffline());
   useEffect(() => {
@@ -319,6 +370,16 @@ export default function App() {
           </span>
         </div>
         <div
+          className="signal signal-claude"
+          onClick={() => setClaudePanel((v) => !v)}
+        >
+          <span
+            className={`signal-claude-dot ${claudeOnline ? "online" : "offline"}`}
+          ></span>
+          <span className="signal-label">Claude</span>
+          <b>{claudeOnline ? "online" : "offline"}</b>
+        </div>
+        <div
           className="signal"
           style={{ marginLeft: "auto", color: "var(--color-overcast)" }}
         >
@@ -332,6 +393,79 @@ export default function App() {
             <b>detected</b>
           </div>
         )}
+      </div>
+
+      {/* Claude API key expandable panel */}
+      <div className={`claude-panel ${claudePanel ? "on" : ""}`}>
+        <div className="claude-panel-inner">
+          <div className="claude-panel-status">
+            <span
+              className={`signal-claude-dot ${claudeOnline ? "online" : "offline"}`}
+            ></span>
+            <span className="claude-panel-title">
+              {claudeOnline
+                ? "Claude connected"
+                : "Connect Claude for AI-powered estimates"}
+            </span>
+            {claudeOnline && claudeMasked && (
+              <span className="claude-panel-masked">{claudeMasked}</span>
+            )}
+            <button
+              className="claude-panel-close"
+              onClick={() => setClaudePanel(false)}
+            >
+              ×
+            </button>
+          </div>
+          {claudeOnline ? (
+            <div className="claude-panel-desc">
+              AI estimation is active. Task estimates and daily analysis use
+              Claude for higher-confidence results.
+              <button
+                className="claude-panel-rekey"
+                onClick={() => setClaudeOnline(false)}
+              >
+                Change key
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="claude-panel-desc">
+                Add your Anthropic API key to enable AI-powered task estimation
+                and daily analysis. The key is saved to{" "}
+                <code>~/.cogload/config.json</code>.
+              </div>
+              <div className="claude-panel-form">
+                <input
+                  ref={claudeInputRef}
+                  className="claude-panel-input"
+                  type="password"
+                  placeholder="sk-ant-api03-..."
+                  value={claudeKeyInput}
+                  onChange={(e) => setClaudeKeyInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSetClaudeKey();
+                    if (e.key === "Escape") setClaudePanel(false);
+                  }}
+                />
+                <button
+                  className="btn-primary claude-panel-save"
+                  onClick={handleSetClaudeKey}
+                  disabled={claudeKeySaving || !claudeKeyInput.trim()}
+                >
+                  {claudeKeySaving
+                    ? "Saving…"
+                    : claudeKeySaved
+                      ? "✓ Saved"
+                      : "Save key"}
+                </button>
+              </div>
+              {claudeKeyError && (
+                <div className="claude-panel-error">{claudeKeyError}</div>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Main content */}

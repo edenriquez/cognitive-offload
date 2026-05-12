@@ -6,7 +6,15 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_INTERVAL = 30_000;
 
+const IS_TAURI = Boolean(
+  typeof window !== "undefined" &&
+  (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__,
+);
+
 function getWsUrl(): string {
+  if (IS_TAURI) {
+    return "ws://127.0.0.1:9200/ws/signals";
+  }
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   const host = window.location.host;
   return `${proto}//${host}/ws/signals`;

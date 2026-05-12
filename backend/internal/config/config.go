@@ -15,6 +15,7 @@ type Config struct {
 	LunchStart    float64  `json:"lunch_start"`
 	LunchEnd      float64  `json:"lunch_end"`
 	DisabledRules []string `json:"disabled_rules"`
+	AnthropicKey  string   `json:"anthropic_key,omitempty"`
 }
 
 func DefaultConfig() Config {
@@ -61,6 +62,11 @@ func Load() Config {
 	// Ensure sane limits
 	if cfg.MaxWatchDirs <= 0 {
 		cfg.MaxWatchDirs = 500
+	}
+
+	// Hydrate API key into environment if set in config but not in env
+	if cfg.AnthropicKey != "" && os.Getenv("ANTHROPIC_API_KEY") == "" {
+		os.Setenv("ANTHROPIC_API_KEY", cfg.AnthropicKey)
 	}
 
 	return cfg

@@ -14,7 +14,13 @@ import type {
   SessionScore,
 } from "../types";
 
-const BASE = ""; // Vite proxy handles /api → backend
+// In dev mode, Vite proxy forwards /api → 127.0.0.1:9200.
+// In production Tauri build, there’s no proxy — hit the backend directly.
+const IS_TAURI = Boolean(
+  typeof window !== "undefined" &&
+  (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__,
+);
+const BASE = IS_TAURI ? "http://127.0.0.1:9200" : "";
 
 async function request<T>(
   method: string,
@@ -252,4 +258,28 @@ export const api = {
       cognitive_score?: number;
       productivity_rating?: string;
     }>("POST", `/api/v1/analyze/${day}`),
+
+  // ---------- Cognitive Budget ----------
+  estimateTask: (taskId: string, projectPath?: string) =>
+    request<import("../types").TaskEstimate>(
+      "POST",
+      `/api/v1/tasks/${taskId}/estimate`,
+      projectPath ? { project_path: projectPath } : undefined,
+    ),
+
+  estimateNewTask: (taskText: string, projectPath?: string) =>
+    request<import("../types").TaskEstimate>("POST", "/api/v1/estimate", {
+      task_text: taskText,
+      project_path: projectPath || "",
+    }),
+
+  // ---------- Claude Status ----------
+  claudeStatus: () =>
+    request<{ online: boolean; masked_key: string }>(
+      "GET",
+      "/api/v1/claude/status",
+    ),
+
+  setClaudeKey: (key: string) =>
+    request<{ status: string }>("POST", "/api/v1/claude/key", { key }),
 };

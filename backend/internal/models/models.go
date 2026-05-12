@@ -235,3 +235,46 @@ type DailySummaryRecord struct {
 	WallTime        string  `json:"wall_time"`
 	BudgetAdherence float64 `json:"budget_adherence_pct"`
 }
+
+// TaskEstimate holds the result of a cognitive budget estimation for a task.
+type TaskEstimate struct {
+	ID              string           `json:"id"`
+	TaskID          string           `json:"task_id"`
+	TaskText        string           `json:"task_text"`
+	EstimatedMin    int              `json:"estimated_min"`
+	Complexity      string           `json:"complexity"`     // trivial | low | medium | high | extreme
+	CognitiveLoad   int              `json:"cognitive_load"` // 1-100 score
+	Confidence      int              `json:"confidence"`     // 0-100 how confident the estimate is
+	ShouldSplit     bool             `json:"should_split"`
+	SuggestedSplits []SuggestedTask  `json:"suggested_splits,omitempty"`
+	Reasoning       string           `json:"reasoning"`
+	Matrix          ComplexityMatrix `json:"matrix"`
+	Source          string           `json:"source"` // "heuristic" | "llm"
+	CreatedAt       time.Time        `json:"created_at"`
+}
+
+// SuggestedTask is a proposed sub-task from splitting.
+type SuggestedTask struct {
+	Text         string `json:"text"`
+	Kind         string `json:"kind"`
+	EstimatedMin int    `json:"estimated_min"`
+	Order        int    `json:"order"`
+}
+
+// ComplexityMatrix holds the parameterized evaluation dimensions.
+type ComplexityMatrix struct {
+	Scope           int `json:"scope"`            // how many files/systems does this touch? (1-10)
+	Novelty         int `json:"novelty"`          // is this familiar territory or new ground? (1-10)
+	Dependencies    int `json:"dependencies"`     // how many external dependencies or integrations? (1-10)
+	Ambiguity       int `json:"ambiguity"`        // how well-defined is the task? (1-10)
+	PriorWork       int `json:"prior_work"`       // how much relevant prior work exists? (1-10, higher = more context)
+	ErrorRisk       int `json:"error_risk"`       // likelihood of cascading errors? (1-10)
+	CognitiveSwitch int `json:"cognitive_switch"` // does this require context-switching between domains? (1-10)
+}
+
+// EstimateRequest is the payload for requesting an estimate.
+type EstimateRequest struct {
+	TaskText    string `json:"task_text"`
+	TaskID      string `json:"task_id,omitempty"`
+	ProjectPath string `json:"project_path,omitempty"`
+}

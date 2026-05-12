@@ -152,6 +152,23 @@ func (d *DB) Migrate() error {
 		wall_time         TEXT NOT NULL DEFAULT '',
 		budget_adherence  REAL NOT NULL DEFAULT 0
 	);
+
+	CREATE TABLE IF NOT EXISTS task_estimates (
+		id            TEXT PRIMARY KEY,
+		task_id       TEXT NOT NULL DEFAULT '',
+		task_text     TEXT NOT NULL,
+		estimated_min INTEGER NOT NULL DEFAULT 0,
+		complexity    TEXT NOT NULL DEFAULT 'medium',
+		cognitive_load INTEGER NOT NULL DEFAULT 0,
+		confidence    INTEGER NOT NULL DEFAULT 0,
+		should_split  INTEGER NOT NULL DEFAULT 0,
+		splits_json   TEXT NOT NULL DEFAULT '[]',
+		reasoning     TEXT NOT NULL DEFAULT '',
+		matrix_json   TEXT NOT NULL DEFAULT '{}',
+		source        TEXT NOT NULL DEFAULT 'heuristic',
+		created_at    INTEGER NOT NULL
+	);
+	CREATE INDEX IF NOT EXISTS idx_estimates_task ON task_estimates(task_id);
 	`
 	_, err := d.db.Exec(schema)
 	return err
@@ -942,4 +959,86 @@ func nilTime(t *time.Time) any {
 		return nil
 	}
 	return t.Unix()
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// InsertTaskEstimate persists a cognitive budget estimate.
+func (d *DB) InsertTaskEstimate(ctx context.Context, est models.TaskEstimate) error {
+	splitsJSON, _ := json.Marshal(est.SuggestedSplits)
+	matrixJSON, _ := json.Marshal(est.Matrix)
+	_, err := d.db.ExecContext(ctx,
+		`INSERT OR REPLACE INTO task_estimates (id, task_id, task_text, estimated_min, complexity, cognitive_load, confidence, should_split, splits_json, reasoning, matrix_json, source, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		est.ID, est.TaskID, est.TaskText, est.EstimatedMin, est.Complexity, est.CognitiveLoad, est.Confidence,
+		boolToInt(est.ShouldSplit), string(splitsJSON), est.Reasoning, string(matrixJSON), est.Source, est.CreatedAt.UnixMilli(),
+	)
+	return err
+}
+
+// TaskEstimatesByDay returns all estimates created today.
+func (d *DB) TaskEstimatesByDay(ctx context.Context, day string) ([]models.TaskEstimate, error) {
+	// Parse day to get start/end timestamps
+	t, err := time.Parse("2006-01-02", day)
+	if err != nil {
+		return nil, err
+	}
+	startMs := t.UnixMilli()
+	endMs := t.Add(24 * time.Hour).UnixMilli()
+
+	rows, err := d.db.QueryContext(ctx,
+		`SELECT id, task_id, task_text, estimated_min, complexity, cognitive_load, confidence, should_split, splits_json, reasoning, matrix_json, source, created_at
+		 FROM task_estimates WHERE created_at >= ? AND created_at < ? ORDER BY created_at DESC`, startMs, endMs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var estimates []models.TaskEstimate
+	for rows.Next() {
+		var est models.TaskEstimate
+		var shouldSplit int
+		var splitsJSON, matrixJSON string
+		var createdAtMs int64
+		err := rows.Scan(&est.ID, &est.TaskID, &est.TaskText, &est.EstimatedMin, &est.Complexity,
+			&est.CognitiveLoad, &est.Confidence, &shouldSplit, &splitsJSON, &est.Reasoning,
+			&matrixJSON, &est.Source, &createdAtMs)
+		if err != nil {
+			continue
+		}
+		est.ShouldSplit = shouldSplit != 0
+		est.CreatedAt = time.UnixMilli(createdAtMs)
+		_ = json.Unmarshal([]byte(splitsJSON), &est.SuggestedSplits)
+		_ = json.Unmarshal([]byte(matrixJSON), &est.Matrix)
+		estimates = append(estimates, est)
+	}
+	return estimates, nil
+}
+
+// LatestEstimateForTask returns the most recent estimate for a given task.
+func (d *DB) LatestEstimateForTask(ctx context.Context, taskID string) (*models.TaskEstimate, error) {
+	row := d.db.QueryRowContext(ctx,
+		`SELECT id, task_id, task_text, estimated_min, complexity, cognitive_load, confidence, should_split, splits_json, reasoning, matrix_json, source, created_at
+		 FROM task_estimates WHERE task_id = ? ORDER BY created_at DESC LIMIT 1`, taskID)
+
+	var est models.TaskEstimate
+	var shouldSplit int
+	var splitsJSON, matrixJSON string
+	var createdAtMs int64
+	err := row.Scan(&est.ID, &est.TaskID, &est.TaskText, &est.EstimatedMin, &est.Complexity,
+		&est.CognitiveLoad, &est.Confidence, &shouldSplit, &splitsJSON, &est.Reasoning,
+		&matrixJSON, &est.Source, &createdAtMs)
+	if err != nil {
+		return nil, err
+	}
+	est.ShouldSplit = shouldSplit != 0
+	est.CreatedAt = time.UnixMilli(createdAtMs)
+	_ = json.Unmarshal([]byte(splitsJSON), &est.SuggestedSplits)
+	_ = json.Unmarshal([]byte(matrixJSON), &est.Matrix)
+	return &est, nil
 }

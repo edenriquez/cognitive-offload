@@ -31,11 +31,10 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(15 * time.Second))
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:*", "http://127.0.0.1:*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Content-Type"},
-		AllowCredentials: true,
-		MaxAge:           300,
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Accept", "Content-Type"},
+		MaxAge:         300,
 	}))
 
 	h := &handler{db: db, hub: hub, eng: eng, coord: coord}
@@ -127,6 +126,14 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 
 		// LLM Analysis
 		r.Post("/analyze/{day}", h.analyzeDayLLM)
+
+		// Cognitive Budget Estimation
+		r.Post("/tasks/{id}/estimate", h.estimateExistingTask)
+		r.Post("/estimate", h.estimateNewTask)
+
+		// Claude status
+		r.Get("/claude/status", h.claudeStatus)
+		r.Post("/claude/key", h.setClaudeKey)
 	})
 
 	return r
@@ -867,6 +874,14 @@ func (h *handler) getSources(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) getConfig(w http.ResponseWriter, r *http.Request) {
 	cfg := config.Load()
+	// Don't expose the full API key in config responses
+	if cfg.AnthropicKey != "" {
+		if len(cfg.AnthropicKey) > 8 {
+			cfg.AnthropicKey = cfg.AnthropicKey[:4] + "..." + cfg.AnthropicKey[len(cfg.AnthropicKey)-4:]
+		} else {
+			cfg.AnthropicKey = "****"
+		}
+	}
 	writeJSON(w, 200, cfg)
 }
 
@@ -1221,6 +1236,117 @@ func (h *handler) analyzeDayLLM(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, 200, analysis)
+}
+
+// claudeStatus checks if ANTHROPIC_API_KEY is available.
+func (h *handler) claudeStatus(w http.ResponseWriter, r *http.Request) {
+	key := os.Getenv("ANTHROPIC_API_KEY")
+	if key == "" {
+		// Fallback: check config file
+		cfg := config.Load()
+		if cfg.AnthropicKey != "" {
+			key = cfg.AnthropicKey
+			os.Setenv("ANTHROPIC_API_KEY", key)
+		}
+	}
+	online := key != ""
+	masked := ""
+	if online && len(key) > 8 {
+		masked = key[:4] + "..." + key[len(key)-4:]
+	} else if online {
+		masked = "****"
+	}
+	writeJSON(w, 200, map[string]any{
+		"online":     online,
+		"masked_key": masked,
+	})
+}
+
+// setClaudeKey persists the ANTHROPIC_API_KEY to config and environment.
+func (h *handler) setClaudeKey(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Key string `json:"key"`
+	}
+	if err := readJSON(r, &body); err != nil || body.Key == "" {
+		http.Error(w, "key is required", 400)
+		return
+	}
+	os.Setenv("ANTHROPIC_API_KEY", body.Key)
+	// Persist to config file so it survives restarts
+	cfg := config.Load()
+	cfg.AnthropicKey = body.Key
+	config.Save(cfg)
+	slog.Info("ANTHROPIC_API_KEY updated and persisted")
+	writeJSON(w, 200, map[string]any{"status": "ok"})
+}
+
+// estimateExistingTask estimates the cognitive budget for an existing task.
+func (h *handler) estimateExistingTask(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "id")
+	ctx := r.Context()
+	today := time.Now().Format("2006-01-02")
+
+	// Find the task
+	tasks, err := h.db.TasksByDay(ctx, today)
+	if err != nil {
+		http.Error(w, "failed to load tasks", 500)
+		return
+	}
+
+	var taskText string
+	for _, t := range tasks {
+		if t.ID == taskID {
+			taskText = t.Text
+			break
+		}
+	}
+	if taskText == "" {
+		http.Error(w, "task not found", 404)
+		return
+	}
+
+	// Optional project_path from body
+	var body struct {
+		ProjectPath string `json:"project_path"`
+	}
+	_ = readJSON(r, &body)
+
+	estimate, err := engine.EstimateTask(ctx, h.db, models.EstimateRequest{
+		TaskText:    taskText,
+		TaskID:      taskID,
+		ProjectPath: body.ProjectPath,
+	})
+	if err != nil {
+		slog.Error("estimation failed", "error", err)
+		http.Error(w, "estimation failed: "+err.Error(), 500)
+		return
+	}
+
+	writeJSON(w, 200, estimate)
+}
+
+// estimateNewTask estimates the cognitive budget for a task description (not yet created).
+func (h *handler) estimateNewTask(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var req models.EstimateRequest
+	if err := readJSON(r, &req); err != nil {
+		http.Error(w, "invalid request body", 400)
+		return
+	}
+	if req.TaskText == "" {
+		http.Error(w, "task_text is required", 400)
+		return
+	}
+
+	estimate, err := engine.EstimateTask(ctx, h.db, req)
+	if err != nil {
+		slog.Error("estimation failed", "error", err)
+		http.Error(w, "estimation failed: "+err.Error(), 500)
+		return
+	}
+
+	writeJSON(w, 200, estimate)
 }
 
 // Suppress unused import warning

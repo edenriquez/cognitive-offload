@@ -16,6 +16,7 @@ export interface SortableTaskItemProps {
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onFocus: (text: string) => void;
+  onEstimate?: (task: Task) => void;
 }
 
 export function SortableTaskItem({
@@ -31,6 +32,7 @@ export function SortableTaskItem({
   onToggle,
   onDelete,
   onFocus,
+  onEstimate,
 }: SortableTaskItemProps) {
   const {
     attributes,
@@ -91,6 +93,15 @@ export function SortableTaskItem({
       )}
 
       <div className="ttask-actions">
+        {!task.done && onEstimate && (
+          <button
+            className="ttask-estimate"
+            onClick={() => onEstimate(task)}
+            title="Estimate cognitive budget"
+          >
+            ⏱
+          </button>
+        )}
         {isNext && !task.done ? (
           <button className="ttask-go" onClick={() => onFocus(task.text)}>
             Focus

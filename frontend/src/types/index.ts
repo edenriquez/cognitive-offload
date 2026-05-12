@@ -265,3 +265,37 @@ export interface ProjectOutput {
   active_minutes: number;
   avg_session_score: number;
 }
+
+// Cognitive Budget types
+export interface ComplexityMatrix {
+  scope: number;
+  novelty: number;
+  dependencies: number;
+  ambiguity: number;
+  prior_work: number;
+  error_risk: number;
+  cognitive_switch: number;
+}
+
+export interface SuggestedTask {
+  text: string;
+  kind: string;
+  estimated_min: number;
+  order: number;
+}
+
+export interface TaskEstimate {
+  id: string;
+  task_id: string;
+  task_text: string;
+  estimated_min: number;
+  complexity: "trivial" | "low" | "medium" | "high" | "extreme";
+  cognitive_load: number;
+  confidence: number;
+  should_split: boolean;
+  suggested_splits?: SuggestedTask[];
+  reasoning: string;
+  matrix: ComplexityMatrix;
+  source: "heuristic" | "llm";
+  created_at: string;
+}

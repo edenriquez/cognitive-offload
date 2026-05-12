@@ -18,6 +18,7 @@ import { useAppStore } from "../../store/app-store";
 import { api } from "../../api/client";
 import Ring from "../shared/Ring";
 import { SortableTaskItem } from "../shared/SortableTaskItem";
+import CognitiveBudget from "../shared/CognitiveBudget";
 import type { Task } from "../../types";
 
 type TaskKind = "must" | "personal" | "small";
@@ -49,6 +50,12 @@ export default function TodayMode() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
+
+  // Cognitive budget estimation state
+  const [estimatingTask, setEstimatingTask] = useState<Task | null>(null);
+  const [estimatingNewText, setEstimatingNewText] = useState<string | null>(
+    null,
+  );
 
   // Drag state
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -110,6 +117,51 @@ export default function TodayMode() {
       }
     }
     startFocus(taskText);
+  };
+
+  // Estimate a task before starting focus
+  const handleEstimate = (task: Task) => {
+    setEstimatingTask(task);
+    setEstimatingNewText(null);
+  };
+
+  // Estimate from the task creation input
+  const handleEstimateNew = () => {
+    if (!newText.trim()) return;
+    setEstimatingNewText(newText.trim());
+    setEstimatingTask(null);
+  };
+
+  // Apply suggested splits: create the sub-tasks
+  const handleSplitApply = async (splits: { text: string; kind: string }[]) => {
+    const created: Task[] = [];
+    for (const s of splits) {
+      try {
+        const task = await api.createTask(s.kind || "must", s.text);
+        created.push(task);
+      } catch {
+        /* continue */
+      }
+    }
+    if (created.length > 0) {
+      // If we were estimating an existing task, mark the original as done
+      if (estimatingTask) {
+        try {
+          await api.deleteTask(estimatingTask.id);
+        } catch {
+          /* ignore */
+        }
+      }
+      // Refresh task list
+      try {
+        const data = await api.getToday();
+        if (data.tasks) setTasks(data.tasks);
+      } catch {
+        /* ignore */
+      }
+    }
+    setEstimatingTask(null);
+    setEstimatingNewText(null);
   };
 
   const handleCreate = async () => {
@@ -356,6 +408,7 @@ export default function TodayMode() {
                     onToggle={handleToggle}
                     onDelete={handleDelete}
                     onFocus={handleFocus}
+                    onEstimate={handleEstimate}
                   />
                 ))}
               </div>
@@ -382,6 +435,24 @@ export default function TodayMode() {
           </DndContext>
         )}
 
+        {/* Cognitive Budget Estimate — for existing task */}
+        {estimatingTask && (
+          <CognitiveBudget
+            task={estimatingTask}
+            onSplitApply={handleSplitApply}
+            onDismiss={() => setEstimatingTask(null)}
+          />
+        )}
+
+        {/* Cognitive Budget Estimate — for new task text */}
+        {estimatingNewText && !estimatingTask && (
+          <CognitiveBudget
+            taskText={estimatingNewText}
+            onSplitApply={handleSplitApply}
+            onDismiss={() => setEstimatingNewText(null)}
+          />
+        )}
+
         {/* Inline task creation */}
         <div className="ttask-create">
           <div className="kind-pills">
@@ -395,16 +466,27 @@ export default function TodayMode() {
               </span>
             ))}
           </div>
-          <input
-            ref={createRef}
-            className="ttask-create-input"
-            placeholder="Add a task…"
-            value={newText}
-            onChange={(e) => setNewText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleCreate();
-            }}
-          />
+          <div className="ttask-create-row">
+            <input
+              ref={createRef}
+              className="ttask-create-input"
+              placeholder="Add a task…"
+              value={newText}
+              onChange={(e) => setNewText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreate();
+              }}
+            />
+            {newText.trim() && (
+              <button
+                className="btn-secondary cb-action-sm"
+                onClick={handleEstimateNew}
+                title="Estimate cognitive budget before creating"
+              >
+                ⏱ Estimate
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Reveal pills */}
