@@ -84,18 +84,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   startFocus: (task) => {
     const current = get().focus;
-    // If resuming the same task, keep the timer
     if (
       current.task === task &&
       current.remainingSecs > 0 &&
       current.remainingSecs < FOCUS_BLOCK_SECS
     ) {
-      set({
-        focus: { ...current, isPaused: false },
-        mode: "focus",
-      });
+      set({ focus: { ...current, isPaused: false } });
     } else {
-      // New task — reset timer
       set({
         focus: {
           task,
@@ -103,23 +98,16 @@ export const useAppStore = create<AppState>((set, get) => ({
           isPaused: false,
           sessionId: null,
         },
-        mode: "focus",
       });
     }
   },
   pauseFocus: () => {
-    set((s) => ({
-      focus: { ...s.focus, isPaused: true },
-      mode: "today",
-    }));
+    set((s) => ({ focus: { ...s.focus, isPaused: true } }));
   },
   resumeFocus: () => {
     const f = get().focus;
     if (f.task && f.remainingSecs > 0) {
-      set({
-        focus: { ...f, isPaused: false },
-        mode: "focus",
-      });
+      set({ focus: { ...f, isPaused: false } });
     }
   },
   exitFocus: (outcome) => {

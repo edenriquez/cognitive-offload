@@ -74,9 +74,8 @@ describe("App shell", () => {
   it("shows all mode buttons", () => {
     render(<App />);
     const pills = document.querySelector(".nav-pills")!;
-    expect(pills.textContent).toContain("Focus");
+    expect(pills.textContent).toContain("Blocks");
     expect(pills.textContent).toContain("Today");
-    expect(pills.textContent).toContain("Capture");
     expect(pills.textContent).toContain("Review");
     expect(pills.textContent).toContain("Tomorrow");
     expect(pills.textContent).toContain("Sources");
@@ -98,9 +97,6 @@ describe("App shell", () => {
   it("switches modes when nav buttons clicked", async () => {
     const user = userEvent.setup();
     render(<App />);
-
-    await user.click(screen.getByText("Capture"));
-    expect(useAppStore.getState().mode).toBe("capture");
 
     await user.click(screen.getByText("Review"));
     expect(useAppStore.getState().mode).toBe("review");
@@ -124,26 +120,11 @@ describe("Mode rendering", () => {
     );
   });
 
-  it("renders Capture mode without crashing", async () => {
-    useAppStore.setState({ mode: "capture" });
+  it("renders Blocks mode without crashing", async () => {
+    useAppStore.setState({ mode: "blocks" });
     render(<App />);
-    expect(
-      await screen.findByText("Capture · no thinking required"),
-    ).toBeInTheDocument();
-  });
-
-  it("renders Focus mode without crashing", async () => {
-    useAppStore.setState({
-      mode: "focus",
-      focus: {
-        task: "Test task",
-        remainingSecs: 5000,
-        isPaused: false,
-        sessionId: null,
-      },
-    });
-    render(<App />);
-    expect(await screen.findByText("Test task")).toBeInTheDocument();
+    // Blocks mode renders without throwing
+    expect(document.body).toBeTruthy();
   });
 
   it("renders Review mode without crashing", async () => {

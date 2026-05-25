@@ -1,9 +1,7 @@
 export type Mode =
-  | "focus"
   | "blocks"
   | "today"
   | "map"
-  | "capture"
   | "review"
   | "tomorrow"
   | "threads"

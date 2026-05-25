@@ -26,9 +26,9 @@ import "./styles/threads.css";
 import "./styles/map.css";
 
 // Lazy-load mode components — only the active mode is loaded
-const FocusMode = lazy(() => import("./components/modes/FocusMode"));
+
 const TodayMode = lazy(() => import("./components/modes/TodayMode"));
-const CaptureMode = lazy(() => import("./components/modes/CaptureMode"));
+
 const ReviewMode = lazy(() => import("./components/modes/ReviewMode"));
 const TomorrowMode = lazy(() => import("./components/modes/TomorrowMode"));
 const SourcesMode = lazy(() => import("./components/modes/SourcesMode"));
@@ -40,11 +40,10 @@ const ThreadsMode = lazy(() => import("./components/modes/ThreadsMode"));
 const MapMode = lazy(() => import("./components/modes/MapMode"));
 
 const MODES: { id: Mode; label: string }[] = [
-  { id: "focus", label: "Focus" },
   { id: "blocks", label: "Blocks" },
   { id: "today", label: "Today" },
   { id: "map", label: "Map" },
-  { id: "capture", label: "Capture" },
+
   { id: "review", label: "Review" },
   { id: "tomorrow", label: "Tomorrow" },
   { id: "threads", label: "Threads" },
@@ -67,7 +66,6 @@ export default function App() {
     setTasks,
     setBandwidth,
     focus,
-    tickFocus,
     toast,
     setToast,
     now,
@@ -83,13 +81,6 @@ export default function App() {
     const t = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(t);
   }, [setNow]);
-
-  // Focus timer — runs globally so switching tabs doesn't pause the countdown
-  useEffect(() => {
-    if (!focus.task || focus.isPaused) return;
-    const t = setInterval(() => tickFocus(), 1000);
-    return () => clearInterval(t);
-  }, [focus.task, focus.isPaused, tickFocus]);
 
   // Claude status
   const [claudeOnline, setClaudeOnline] = useState(false);
@@ -187,16 +178,14 @@ export default function App() {
         if (e.key === "Escape") setMode("today");
         return;
       }
-      if (e.key === "1") setMode("focus");
-      if (e.key === "2") setMode("blocks");
-      if (e.key === "3") setMode("today");
-      if (e.key === "4") setMode("map");
-      if (e.key === "5") setMode("capture");
-      if (e.key === "6") setMode("review");
-      if (e.key === "7") setMode("tomorrow");
-      if (e.key === "8") setMode("threads");
-      if (e.key === "9") setMode("sources");
-      if (e.key === "0") setMode("settings");
+      if (e.key === "1") setMode("blocks");
+      if (e.key === "2") setMode("today");
+      if (e.key === "3") setMode("map");
+      if (e.key === "4") setMode("review");
+      if (e.key === "5") setMode("tomorrow");
+      if (e.key === "6") setMode("threads");
+      if (e.key === "7") setMode("sources");
+      if (e.key === "8") setMode("settings");
       if (e.key === "Escape") setMode("today");
     };
     window.addEventListener("keydown", onKey);
@@ -502,11 +491,10 @@ export default function App() {
                 </div>
               }
             >
-              {mode === "focus" && <FocusMode />}
               {mode === "blocks" && <BlockBudgetMode />}
               {mode === "today" && <TodayMode />}
               {mode === "map" && <MapMode />}
-              {mode === "capture" && <CaptureMode />}
+
               {mode === "review" && <ReviewMode />}
               {mode === "tomorrow" && <TomorrowMode />}
               {mode === "threads" && <ThreadsMode />}
@@ -563,7 +551,7 @@ export default function App() {
       <Onboarding />
 
       {/* Toast */}
-      {toast && mode !== "focus" && (
+      {toast && (
         <div className="toast on">
           <span className="toast-dot"></span>
           <span>{toast.msg}</span>
