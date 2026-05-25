@@ -189,6 +189,19 @@ func (d *DB) Migrate() error {
 		notes        TEXT NOT NULL DEFAULT ''
 	);
 	CREATE INDEX IF NOT EXISTS idx_day_blocks_day ON day_blocks(day);
+
+	CREATE TABLE IF NOT EXISTS task_edges (
+		id         TEXT PRIMARY KEY,
+		source_id  TEXT NOT NULL,
+		target_id  TEXT NOT NULL,
+		kind       TEXT NOT NULL DEFAULT 'blocks',
+		created_at INTEGER NOT NULL,
+		FOREIGN KEY (source_id) REFERENCES tasks(id) ON DELETE CASCADE,
+		FOREIGN KEY (target_id) REFERENCES tasks(id) ON DELETE CASCADE,
+		UNIQUE(source_id, target_id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_task_edges_source ON task_edges(source_id);
+	CREATE INDEX IF NOT EXISTS idx_task_edges_target ON task_edges(target_id);
 	`
 	_, err := d.db.Exec(schema)
 	return err
@@ -1154,4 +1167,118 @@ func (d *DB) UpdateDayBlock(ctx context.Context, b models.DayBlock) error {
 func (d *DB) DeleteDayBlocks(ctx context.Context, day string) error {
 	_, err := d.db.ExecContext(ctx, `DELETE FROM day_blocks WHERE day = ?`, day)
 	return err
+}
+
+// ── Task Edges ─────────────────────────────────────────────────────────────────────
+
+func (d *DB) ListEdgesForDay(ctx context.Context, day string) ([]models.TaskEdge, error) {
+	rows, err := d.db.QueryContext(ctx, `
+		SELECT e.id, e.source_id, e.target_id, e.kind, e.created_at
+		FROM task_edges e
+		JOIN tasks s ON e.source_id = s.id
+		JOIN tasks t ON e.target_id = t.id
+		WHERE s.day = ? OR t.day = ?`, day, day)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var edges []models.TaskEdge
+	for rows.Next() {
+		var e models.TaskEdge
+		if err := rows.Scan(&e.ID, &e.SourceID, &e.TargetID, &e.Kind, &e.CreatedAt); err != nil {
+			return nil, err
+		}
+		edges = append(edges, e)
+	}
+	return edges, rows.Err()
+}
+
+func (d *DB) CreateEdge(ctx context.Context, e models.TaskEdge) error {
+	_, err := d.db.ExecContext(ctx,
+		`INSERT INTO task_edges (id, source_id, target_id, kind, created_at) VALUES (?, ?, ?, ?, ?)`,
+		e.ID, e.SourceID, e.TargetID, e.Kind, e.CreatedAt)
+	return err
+}
+
+func (d *DB) DeleteEdge(ctx context.Context, id string) error {
+	_, err := d.db.ExecContext(ctx, `DELETE FROM task_edges WHERE id = ?`, id)
+	return err
+}
+
+// HasCycle returns true if adding an edge source→target would create a cycle.
+// Uses iterative DFS through existing edges.
+func (d *DB) HasCycle(ctx context.Context, sourceID, targetID string) (bool, error) {
+	// Build adjacency from all existing edges
+	rows, err := d.db.QueryContext(ctx, `SELECT source_id, target_id FROM task_edges`)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	adj := map[string][]string{}
+	for rows.Next() {
+		var s, t string
+		if err := rows.Scan(&s, &t); err != nil {
+			return false, err
+		}
+		adj[s] = append(adj[s], t)
+	}
+
+	// Temporarily add the proposed edge
+	adj[sourceID] = append(adj[sourceID], targetID)
+
+	// DFS from targetID — if we can reach sourceID, adding this edge creates a cycle
+	visited := map[string]bool{}
+	stack := []string{targetID}
+	for len(stack) > 0 {
+		node := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if node == sourceID {
+			return true, nil
+		}
+		if visited[node] {
+			continue
+		}
+		visited[node] = true
+		stack = append(stack, adj[node]...)
+	}
+	return false, nil
+}
+
+// ReadyTaskIDs returns IDs of tasks for the given day that have no incomplete blockers.
+func (d *DB) ReadyTaskIDs(ctx context.Context, day string) ([]string, error) {
+	// Get all tasks for the day
+	tasks, err := d.TasksByDay(ctx, day)
+	if err != nil {
+		return nil, err
+	}
+	// Get all edges where target is a task from this day
+	edges, err := d.ListEdgesForDay(ctx, day)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build done-set and blocked-set
+	done := map[string]bool{}
+	for _, t := range tasks {
+		if t.Done {
+			done[t.ID] = true
+		}
+	}
+
+	// A task is blocked if any edge points to it where the source is NOT done
+	blocked := map[string]bool{}
+	for _, e := range edges {
+		if e.Kind == "blocks" && !done[e.SourceID] {
+			blocked[e.TargetID] = true
+		}
+	}
+
+	var ready []string
+	for _, t := range tasks {
+		if !t.Done && !blocked[t.ID] {
+			ready = append(ready, t.ID)
+		}
+	}
+	return ready, nil
 }

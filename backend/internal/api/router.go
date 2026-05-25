@@ -10,6 +10,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -144,6 +145,12 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 		r.Post("/blocks/{id}/start", h.startBlock)
 		r.Post("/blocks/{id}/complete", h.completeBlock)
 		r.Post("/blocks/{id}/skip", h.skipBlock)
+
+		// Task dependency map
+		r.Get("/map", h.getTaskGraph)
+		r.Post("/map/edges", h.createEdge)
+		r.Delete("/map/edges/{id}", h.deleteEdge)
+		r.Get("/map/ready", h.getReadyTasks)
 	})
 
 	return r
@@ -1719,4 +1726,117 @@ func generateBlocks(day string, cfg models.BlockConfig) []models.DayBlock {
 	}
 
 	return blocks
+}
+
+// ── Map handlers ─────────────────────────────────────────────────────────────────────
+
+func (h *handler) getTaskGraph(w http.ResponseWriter, r *http.Request) {
+	day := r.URL.Query().Get("day")
+	if day == "" {
+		day = today()
+	}
+	ctx := r.Context()
+
+	tasks, err := h.db.TasksByDay(ctx, day)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if tasks == nil {
+		tasks = []models.Task{}
+	}
+
+	edges, err := h.db.ListEdgesForDay(ctx, day)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if edges == nil {
+		edges = []models.TaskEdge{}
+	}
+
+	writeJSON(w, 200, models.TaskGraph{Tasks: tasks, Edges: edges})
+}
+
+type createEdgeReq struct {
+	SourceID string `json:"source_id"`
+	TargetID string `json:"target_id"`
+	Kind     string `json:"kind"`
+}
+
+func (h *handler) createEdge(w http.ResponseWriter, r *http.Request) {
+	var req createEdgeReq
+	if err := readJSON(r, &req); err != nil {
+		http.Error(w, "invalid body", 400)
+		return
+	}
+	if req.SourceID == "" || req.TargetID == "" {
+		http.Error(w, "source_id and target_id required", 400)
+		return
+	}
+	if req.SourceID == req.TargetID {
+		http.Error(w, "self-loop not allowed", 400)
+		return
+	}
+	if req.Kind == "" {
+		req.Kind = "blocks"
+	}
+	if req.Kind != "blocks" && req.Kind != "subtask" {
+		http.Error(w, "kind must be 'blocks' or 'subtask'", 400)
+		return
+	}
+
+	ctx := r.Context()
+	hasCycle, err := h.db.HasCycle(ctx, req.SourceID, req.TargetID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if hasCycle {
+		http.Error(w, "cycle detected", 409)
+		return
+	}
+
+	edge := models.TaskEdge{
+		ID:        fmt.Sprintf("e-%d", time.Now().UnixNano()),
+		SourceID:  req.SourceID,
+		TargetID:  req.TargetID,
+		Kind:      req.Kind,
+		CreatedAt: time.Now().Unix(),
+	}
+	if err := h.db.CreateEdge(ctx, edge); err != nil {
+		// UNIQUE constraint = already exists
+		if strings.Contains(err.Error(), "UNIQUE") {
+			http.Error(w, "edge already exists", 409)
+			return
+		}
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 201, edge)
+}
+
+func (h *handler) deleteEdge(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.db.DeleteEdge(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "deleted"})
+}
+
+func (h *handler) getReadyTasks(w http.ResponseWriter, r *http.Request) {
+	day := r.URL.Query().Get("day")
+	if day == "" {
+		day = today()
+	}
+	ids, err := h.db.ReadyTaskIDs(r.Context(), day)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if ids == nil {
+		ids = []string{}
+	}
+	writeJSON(w, 200, map[string][]string{"ready": ids})
 }

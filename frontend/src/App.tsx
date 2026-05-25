@@ -23,6 +23,7 @@ import "./styles/desktop.css";
 import "./styles/modes.css";
 import "./styles/block-budget.css";
 import "./styles/threads.css";
+import "./styles/map.css";
 
 // Lazy-load mode components — only the active mode is loaded
 const FocusMode = lazy(() => import("./components/modes/FocusMode"));
@@ -36,11 +37,13 @@ const BlockBudgetMode = lazy(
   () => import("./components/modes/BlockBudgetMode"),
 );
 const ThreadsMode = lazy(() => import("./components/modes/ThreadsMode"));
+const MapMode = lazy(() => import("./components/modes/MapMode"));
 
 const MODES: { id: Mode; label: string }[] = [
   { id: "focus", label: "Focus" },
   { id: "blocks", label: "Blocks" },
   { id: "today", label: "Today" },
+  { id: "map", label: "Map" },
   { id: "capture", label: "Capture" },
   { id: "review", label: "Review" },
   { id: "tomorrow", label: "Tomorrow" },
@@ -187,12 +190,13 @@ export default function App() {
       if (e.key === "1") setMode("focus");
       if (e.key === "2") setMode("blocks");
       if (e.key === "3") setMode("today");
-      if (e.key === "4") setMode("capture");
-      if (e.key === "5") setMode("review");
-      if (e.key === "6") setMode("tomorrow");
-      if (e.key === "7") setMode("threads");
-      if (e.key === "8") setMode("sources");
-      if (e.key === "9") setMode("settings");
+      if (e.key === "4") setMode("map");
+      if (e.key === "5") setMode("capture");
+      if (e.key === "6") setMode("review");
+      if (e.key === "7") setMode("tomorrow");
+      if (e.key === "8") setMode("threads");
+      if (e.key === "9") setMode("sources");
+      if (e.key === "0") setMode("settings");
       if (e.key === "Escape") setMode("today");
     };
     window.addEventListener("keydown", onKey);
@@ -501,6 +505,7 @@ export default function App() {
               {mode === "focus" && <FocusMode />}
               {mode === "blocks" && <BlockBudgetMode />}
               {mode === "today" && <TodayMode />}
+              {mode === "map" && <MapMode />}
               {mode === "capture" && <CaptureMode />}
               {mode === "review" && <ReviewMode />}
               {mode === "tomorrow" && <TomorrowMode />}

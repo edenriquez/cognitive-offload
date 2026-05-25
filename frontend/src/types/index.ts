@@ -2,6 +2,7 @@ export type Mode =
   | "focus"
   | "blocks"
   | "today"
+  | "map"
   | "capture"
   | "review"
   | "tomorrow"
@@ -339,6 +340,21 @@ export interface DayBlock {
   actual_start: number; // unix timestamp
   actual_end: number;
   notes: string;
+}
+
+// ── Task Dependency Graph ───────────────────────────────────────────────────
+
+export interface TaskEdge {
+  id: string;
+  source_id: string;
+  target_id: string;
+  kind: "blocks" | "subtask";
+  created_at: number;
+}
+
+export interface TaskGraph {
+  tasks: Task[];
+  edges: TaskEdge[];
 }
 
 export interface DaySchedule {

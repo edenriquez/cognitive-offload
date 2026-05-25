@@ -1,0 +1,513 @@
+/* ============================================================
+   MAP MODE — Task Dependency Graph
+   Uses design tokens from globals.css exclusively.
+============================================================ */
+
+/* ── Shell ────────────────────────────────────────────────── */
+
+.map-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--color-white);
+    outline: none; /* suppress focus ring on the keyboard-target div */
+}
+
+.map-loading,
+.map-error {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: var(--color-overcast);
+    padding: 48px;
+}
+
+.map-error {
+    color: var(--color-danger-red);
+}
+
+/* ── Toolbar ──────────────────────────────────────────────── */
+
+.map-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--color-stone);
+    background: var(--color-white);
+    flex-shrink: 0;
+    gap: 12px;
+}
+
+.map-toolbar-stats {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.map-stat {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--color-metal);
+    letter-spacing: -0.1px;
+}
+
+.map-stat-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.map-stat-dot--ready {
+    background: var(--color-action-blue);
+}
+.map-stat-dot--blocked {
+    background: #fbbf24;
+}
+.map-stat-dot--done {
+    background: var(--color-slate);
+}
+
+.map-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.map-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: var(--radius-buttons);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-ink);
+    background: var(--color-ash);
+    border: 1px solid var(--color-stone);
+    cursor: pointer;
+    transition:
+        background 0.12s var(--ease),
+        border-color 0.12s var(--ease);
+    letter-spacing: -0.1px;
+}
+
+.map-btn:hover {
+    background: var(--color-stone);
+}
+
+.map-btn--danger {
+    color: var(--color-danger-red);
+}
+
+.map-btn--danger:hover {
+    background: #fef2f2;
+    border-color: #fca5a5;
+}
+
+/* ── Body layout ──────────────────────────────────────────── */
+
+.map-body {
+    display: flex;
+    flex: 1;
+    min-height: 0; /* allow flex children to shrink */
+    overflow: hidden;
+}
+
+.map-canvas {
+    flex: 1;
+    position: relative;
+    min-width: 0;
+}
+
+/* Ensure react-flow fills the canvas div */
+.map-canvas .react-flow {
+    width: 100%;
+    height: 100%;
+}
+
+/* ── React Flow chrome overrides ──────────────────────────── */
+
+.map-controls {
+    border-radius: var(--radius-cards) !important;
+    overflow: hidden;
+    box-shadow: var(--shadow-subtle-2) !important;
+    border: 1px solid var(--color-stone) !important;
+}
+
+.map-controls button {
+    background: var(--color-white) !important;
+    border-color: var(--color-stone) !important;
+    color: var(--color-carbon) !important;
+}
+
+.map-controls button:hover {
+    background: var(--color-ash) !important;
+}
+
+.map-minimap {
+    border-radius: var(--radius-cards) !important;
+    overflow: hidden;
+    border: 1px solid var(--color-stone) !important;
+    box-shadow: var(--shadow-subtle-2) !important;
+}
+
+/* ── Task Node ────────────────────────────────────────────── */
+
+.tnode {
+    width: 220px;
+    padding: 10px 12px;
+    border-radius: var(--radius-cards);
+    background: var(--color-white);
+    border: 1.5px solid var(--color-stone);
+    box-shadow: var(--shadow-subtle);
+    font-family: var(--font-inter);
+    font-size: 12px;
+    transition:
+        box-shadow 0.15s var(--ease),
+        border-color 0.15s var(--ease);
+    position: relative;
+}
+
+.tnode--ready {
+    border-color: var(--color-slate);
+}
+
+.tnode--done {
+    opacity: 0.55;
+    border-color: var(--color-stone);
+    background: var(--color-ash);
+}
+
+.tnode--blocked {
+    border-color: #fbbf24;
+    background: #fffbeb;
+}
+
+.tnode--focused {
+    border-color: var(--color-action-blue);
+    box-shadow: 0 0 0 2px rgba(64, 127, 242, 0.18);
+}
+
+.tnode--selected {
+    box-shadow: 0 0 0 2px var(--color-action-blue);
+    border-color: var(--color-action-blue);
+}
+
+/* Kind row */
+.tnode-kind {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+.tnode-kind-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tnode-kind-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--color-metal);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    flex: 1;
+}
+
+.tnode-blocked-icon {
+    color: #b45309;
+    display: flex;
+    align-items: center;
+}
+
+.tnode-focus-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-action-blue);
+    animation: pulse-dot 1.8s infinite;
+    flex-shrink: 0;
+}
+
+@keyframes pulse-dot {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.4;
+    }
+}
+
+/* Task text */
+.tnode-text {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--color-ink);
+    word-break: break-word;
+}
+
+.tnode-text--done {
+    text-decoration: line-through;
+    color: var(--color-overcast);
+}
+
+/* Estimate bar */
+.tnode-estimate {
+    margin-top: 7px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tnode-estimate-bar {
+    flex: 1;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--color-stone);
+    overflow: hidden;
+}
+
+.tnode-estimate-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s var(--ease);
+}
+
+.tnode-estimate-label {
+    font-size: 10px;
+    color: var(--color-metal);
+    white-space: nowrap;
+    letter-spacing: -0.1px;
+}
+
+/* React Flow handles */
+.tnode-handle {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50% !important;
+    border: 1.5px solid var(--color-slate) !important;
+    background: var(--color-white) !important;
+    transition:
+        border-color 0.12s,
+        background 0.12s;
+}
+
+.tnode-handle:hover,
+.tnode-handle.react-flow__handle-connecting {
+    border-color: var(--color-action-blue) !important;
+    background: var(--color-action-blue) !important;
+}
+
+/* ── Detail panel ─────────────────────────────────────────── */
+
+.map-detail {
+    width: 240px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--color-stone);
+    padding: 14px;
+    overflow-y: auto;
+    background: var(--color-white);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.map-detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.map-detail-kind {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: var(--radius-tags);
+    background: var(--color-ash);
+    color: var(--color-carbon);
+}
+
+.map-detail-kind--must {
+    background: var(--color-ink);
+    color: var(--color-white);
+}
+.map-detail-kind--personal {
+    background: var(--color-action-blue);
+    color: var(--color-white);
+}
+.map-detail-kind--small {
+    background: var(--color-stone);
+    color: var(--color-carbon);
+}
+
+.map-detail-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-tags);
+    color: var(--color-metal);
+    transition: background 0.1s;
+}
+
+.map-detail-close:hover {
+    background: var(--color-ash);
+    color: var(--color-ink);
+}
+
+.map-detail-text {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--color-ink);
+    margin: 0;
+    word-break: break-word;
+}
+
+.map-detail-text--done {
+    text-decoration: line-through;
+    color: var(--color-overcast);
+}
+
+.map-detail-section {
+    margin-top: 8px;
+}
+
+.map-detail-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-overcast);
+    margin-bottom: 4px;
+}
+
+.map-detail-edge-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--color-ash);
+}
+
+.map-detail-edge-row:last-child {
+    border-bottom: none;
+}
+
+.map-detail-edge-text {
+    flex: 1;
+    font-size: 11px;
+    color: var(--color-carbon);
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.map-detail-edge-delete {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border-radius: var(--radius-tags);
+    color: var(--color-lead);
+    transition:
+        color 0.1s,
+        background 0.1s;
+}
+
+.map-detail-edge-delete:hover {
+    color: var(--color-danger-red);
+    background: #fef2f2;
+}
+
+.map-detail-empty {
+    font-size: 11px;
+    color: var(--color-overcast);
+    line-height: 1.5;
+    margin-top: 4px;
+}
+
+/* ── Edge popover ─────────────────────────────────────────── */
+
+.map-popover-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+}
+
+.map-popover {
+    position: fixed;
+    z-index: 50;
+    background: var(--color-white);
+    border: 1px solid var(--color-stone);
+    border-radius: var(--radius-cards);
+    box-shadow: var(--shadow-subtle-2);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 200px;
+    animation: fadein 0.12s var(--ease);
+}
+
+.map-popover-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-overcast);
+    padding: 4px 6px 6px;
+}
+
+.map-popover-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: var(--radius-inputs);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-ink);
+    transition: background 0.1s;
+    text-align: left;
+}
+
+.map-popover-btn:hover {
+    background: var(--color-ash);
+}
+
+.map-popover-kind-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.map-popover-kind-dot--blocks {
+    background: var(--color-carbon);
+}
+.map-popover-kind-dot--subtask {
+    background: var(--color-lead);
+    border: 1.5px dashed var(--color-carbon);
+}
+
+.map-popover-desc {
+    font-size: 11px;
+    color: var(--color-metal);
+    font-weight: 400;
+    margin-left: auto;
+}

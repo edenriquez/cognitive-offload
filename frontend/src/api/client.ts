@@ -15,6 +15,8 @@ import type {
   BlockConfig,
   DaySchedule,
   DayBlock,
+  TaskEdge,
+  TaskGraph,
 } from "../types";
 
 // In dev mode, Vite proxy forwards /api → 127.0.0.1:9200.
@@ -285,6 +287,27 @@ export const api = {
 
   setClaudeKey: (key: string) =>
     request<{ status: string }>("POST", "/api/v1/claude/key", { key }),
+
+  // ── Task Dependency Map ──────────────────────────────────────────────────
+  getTaskGraph: (day?: string) =>
+    request<TaskGraph>("GET", `/api/v1/map${day ? `?day=${day}` : ""}`),
+  createEdge: (
+    sourceId: string,
+    targetId: string,
+    kind: "blocks" | "subtask",
+  ) =>
+    request<TaskEdge>("POST", "/api/v1/map/edges", {
+      source_id: sourceId,
+      target_id: targetId,
+      kind,
+    }),
+  deleteEdge: (id: string) =>
+    request<{ status: string }>("DELETE", `/api/v1/map/edges/${id}`),
+  getReadyTasks: (day?: string) =>
+    request<{ ready: string[] }>(
+      "GET",
+      `/api/v1/map/ready${day ? `?day=${day}` : ""}`,
+    ),
 
   // ── Block Budget ────────────────────────────────────────────────────────
   getBlockConfig: () => request<BlockConfig>("GET", "/api/v1/blocks/config"),
