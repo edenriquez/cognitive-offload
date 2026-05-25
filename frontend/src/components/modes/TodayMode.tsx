@@ -34,6 +34,8 @@ export default function TodayMode() {
     focus,
     now,
     signals,
+    pendingAction,
+    setPendingAction,
   } = useAppStore();
   const [revealBw, setRevealBw] = useState(false);
   const [revealCtx, setRevealCtx] = useState(false);
@@ -91,6 +93,28 @@ export default function TodayMode() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [setTasks]);
+
+  // Consume pendingAction from toast — runs after tasks are loaded
+  useEffect(() => {
+    if (!pendingAction || loading) return;
+    const { kind, taskText } = pendingAction;
+    // Find the task by text (focus task name) or fall back to first undone must
+    const target =
+      (taskText ? tasks.find((t) => t.text === taskText) : null) ??
+      tasks.find((t) => !t.done && t.kind === "must") ??
+      tasks[0] ??
+      null;
+    if (kind === "split" && target) {
+      setEstimatingTask(target);
+      setEstimatingNewText(null);
+    } else if (kind === "redefine" && target) {
+      setEditingId(target.id);
+      setEditText(target.text);
+      // Scroll the task into view after render
+      setTimeout(() => editRef.current?.focus(), 50);
+    }
+    setPendingAction(null);
+  }, [pendingAction, loading, tasks, setPendingAction]);
 
   // Focus edit input when editing starts
   useEffect(() => {
@@ -290,45 +314,6 @@ export default function TodayMode() {
   return (
     <div className="today">
       <div className="today-inner">
-        {/* Thread gravity card */}
-        {activeThread && (
-          <div className="gravity">
-            <div>
-              <div className="gravity-eye">
-                Active thread · {activeThread.duration_min}m open
-              </div>
-              <div className="gravity-task">{activeThread.label}</div>
-              <div className="gravity-meta">
-                last touch {activeThread.last_touch_ago_sec}s ago
-              </div>
-            </div>
-            <button
-              className="btn-primary"
-              onClick={() => handleFocus(activeThread.label)}
-            >
-              Resume →
-            </button>
-          </div>
-        )}
-
-        {/* Intervention ribbon */}
-        {warnIntervention && (
-          <div className="ribbon danger">
-            <span className="pulse-dot"></span>
-            <span>
-              <b>{warnIntervention.title}.</b> {warnIntervention.body}
-            </span>
-            {activeThread && (
-              <span
-                className="ribbon-redirect"
-                onClick={() => handleFocus(activeThread.label)}
-              >
-                Continue current thread →
-              </span>
-            )}
-          </div>
-        )}
-
         {/* Paused focus session banner */}
         {focus.isPaused && focus.task && focus.remainingSecs > 0 && (
           <div className="gravity">

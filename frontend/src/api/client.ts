@@ -12,6 +12,9 @@ import type {
   DailyReport,
   DailySummaryRecord,
   SessionScore,
+  BlockConfig,
+  DaySchedule,
+  DayBlock,
 } from "../types";
 
 // In dev mode, Vite proxy forwards /api → 127.0.0.1:9200.
@@ -282,4 +285,17 @@ export const api = {
 
   setClaudeKey: (key: string) =>
     request<{ status: string }>("POST", "/api/v1/claude/key", { key }),
+
+  // ── Block Budget ────────────────────────────────────────────────────────
+  getBlockConfig: () => request<BlockConfig>("GET", "/api/v1/blocks/config"),
+  updateBlockConfig: (cfg: BlockConfig) =>
+    request<BlockConfig>("PUT", "/api/v1/blocks/config", cfg),
+  getBlockSchedule: () => request<DaySchedule>("GET", "/api/v1/blocks/today"),
+  generateBlocks: () => request<DaySchedule>("POST", "/api/v1/blocks/generate"),
+  startBlock: (id: string) =>
+    request<DayBlock>("POST", `/api/v1/blocks/${id}/start`),
+  completeBlock: (id: string) =>
+    request<DayBlock>("POST", `/api/v1/blocks/${id}/complete`),
+  skipBlock: (id: string) =>
+    request<DayBlock>("POST", `/api/v1/blocks/${id}/skip`),
 };

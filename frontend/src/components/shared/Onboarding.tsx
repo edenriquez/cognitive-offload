@@ -25,7 +25,7 @@ function formatHour(h: number): string {
 }
 
 const CUTOFF_OPTIONS = timeOptions(14, 22);
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 6;
 
 // ---------------------------------------------------------------------------
 // Feature items for Step 2 — minimalist Lucide-style SVG icons
@@ -49,8 +49,8 @@ const FEATURES: { icon: ReactNode; title: string; desc: string }[] = [
         <path d="M8 17v-3" />
       </svg>
     ),
-    title: "Monitor",
-    desc: "Tracks file saves, git commits, and AI sessions automatically",
+    title: "Block",
+    desc: "Your day is divided into 90-minute focus blocks — the natural rhythm of deep work",
   },
   {
     icon: (
@@ -69,8 +69,8 @@ const FEATURES: { icon: ReactNode; title: string; desc: string }[] = [
         <path d="M8 11h2l1-3 2 6 1-3h2" />
       </svg>
     ),
-    title: "Detect",
-    desc: "Identifies patterns like fatigue, context-switching, and overwork",
+    title: "Budget",
+    desc: "Set what percentage goes to work vs. side projects — the system enforces the split",
   },
   {
     icon: (
@@ -88,7 +88,7 @@ const FEATURES: { icon: ReactNode; title: string; desc: string }[] = [
       </svg>
     ),
     title: "Protect",
-    desc: "Enforces cutoff times and intervenes when cognitive load spikes",
+    desc: "When blocks run out, the day is done. Non-negotiable breaks are built into the schedule",
   },
 ];
 
@@ -255,6 +255,31 @@ export default function Onboarding() {
   // Quick-setup state
   const [cutoffHour, setCutoffHour] = useState(16.5);
 
+  // Block budget setup state
+  const [allocations, setAllocations] = useState([
+    { category: "work", pct: 60, label: "Main Work", color: "#6b8cce" },
+    {
+      category: "side_project",
+      pct: 40,
+      label: "Side Project",
+      color: "#ce6b8c",
+    },
+  ]);
+  const [breaks, setBreaks] = useState([
+    {
+      id: "lunch",
+      label: "Lunch",
+      start_hour: 12.0,
+      end_hour: 13.0,
+      days: [] as number[],
+    },
+  ]);
+  const [newBreakLabel, setNewBreakLabel] = useState("");
+  const [newBreakStart, setNewBreakStart] = useState(12.0);
+  const [newBreakEnd, setNewBreakEnd] = useState(13.0);
+  const [workdayStart, setWorkdayStart] = useState(9.0);
+  const [workdayEnd, setWorkdayEnd] = useState(17.0);
+
   // Smooth transition between steps
   const goTo = useCallback((next: number) => {
     setFade(false);
@@ -266,17 +291,25 @@ export default function Onboarding() {
 
   const handleNext = useCallback(() => {
     if (step < TOTAL_STEPS - 1) {
-      // If leaving step 2 (Quick setup), persist config
+      // Persist cutoff when leaving step 2
       if (step === 2) {
+        api.updateConfig({ cutoff_hour: cutoffHour }).catch(() => {});
+      }
+      // Persist block config when leaving step 4 (breaks step)
+      if (step === 4) {
         api
-          .updateConfig({
-            cutoff_hour: cutoffHour,
+          .updateBlockConfig({
+            block_duration_min: 90,
+            workday_start_hour: workdayStart,
+            workday_end_hour: workdayEnd,
+            allocations: allocations,
+            non_negotiables: breaks,
           })
           .catch(() => {});
       }
       goTo(step + 1);
     }
-  }, [step, cutoffHour, goTo]);
+  }, [step, cutoffHour, workdayStart, workdayEnd, allocations, breaks, goTo]);
 
   const handleFinish = useCallback(() => {
     localStorage.setItem("cogload_onboarded", "true");
@@ -354,18 +387,187 @@ export default function Onboarding() {
               </div>
             </div>
             <button className="onboarding-btn" onClick={handleNext}>
+              Next →
+            </button>
+          </>
+        )}
+
+        {/* Step 4 — Allocation */}
+        {step === 3 && (
+          <>
+            <h1 className="onboarding-heading">Split your time</h1>
+            <p className="onboarding-explanation">
+              What percentage of your blocks should go to each type of work?
+              Drag to adjust — the system will distribute blocks accordingly.
+            </p>
+
+            <div className="onboarding-allocations">
+              {allocations.map((a, i) => (
+                <div key={a.category} className="onboarding-alloc-row">
+                  <div className="onboarding-alloc-header">
+                    <input
+                      className="onboarding-alloc-label-input"
+                      value={a.label}
+                      onChange={(e) => {
+                        const next = [...allocations];
+                        next[i] = { ...next[i], label: e.target.value };
+                        setAllocations(next);
+                      }}
+                      placeholder="Label"
+                    />
+                    <span className="onboarding-alloc-pct">{a.pct}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={5}
+                    max={95}
+                    value={a.pct}
+                    className="onboarding-alloc-slider"
+                    style={{ accentColor: a.color }}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      const next = [...allocations];
+                      next[i] = { ...next[i], pct: val };
+                      // Adjust the other to balance to 100
+                      if (allocations.length === 2) {
+                        const other = i === 0 ? 1 : 0;
+                        next[other] = { ...next[other], pct: 100 - val };
+                      }
+                      setAllocations(next);
+                    }}
+                  />
+                  <div
+                    className="onboarding-alloc-preview"
+                    style={{ backgroundColor: a.color, width: `${a.pct}%` }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="onboarding-workday-row">
+              <label className="onboarding-setup-label">Workday</label>
+              <select
+                className="onboarding-select"
+                value={workdayStart}
+                onChange={(e) => setWorkdayStart(parseFloat(e.target.value))}
+              >
+                {timeOptions(6, 12).map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <span className="onboarding-to">to</span>
+              <select
+                className="onboarding-select"
+                value={workdayEnd}
+                onChange={(e) => setWorkdayEnd(parseFloat(e.target.value))}
+              >
+                {timeOptions(14, 22).map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button className="onboarding-btn" onClick={handleNext}>
+              Next →
+            </button>
+          </>
+        )}
+
+        {/* Step 5 — Breaks */}
+        {step === 4 && (
+          <>
+            <h1 className="onboarding-heading">Non-negotiable breaks</h1>
+            <p className="onboarding-explanation">
+              Add fixed commitments that blocks can't be scheduled over — lunch,
+              standups, meetings, gym, etc.
+            </p>
+
+            <div className="onboarding-breaks">
+              {breaks.map((b, i) => (
+                <div key={b.id} className="onboarding-break-row">
+                  <span className="onboarding-break-label">{b.label}</span>
+                  <span className="onboarding-break-time">
+                    {formatHour(b.start_hour)} – {formatHour(b.end_hour)}
+                  </span>
+                  <button
+                    className="onboarding-break-remove"
+                    onClick={() => setBreaks(breaks.filter((_, j) => j !== i))}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+
+              <div className="onboarding-break-add">
+                <input
+                  className="onboarding-break-input"
+                  placeholder="Break name (e.g. Standup)"
+                  value={newBreakLabel}
+                  onChange={(e) => setNewBreakLabel(e.target.value)}
+                />
+                <select
+                  className="onboarding-select onboarding-select-sm"
+                  value={newBreakStart}
+                  onChange={(e) => setNewBreakStart(parseFloat(e.target.value))}
+                >
+                  {timeOptions(6, 22).map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="onboarding-to">to</span>
+                <select
+                  className="onboarding-select onboarding-select-sm"
+                  value={newBreakEnd}
+                  onChange={(e) => setNewBreakEnd(parseFloat(e.target.value))}
+                >
+                  {timeOptions(6, 22).map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="onboarding-break-add-btn"
+                  disabled={!newBreakLabel.trim()}
+                  onClick={() => {
+                    if (!newBreakLabel.trim()) return;
+                    setBreaks([
+                      ...breaks,
+                      {
+                        id: `break-${Date.now()}`,
+                        label: newBreakLabel.trim(),
+                        start_hour: newBreakStart,
+                        end_hour: newBreakEnd,
+                        days: [],
+                      },
+                    ]);
+                    setNewBreakLabel("");
+                  }}
+                >
+                  + Add
+                </button>
+              </div>
+            </div>
+
+            <button className="onboarding-btn" onClick={handleNext}>
               Almost done →
             </button>
           </>
         )}
 
-        {/* Step 4 — Ready */}
-        {step === 3 && (
+        {/* Step 6 — Ready */}
+        {step === 5 && (
           <>
             <h1 className="onboarding-heading">You're all set</h1>
             <p className="onboarding-body">
-              Cogload is now monitoring your work. Start with the Today tab to
-              plan your day.
+              Your day is divided into focus blocks. Generate your schedule each
+              morning and work through them. When blocks run out, you're done.
             </p>
             <button className="onboarding-btn" onClick={handleFinish}>
               Start working →

@@ -21,6 +21,8 @@ import Onboarding from "./components/shared/Onboarding";
 import { api } from "./api/client";
 import "./styles/desktop.css";
 import "./styles/modes.css";
+import "./styles/block-budget.css";
+import "./styles/threads.css";
 
 // Lazy-load mode components — only the active mode is loaded
 const FocusMode = lazy(() => import("./components/modes/FocusMode"));
@@ -30,20 +32,26 @@ const ReviewMode = lazy(() => import("./components/modes/ReviewMode"));
 const TomorrowMode = lazy(() => import("./components/modes/TomorrowMode"));
 const SourcesMode = lazy(() => import("./components/modes/SourcesMode"));
 const SettingsMode = lazy(() => import("./components/modes/SettingsMode"));
+const BlockBudgetMode = lazy(
+  () => import("./components/modes/BlockBudgetMode"),
+);
+const ThreadsMode = lazy(() => import("./components/modes/ThreadsMode"));
 
 const MODES: { id: Mode; label: string }[] = [
   { id: "focus", label: "Focus" },
+  { id: "blocks", label: "Blocks" },
   { id: "today", label: "Today" },
   { id: "capture", label: "Capture" },
   { id: "review", label: "Review" },
   { id: "tomorrow", label: "Tomorrow" },
+  { id: "threads", label: "Threads" },
   { id: "sources", label: "Sources" },
   { id: "settings", label: "Settings" },
 ];
 
 function suggestedMode(hour: number): Mode {
   if (hour < 9) return "tomorrow";
-  if (hour < 17) return "today";
+  if (hour < 17) return "blocks";
   if (hour < 20) return "review";
   return "today";
 }
@@ -62,6 +70,9 @@ export default function App() {
     now,
     setNow,
     signals,
+    dismissedRules,
+    dismissRule,
+    setPendingAction,
   } = useAppStore();
 
   // Clock tick
@@ -141,19 +152,29 @@ export default function App() {
     };
   }, []);
 
-  // Drive toast from interventions
+  // Drive toast from interventions (skip dismissed rules)
   useEffect(() => {
     if (!signals) return;
     const interventions = Array.isArray(signals.interventions)
       ? signals.interventions
       : [];
     const warn = interventions.find(
-      (i) => i && (i.severity === "warn" || i.severity === "info"),
+      (i) =>
+        i &&
+        (i.severity === "warn" || i.severity === "info") &&
+        !dismissedRules.has(i.rule),
     );
     if (warn?.title && warn?.action?.label && !toast) {
-      setToast({ msg: warn.title, action: warn.action.label });
+      setToast({
+        msg: warn.title,
+        action: warn.action.label,
+        actionKind: warn.action.kind,
+        action2: warn.action2?.label,
+        action2Kind: warn.action2?.kind,
+        rule: warn.rule,
+      });
     }
-  }, [signals, toast, setToast]);
+  }, [signals, toast, setToast, dismissedRules]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -164,12 +185,14 @@ export default function App() {
         return;
       }
       if (e.key === "1") setMode("focus");
-      if (e.key === "2") setMode("today");
-      if (e.key === "3") setMode("capture");
-      if (e.key === "4") setMode("review");
-      if (e.key === "5") setMode("tomorrow");
-      if (e.key === "6") setMode("sources");
-      if (e.key === "7") setMode("settings");
+      if (e.key === "2") setMode("blocks");
+      if (e.key === "3") setMode("today");
+      if (e.key === "4") setMode("capture");
+      if (e.key === "5") setMode("review");
+      if (e.key === "6") setMode("tomorrow");
+      if (e.key === "7") setMode("threads");
+      if (e.key === "8") setMode("sources");
+      if (e.key === "9") setMode("settings");
       if (e.key === "Escape") setMode("today");
     };
     window.addEventListener("keydown", onKey);
@@ -313,6 +336,9 @@ export default function App() {
               onMouseEnter={(e) => handleNavHover(m.id, e)}
             >
               {m.label}
+              {m.id === "threads" && sig.active_threads > 0 && (
+                <span className="nav-thread-badge">{sig.active_threads}</span>
+              )}
             </button>
           ))}
         </div>
@@ -335,25 +361,11 @@ export default function App() {
         </div>
         <div className="signal">
           <span
-            className={`sd ${sig.active_threads >= 3 ? "danger" : "warn"}`}
-          ></span>
-          <span className="signal-label">Threads</span>
-          <b>{sig.active_threads}</b>
-          <span style={{ color: "var(--color-overcast)" }}>active</span>
-        </div>
-        <div className="signal">
-          <span
             className={`sd ${sig.error_rate > 2 ? "danger" : sig.error_rate > 1.3 ? "warn" : ""}`}
           ></span>
           <span className="signal-label">Errors</span>
           <b>{(sig.error_rate ?? 0).toFixed(1)}×</b>
           <span style={{ color: "var(--color-overcast)" }}>baseline</span>
-        </div>
-        <div className="signal">
-          <span className="sd"></span>
-          <span className="signal-label">Loops</span>
-          <b>{sig.open_loops}</b>
-          <span style={{ color: "var(--color-overcast)" }}>open</span>
         </div>
         <div className="signal">
           <span
@@ -383,8 +395,7 @@ export default function App() {
           className="signal"
           style={{ marginLeft: "auto", color: "var(--color-overcast)" }}
         >
-          {(sig.interventions ?? []).length} active rule
-          {(sig.interventions ?? []).length === 1 ? "" : "s"}
+          {(sig.interventions ?? []).length} rules
         </div>
         {sig.wall_detected && (
           <div className="signal" style={{ color: "var(--color-danger-red)" }}>
@@ -488,10 +499,12 @@ export default function App() {
               }
             >
               {mode === "focus" && <FocusMode />}
+              {mode === "blocks" && <BlockBudgetMode />}
               {mode === "today" && <TodayMode />}
               {mode === "capture" && <CaptureMode />}
               {mode === "review" && <ReviewMode />}
               {mode === "tomorrow" && <TomorrowMode />}
+              {mode === "threads" && <ThreadsMode />}
               {mode === "sources" && <SourcesMode />}
               {mode === "settings" && <SettingsMode />}
             </Suspense>
@@ -503,10 +516,7 @@ export default function App() {
       <div className="statusbar">
         <span>
           <span className={`sb-dot ${toast ? "warn" : ""}`}></span>
-          {toast ? "3 open threads" : "all signals nominal"}
-        </span>
-        <span>
-          Sessions · <b>{sig.active_threads}</b>
+          {toast ? toast.msg : "all signals nominal"}
         </span>
         <span>
           Errors · <b>{(sig.error_rate ?? 0).toFixed(1)}×</b>
@@ -528,7 +538,13 @@ export default function App() {
         </span>
         <div className="sb-spacer"></div>
         {toast && (
-          <span className="sb-link" onClick={() => setToast(null)}>
+          <span
+            className="sb-link"
+            onClick={() => {
+              setToast(null);
+              setMode("threads");
+            }}
+          >
             Triage threads →
           </span>
         )}
@@ -546,10 +562,61 @@ export default function App() {
         <div className="toast on">
           <span className="toast-dot"></span>
           <span>{toast.msg}</span>
-          <button className="toast-action" onClick={() => setToast(null)}>
+          <button
+            className="toast-action"
+            onClick={() => {
+              const kind = toast.actionKind;
+              setToast(null);
+              if (kind === "orphans") {
+                setMode("threads");
+              } else if (kind === "split") {
+                // Navigate to Today and open the split/estimate panel for the active focus task
+                setPendingAction({
+                  kind: "split",
+                  taskText: focus.task ?? undefined,
+                });
+                setMode("today");
+              } else if (kind === "redefine") {
+                setPendingAction({
+                  kind: "redefine",
+                  taskText: focus.task ?? undefined,
+                });
+                setMode("today");
+              }
+            }}
+          >
             {toast.action}
           </button>
-          <button className="toast-action muted" onClick={() => setToast(null)}>
+          {toast.action2 && (
+            <button
+              className="toast-action muted"
+              onClick={() => {
+                const kind2 = toast.action2Kind;
+                if (kind2 === "redefine") {
+                  setPendingAction({
+                    kind: "redefine",
+                    taskText: focus.task ?? undefined,
+                  });
+                  setToast(null);
+                  setMode("today");
+                } else if (kind2 === "dismiss") {
+                  if (toast.rule) dismissRule(toast.rule);
+                  setToast(null);
+                } else {
+                  setToast(null);
+                }
+              }}
+            >
+              {toast.action2}
+            </button>
+          )}
+          <button
+            className="toast-action muted"
+            onClick={() => {
+              if (toast.rule) dismissRule(toast.rule);
+              setToast(null);
+            }}
+          >
             Dismiss
           </button>
         </div>

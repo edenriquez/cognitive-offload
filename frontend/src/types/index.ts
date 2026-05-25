@@ -1,9 +1,11 @@
 export type Mode =
   | "focus"
+  | "blocks"
   | "today"
   | "capture"
   | "review"
   | "tomorrow"
+  | "threads"
   | "sources"
   | "settings";
 
@@ -298,4 +300,54 @@ export interface TaskEstimate {
   matrix: ComplexityMatrix;
   source: "heuristic" | "llm";
   created_at: string;
+}
+
+// ── Block Budget System ─────────────────────────────────────────────────────
+
+export interface BlockAllocation {
+  category: string; // "work", "side_project", "personal", "learning"
+  pct: number; // percentage (all must sum to 100)
+  label: string; // user-facing label
+  color: string; // hex color
+}
+
+export interface NonNegotiable {
+  id: string;
+  label: string; // e.g. "Lunch", "Standup"
+  start_hour: number; // e.g. 12.0
+  end_hour: number; // e.g. 13.0
+  days: number[]; // 0=Sun..6=Sat, empty = every day
+}
+
+export interface BlockConfig {
+  block_duration_min: number; // default 90
+  workday_start_hour: number; // e.g. 9.0
+  workday_end_hour: number; // e.g. 17.0
+  allocations: BlockAllocation[];
+  non_negotiables: NonNegotiable[];
+}
+
+export interface DayBlock {
+  id: string;
+  day: string;
+  idx: number;
+  category: string;
+  label: string;
+  start_minute: number; // minutes from midnight
+  end_minute: number;
+  status: "planned" | "active" | "completed" | "skipped";
+  actual_start: number; // unix timestamp
+  actual_end: number;
+  notes: string;
+}
+
+export interface DaySchedule {
+  day: string;
+  blocks: DayBlock[];
+  non_negotiables: NonNegotiable[];
+  total_blocks: number;
+  completed_blocks: number;
+  active_block: DayBlock | null;
+  blocks_remaining: number;
+  day_complete: boolean;
 }

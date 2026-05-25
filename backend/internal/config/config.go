@@ -5,17 +5,20 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/cogload/backend/internal/models"
 )
 
 type Config struct {
-	WatchPaths    []string `json:"watch_paths"`
-	IgnoreDirs    []string `json:"ignore_dirs"`
-	MaxWatchDirs  int      `json:"max_watch_dirs"`
-	CutoffHour    float64  `json:"cutoff_hour"`
-	LunchStart    float64  `json:"lunch_start"`
-	LunchEnd      float64  `json:"lunch_end"`
-	DisabledRules []string `json:"disabled_rules"`
-	AnthropicKey  string   `json:"anthropic_key,omitempty"`
+	WatchPaths    []string            `json:"watch_paths"`
+	IgnoreDirs    []string            `json:"ignore_dirs"`
+	MaxWatchDirs  int                 `json:"max_watch_dirs"`
+	CutoffHour    float64             `json:"cutoff_hour"`
+	LunchStart    float64             `json:"lunch_start"`
+	LunchEnd      float64             `json:"lunch_end"`
+	DisabledRules []string            `json:"disabled_rules"`
+	AnthropicKey  string              `json:"anthropic_key,omitempty"`
+	BlockConfig   *models.BlockConfig `json:"block_config,omitempty"`
 }
 
 func DefaultConfig() Config {

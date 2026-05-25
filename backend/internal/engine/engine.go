@@ -271,12 +271,14 @@ func (e *Engine) EvaluateRules(s Signals, hour float64) []models.Intervention {
 
 	// 4. Orphan threads
 	if s.OrphanThreads >= 3 {
+		action2 := models.Action{Label: "Dismiss", Kind: "dismiss"}
 		out = append(out, models.Intervention{
 			ID: "orphans", Severity: "warn", Rule: "THREAD.ORPHANS",
 			Title:    "You are abandoning threads instead of resolving them.",
 			Body:     fmt.Sprintf("%d single-message threads were never resumed.", s.OrphanThreads),
 			Evidence: []string{fmt.Sprintf("orphan count: %d", s.OrphanThreads)},
 			Action:   models.Action{Label: "Review orphans", Kind: "orphans"},
+			Action2:  &action2,
 		})
 	}
 
@@ -304,6 +306,7 @@ func (e *Engine) EvaluateRules(s Signals, hour float64) []models.Intervention {
 
 	// 6. Stuck task
 	if s.StuckTaskMin > 90 && s.TaskProgress < 0.2 {
+		action2stuck := models.Action{Label: "Redefine", Kind: "redefine"}
 		out = append(out, models.Intervention{
 			ID: "stuck", Severity: "warn", Rule: "LOAD.STUCK",
 			Title: "Stuck task — split or redefine.",
@@ -312,7 +315,8 @@ func (e *Engine) EvaluateRules(s Signals, hour float64) []models.Intervention {
 				fmt.Sprintf("focus time: %dh%dm", s.StuckTaskMin/60, s.StuckTaskMin%60),
 				fmt.Sprintf("task progress: %.0f%%", s.TaskProgress*100),
 			},
-			Action: models.Action{Label: "Split task", Kind: "split"},
+			Action:  models.Action{Label: "Split task", Kind: "split"},
+			Action2: &action2stuck,
 		})
 	}
 

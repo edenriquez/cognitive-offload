@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 
@@ -134,6 +135,15 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 		// Claude status
 		r.Get("/claude/status", h.claudeStatus)
 		r.Post("/claude/key", h.setClaudeKey)
+
+		// Block budget
+		r.Get("/blocks/config", h.getBlockConfig)
+		r.Put("/blocks/config", h.updateBlockConfig)
+		r.Get("/blocks/today", h.getBlockSchedule)
+		r.Post("/blocks/generate", h.generateBlockSchedule)
+		r.Post("/blocks/{id}/start", h.startBlock)
+		r.Post("/blocks/{id}/complete", h.completeBlock)
+		r.Post("/blocks/{id}/skip", h.skipBlock)
 	})
 
 	return r
@@ -1351,3 +1361,362 @@ func (h *handler) estimateNewTask(w http.ResponseWriter, r *http.Request) {
 
 // Suppress unused import warning
 var _ = math.Min
+var _ = sort.Slice
+
+// ── Block Budget Handlers ───────────────────────────────────────────────────
+
+func (h *handler) getBlockConfig(w http.ResponseWriter, r *http.Request) {
+	cfg, err := h.db.GetBlockConfig(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, cfg)
+}
+
+func (h *handler) updateBlockConfig(w http.ResponseWriter, r *http.Request) {
+	var cfg models.BlockConfig
+	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		http.Error(w, "invalid body", 400)
+		return
+	}
+	// Validate allocations sum to 100
+	total := 0
+	for _, a := range cfg.Allocations {
+		total += a.Pct
+	}
+	if total != 100 && len(cfg.Allocations) > 0 {
+		http.Error(w, "allocations must sum to 100", 400)
+		return
+	}
+	if cfg.BlockDurationMin <= 0 {
+		cfg.BlockDurationMin = 90
+	}
+	if err := h.db.UpsertBlockConfig(r.Context(), cfg); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, cfg)
+}
+
+func (h *handler) getBlockSchedule(w http.ResponseWriter, r *http.Request) {
+	day := time.Now().Format("2006-01-02")
+	blocks, err := h.db.DayBlocks(r.Context(), day)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	cfg, err := h.db.GetBlockConfig(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	schedule := models.DaySchedule{
+		Day:            day,
+		Blocks:         blocks,
+		NonNegotiables: todayNonNegotiables(cfg.NonNegotiables),
+		TotalBlocks:    len(blocks),
+	}
+
+	completed := 0
+	for i := range blocks {
+		if blocks[i].Status == "completed" {
+			completed++
+		}
+		if blocks[i].Status == "active" {
+			schedule.ActiveBlock = &blocks[i]
+		}
+	}
+	schedule.CompletedBlocks = completed
+	schedule.BlocksRemaining = schedule.TotalBlocks - completed
+	schedule.DayComplete = completed >= schedule.TotalBlocks && schedule.TotalBlocks > 0
+
+	writeJSON(w, 200, schedule)
+}
+
+func (h *handler) generateBlockSchedule(w http.ResponseWriter, r *http.Request) {
+	day := time.Now().Format("2006-01-02")
+	ctx := r.Context()
+
+	cfg, err := h.db.GetBlockConfig(ctx)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	// Delete existing blocks for today (regenerate)
+	if err := h.db.DeleteDayBlocks(ctx, day); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	blocks := generateBlocks(day, cfg)
+
+	if err := h.db.InsertDayBlocks(ctx, blocks); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	// Return the full schedule
+	schedule := models.DaySchedule{
+		Day:             day,
+		Blocks:          blocks,
+		NonNegotiables:  todayNonNegotiables(cfg.NonNegotiables),
+		TotalBlocks:     len(blocks),
+		BlocksRemaining: len(blocks),
+	}
+	writeJSON(w, 200, schedule)
+}
+
+func (h *handler) startBlock(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	day := time.Now().Format("2006-01-02")
+	ctx := r.Context()
+
+	blocks, err := h.db.DayBlocks(ctx, day)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	// Find the block and ensure no other block is active
+	var target *models.DayBlock
+	for i := range blocks {
+		if blocks[i].Status == "active" && blocks[i].ID != id {
+			http.Error(w, "another block is already active", 409)
+			return
+		}
+		if blocks[i].ID == id {
+			target = &blocks[i]
+		}
+	}
+	if target == nil {
+		http.Error(w, "block not found", 404)
+		return
+	}
+	if target.Status != "planned" {
+		http.Error(w, "block is not in planned status", 400)
+		return
+	}
+
+	target.Status = "active"
+	target.ActualStart = time.Now().Unix()
+	if err := h.db.UpdateDayBlock(ctx, *target); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, target)
+}
+
+func (h *handler) completeBlock(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	day := time.Now().Format("2006-01-02")
+	ctx := r.Context()
+
+	blocks, err := h.db.DayBlocks(ctx, day)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	var target *models.DayBlock
+	for i := range blocks {
+		if blocks[i].ID == id {
+			target = &blocks[i]
+			break
+		}
+	}
+	if target == nil {
+		http.Error(w, "block not found", 404)
+		return
+	}
+
+	target.Status = "completed"
+	target.ActualEnd = time.Now().Unix()
+	if err := h.db.UpdateDayBlock(ctx, *target); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, target)
+}
+
+func (h *handler) skipBlock(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	day := time.Now().Format("2006-01-02")
+	ctx := r.Context()
+
+	blocks, err := h.db.DayBlocks(ctx, day)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	var target *models.DayBlock
+	for i := range blocks {
+		if blocks[i].ID == id {
+			target = &blocks[i]
+			break
+		}
+	}
+	if target == nil {
+		http.Error(w, "block not found", 404)
+		return
+	}
+
+	target.Status = "skipped"
+	if err := h.db.UpdateDayBlock(ctx, *target); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, target)
+}
+
+// ── Block generation helpers ────────────────────────────────────────────────
+
+// todayNonNegotiables filters non-negotiables to those active on today's day-of-week.
+func todayNonNegotiables(all []models.NonNegotiable) []models.NonNegotiable {
+	dow := int(time.Now().Weekday()) // 0=Sun
+	var result []models.NonNegotiable
+	for _, nn := range all {
+		if len(nn.Days) == 0 {
+			result = append(result, nn) // every day
+		} else {
+			for _, d := range nn.Days {
+				if d == dow {
+					result = append(result, nn)
+					break
+				}
+			}
+		}
+	}
+	return result
+}
+
+// generateBlocks creates the day's block schedule from config.
+func generateBlocks(day string, cfg models.BlockConfig) []models.DayBlock {
+	blockDur := cfg.BlockDurationMin
+	if blockDur <= 0 {
+		blockDur = 90
+	}
+
+	startMin := int(cfg.WorkDayStartHour * 60) // e.g. 9*60 = 540
+	endMin := int(cfg.WorkDayEndHour * 60)     // e.g. 17*60 = 1020
+
+	// Get today's non-negotiables sorted by start
+	nns := todayNonNegotiables(cfg.NonNegotiables)
+
+	// Build list of available time slots (start_min, end_min) avoiding non-negotiables
+	type slot struct{ start, end int }
+	var slots []slot
+
+	cursor := startMin
+	// Sort non-negotiables by start hour
+	sort.Slice(nns, func(i, j int) bool {
+		return nns[i].StartHour < nns[j].StartHour
+	})
+
+	for _, nn := range nns {
+		nnStart := int(nn.StartHour * 60)
+		nnEnd := int(nn.EndHour * 60)
+		if nnStart > cursor {
+			slots = append(slots, slot{cursor, nnStart})
+		}
+		if nnEnd > cursor {
+			cursor = nnEnd
+		}
+	}
+	if cursor < endMin {
+		slots = append(slots, slot{cursor, endMin})
+	}
+
+	// Count how many blocks fit in total
+	totalAvailMin := 0
+	for _, s := range slots {
+		totalAvailMin += s.end - s.start
+	}
+	totalBlocks := totalAvailMin / blockDur
+
+	if totalBlocks == 0 {
+		return nil
+	}
+
+	// Distribute blocks across categories by percentage
+	type catBlocks struct {
+		category string
+		label    string
+		color    string
+		count    int
+	}
+	var cats []catBlocks
+	assigned := 0
+	for i, a := range cfg.Allocations {
+		n := (a.Pct * totalBlocks) / 100
+		if i == len(cfg.Allocations)-1 {
+			n = totalBlocks - assigned // give remainder to last category
+		}
+		if n > 0 {
+			cats = append(cats, catBlocks{a.Category, a.Label, a.Color, n})
+			assigned += n
+		}
+	}
+
+	// Build block sequence: interleave categories for variety
+	var blockCats []catBlocks
+	remaining := make([]int, len(cats))
+	for i, c := range cats {
+		remaining[i] = c.count
+	}
+	for len(blockCats) < totalBlocks {
+		added := false
+		for i, c := range cats {
+			if remaining[i] > 0 {
+				blockCats = append(blockCats, c)
+				remaining[i]--
+				added = true
+				if len(blockCats) >= totalBlocks {
+					break
+				}
+			}
+		}
+		if !added {
+			break
+		}
+	}
+
+	// Place blocks into time slots
+	var blocks []models.DayBlock
+	blockIdx := 0
+	slotIdx := 0
+	slotCursor := 0
+	if len(slots) > 0 {
+		slotCursor = slots[0].start
+	}
+
+	for blockIdx < len(blockCats) && slotIdx < len(slots) {
+		s := slots[slotIdx]
+		if slotCursor+blockDur <= s.end {
+			cat := blockCats[blockIdx]
+			blocks = append(blocks, models.DayBlock{
+				ID:          fmt.Sprintf("blk-%s-%d", day, blockIdx),
+				Day:         day,
+				Idx:         blockIdx,
+				Category:    cat.category,
+				Label:       cat.label,
+				StartMinute: slotCursor,
+				EndMinute:   slotCursor + blockDur,
+				Status:      "planned",
+			})
+			slotCursor += blockDur
+			blockIdx++
+		} else {
+			// Move to next slot
+			slotIdx++
+			if slotIdx < len(slots) {
+				slotCursor = slots[slotIdx].start
+			}
+		}
+	}
+
+	return blocks
+}

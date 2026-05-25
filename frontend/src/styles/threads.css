@@ -1,0 +1,402 @@
+/* ============================================================
+   THREAD TRIAGE MODE
+   Uses design tokens from globals.css exclusively.
+============================================================ */
+
+/* ── Container ───────────────────────────────────────────── */
+
+.thr {
+  min-height: 100%;
+  display: grid;
+  place-items: start center;
+  padding: 32px 40px 48px;
+}
+
+.thr > * {
+  width: 100%;
+  max-width: 600px;
+}
+
+.thr-loading {
+  padding: 64px 0;
+  color: var(--color-overcast);
+  font-size: 13px;
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+
+.thr-header {
+  margin-bottom: 8px;
+}
+
+.thr-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.thr-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.thr-icon {
+  color: var(--color-carbon);
+  display: flex;
+  align-items: center;
+}
+
+.thr-title {
+  font-family: var(--font-tiempos);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.4px;
+  color: var(--color-ink);
+  margin: 0;
+  line-height: 1;
+}
+
+.thr-summary {
+  font-size: 13px;
+  color: var(--color-carbon);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+/* ── Filters ─────────────────────────────────────────────── */
+
+.thr-filters {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.thr-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.14px;
+  color: var(--color-carbon);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.thr-filter:hover {
+  background: var(--color-ash);
+  border-color: var(--color-stone);
+}
+
+.thr-filter.on {
+  background: var(--color-ink);
+  color: var(--color-white);
+  border-color: var(--color-ink);
+}
+
+.thr-filter-count {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+}
+
+.thr-filter.on .thr-filter-count {
+  opacity: 0.7;
+}
+
+.thr-btn-refresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--color-lead);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  margin-left: 4px;
+  transition: color 0.12s, background 0.12s;
+}
+
+.thr-btn-refresh:hover {
+  color: var(--color-carbon);
+  background: var(--color-ash);
+}
+
+/* ── Close all button ────────────────────────────────────── */
+
+.thr-btn-close-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: var(--radius-buttons);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.14px;
+  color: var(--color-ink);
+  background: var(--color-white);
+  border: 1px solid var(--color-slate);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.thr-btn-close-all:hover {
+  background: var(--color-ash);
+  border-color: var(--color-lead);
+}
+
+.thr-btn-close-all:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+
+.thr-empty {
+  padding: 40px 0;
+  font-size: 13px;
+  color: var(--color-overcast);
+}
+
+/* ── Thread list ─────────────────────────────────────────── */
+
+.thr-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-stone);
+}
+
+/* ── Thread row ──────────────────────────────────────────── */
+
+.thr-row {
+  display: grid;
+  grid-template-columns: 8px 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-stone);
+  transition: background 0.1s;
+}
+
+.thr-row:hover {
+  background: var(--color-ash);
+  margin: 0 -12px;
+  padding-left: 12px;
+  padding-right: 12px;
+  border-radius: var(--radius-tags);
+}
+
+.thr-row--closed {
+  opacity: 0.4;
+}
+
+.thr-row--orphan {
+  /* orphan rows get no extra visual treatment — the tag handles it */
+}
+
+/* ── Status dot ──────────────────────────────────────────── */
+
+.thr-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.thr-status-dot.thr-tag--open    { background: var(--color-action-blue); }
+.thr-status-dot.thr-tag--orphan  { background: var(--color-warning-yellow); }
+.thr-status-dot.thr-tag--stalled { background: var(--color-danger-red); }
+.thr-status-dot.thr-tag--closed  { background: var(--color-stone); }
+
+/* ── Row body ────────────────────────────────────────────── */
+
+.thr-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.thr-row-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.thr-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-ink);
+  letter-spacing: -0.14px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+}
+
+.thr-label-empty {
+  color: var(--color-lead);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.thr-label-input {
+  font-family: var(--font-inter);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.14px;
+  color: var(--color-ink);
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid var(--color-carbon);
+  outline: none;
+  padding: 1px 0;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+/* ── Status tag ──────────────────────────────────────────── */
+
+.thr-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 99px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.thr-tag.thr-tag--open {
+  background: #dfeaff;
+  color: #2559c2;
+}
+
+.thr-tag.thr-tag--orphan {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.thr-tag.thr-tag--stalled {
+  background: #fee2e2;
+  color: var(--color-danger-red);
+}
+
+.thr-tag.thr-tag--closed {
+  background: var(--color-ash);
+  color: var(--color-overcast);
+}
+
+/* ── Row meta ────────────────────────────────────────────── */
+
+.thr-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.thr-meta-item {
+  font-size: 12px;
+  color: var(--color-overcast);
+  font-variant-numeric: tabular-nums;
+}
+
+.thr-meta-sep {
+  font-size: 12px;
+  color: var(--color-stone);
+}
+
+.thr-meta-warn {
+  color: var(--color-warning-yellow) !important;
+  font-weight: 500;
+}
+
+/* ── Orphan note ─────────────────────────────────────────── */
+
+.thr-orphan-note {
+  font-size: 12px;
+  color: var(--color-overcast);
+  padding: 4px 8px;
+  background: var(--color-ash);
+  border-radius: var(--radius-tags);
+  border-left: 2px solid var(--color-warning-yellow);
+  margin-top: 2px;
+}
+
+/* ── Row actions ─────────────────────────────────────────── */
+
+.thr-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.thr-row:hover .thr-row-actions {
+  opacity: 1;
+}
+
+.thr-btn-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: var(--radius-buttons);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.14px;
+  color: var(--color-ink);
+  background: var(--color-white);
+  border: 1px solid var(--color-slate);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.thr-btn-close:hover {
+  background: var(--color-ash);
+  border-color: var(--color-lead);
+}
+
+.thr-btn-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Nav badge (open thread count) ──────────────────────── */
+
+.nav-thread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: var(--color-warning-yellow);
+  color: var(--color-white);
+  margin-left: 4px;
+  line-height: 1;
+  vertical-align: middle;
+}

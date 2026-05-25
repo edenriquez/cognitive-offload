@@ -169,6 +169,26 @@ func (d *DB) Migrate() error {
 		created_at    INTEGER NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_estimates_task ON task_estimates(task_id);
+
+	CREATE TABLE IF NOT EXISTS block_config (
+		id          INTEGER PRIMARY KEY CHECK (id = 1),
+		config_json TEXT NOT NULL DEFAULT '{}'
+	);
+
+	CREATE TABLE IF NOT EXISTS day_blocks (
+		id           TEXT PRIMARY KEY,
+		day          TEXT NOT NULL,
+		idx          INTEGER NOT NULL DEFAULT 0,
+		category     TEXT NOT NULL DEFAULT 'work',
+		label        TEXT NOT NULL DEFAULT '',
+		start_minute INTEGER NOT NULL DEFAULT 0,
+		end_minute   INTEGER NOT NULL DEFAULT 0,
+		status       TEXT NOT NULL DEFAULT 'planned',
+		actual_start INTEGER NOT NULL DEFAULT 0,
+		actual_end   INTEGER NOT NULL DEFAULT 0,
+		notes        TEXT NOT NULL DEFAULT ''
+	);
+	CREATE INDEX IF NOT EXISTS idx_day_blocks_day ON day_blocks(day);
 	`
 	_, err := d.db.Exec(schema)
 	return err
@@ -1041,4 +1061,97 @@ func (d *DB) LatestEstimateForTask(ctx context.Context, taskID string) (*models.
 	_ = json.Unmarshal([]byte(splitsJSON), &est.SuggestedSplits)
 	_ = json.Unmarshal([]byte(matrixJSON), &est.Matrix)
 	return &est, nil
+}
+
+// ── Block Config ────────────────────────────────────────────────────────────
+
+func (d *DB) GetBlockConfig(ctx context.Context) (models.BlockConfig, error) {
+	var raw string
+	err := d.db.QueryRowContext(ctx, `SELECT config_json FROM block_config WHERE id = 1`).Scan(&raw)
+	if err != nil {
+		// Return defaults if no config exists
+		return models.BlockConfig{
+			BlockDurationMin: 90,
+			WorkDayStartHour: 9.0,
+			WorkDayEndHour:   17.0,
+			Allocations: []models.BlockAllocation{
+				{Category: "work", Pct: 60, Label: "Main Work", Color: "#6b8cce"},
+				{Category: "side_project", Pct: 40, Label: "Side Project", Color: "#ce6b8c"},
+			},
+			NonNegotiables: []models.NonNegotiable{
+				{ID: "lunch", Label: "Lunch", StartHour: 12.0, EndHour: 13.0, Days: []int{}},
+			},
+		}, nil
+	}
+	var cfg models.BlockConfig
+	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
+		return models.BlockConfig{}, err
+	}
+	return cfg, nil
+}
+
+func (d *DB) UpsertBlockConfig(ctx context.Context, cfg models.BlockConfig) error {
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	_, err = d.db.ExecContext(ctx,
+		`INSERT INTO block_config (id, config_json) VALUES (1, ?)
+		 ON CONFLICT(id) DO UPDATE SET config_json = excluded.config_json`, string(b))
+	return err
+}
+
+// ── Day Blocks ──────────────────────────────────────────────────────────────
+
+func (d *DB) DayBlocks(ctx context.Context, day string) ([]models.DayBlock, error) {
+	rows, err := d.db.QueryContext(ctx,
+		`SELECT id, day, idx, category, label, start_minute, end_minute, status, actual_start, actual_end, notes
+		 FROM day_blocks WHERE day = ? ORDER BY idx`, day)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var blocks []models.DayBlock
+	for rows.Next() {
+		var b models.DayBlock
+		if err := rows.Scan(&b.ID, &b.Day, &b.Idx, &b.Category, &b.Label,
+			&b.StartMinute, &b.EndMinute, &b.Status, &b.ActualStart, &b.ActualEnd, &b.Notes); err != nil {
+			return nil, err
+		}
+		blocks = append(blocks, b)
+	}
+	return blocks, rows.Err()
+}
+
+func (d *DB) InsertDayBlocks(ctx context.Context, blocks []models.DayBlock) error {
+	tx, err := d.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, b := range blocks {
+		_, err := tx.ExecContext(ctx,
+			`INSERT OR REPLACE INTO day_blocks (id, day, idx, category, label, start_minute, end_minute, status, actual_start, actual_end, notes)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			b.ID, b.Day, b.Idx, b.Category, b.Label, b.StartMinute, b.EndMinute, b.Status, b.ActualStart, b.ActualEnd, b.Notes)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (d *DB) UpdateDayBlock(ctx context.Context, b models.DayBlock) error {
+	_, err := d.db.ExecContext(ctx,
+		`UPDATE day_blocks SET category=?, label=?, start_minute=?, end_minute=?, status=?, actual_start=?, actual_end=?, notes=?
+		 WHERE id=?`,
+		b.Category, b.Label, b.StartMinute, b.EndMinute, b.Status, b.ActualStart, b.ActualEnd, b.Notes, b.ID)
+	return err
+}
+
+func (d *DB) DeleteDayBlocks(ctx context.Context, day string) error {
+	_, err := d.db.ExecContext(ctx, `DELETE FROM day_blocks WHERE day = ?`, day)
+	return err
 }

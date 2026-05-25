@@ -34,8 +34,30 @@ interface AppState {
   signals: SignalSnapshot | null;
   setSignals: (s: SignalSnapshot) => void;
 
-  toast: { msg: string; action: string } | null;
-  setToast: (t: { msg: string; action: string } | null) => void;
+  toast: {
+    msg: string;
+    action: string;
+    actionKind?: string;
+    action2?: string;
+    action2Kind?: string;
+    rule?: string;
+  } | null;
+  setToast: (
+    t: {
+      msg: string;
+      action: string;
+      actionKind?: string;
+      action2?: string;
+      action2Kind?: string;
+      rule?: string;
+    } | null,
+  ) => void;
+  dismissedRules: Set<string>;
+  dismissRule: (rule: string) => void;
+
+  // Pending cross-mode action triggered from toast
+  pendingAction: { kind: string; taskText?: string } | null;
+  setPendingAction: (a: { kind: string; taskText?: string } | null) => void;
 
   now: Date;
   setNow: (d: Date) => void;
@@ -165,6 +187,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   toast: null,
   setToast: (t) => set({ toast: t }),
+  dismissedRules: new Set<string>(),
+  dismissRule: (rule) =>
+    set((s) => ({ dismissedRules: new Set([...s.dismissedRules, rule]) })),
+
+  pendingAction: null,
+  setPendingAction: (a) => set({ pendingAction: a }),
 
   now: new Date(),
   setNow: (d) => set({ now: d }),

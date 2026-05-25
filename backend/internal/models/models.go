@@ -278,3 +278,58 @@ type EstimateRequest struct {
 	TaskID      string `json:"task_id,omitempty"`
 	ProjectPath string `json:"project_path,omitempty"`
 }
+
+// ── Block Budget System ─────────────────────────────────────────────────────
+
+// BlockConfig holds the user's block budget preferences.
+type BlockConfig struct {
+	BlockDurationMin int               `json:"block_duration_min"` // default 90
+	WorkDayStartHour float64           `json:"workday_start_hour"` // e.g. 9.0
+	WorkDayEndHour   float64           `json:"workday_end_hour"`   // e.g. 17.0
+	Allocations      []BlockAllocation `json:"allocations"`        // percentage split
+	NonNegotiables   []NonNegotiable   `json:"non_negotiables"`    // fixed breaks
+}
+
+// BlockAllocation defines what percentage of blocks goes to a category.
+type BlockAllocation struct {
+	Category string `json:"category"` // "work", "side_project", "personal", "learning"
+	Pct      int    `json:"pct"`      // percentage (all must sum to 100)
+	Label    string `json:"label"`    // user-facing label, e.g. "Main Job", "Side Project"
+	Color    string `json:"color"`    // hex color for UI
+}
+
+// NonNegotiable represents a fixed break that cannot be scheduled over.
+type NonNegotiable struct {
+	ID        string  `json:"id"`
+	Label     string  `json:"label"`      // e.g. "Lunch", "Standup"
+	StartHour float64 `json:"start_hour"` // e.g. 12.0
+	EndHour   float64 `json:"end_hour"`   // e.g. 13.0
+	Days      []int   `json:"days"`       // 0=Sun..6=Sat, empty = every day
+}
+
+// DayBlock represents a single scheduled block for today.
+type DayBlock struct {
+	ID          string `json:"id"`
+	Day         string `json:"day"`
+	Idx         int    `json:"idx"`          // order in the day (0-based)
+	Category    string `json:"category"`     // matches BlockAllocation.Category
+	Label       string `json:"label"`        // what the user is working on
+	StartMinute int    `json:"start_minute"` // minutes from midnight (e.g. 540 = 9:00)
+	EndMinute   int    `json:"end_minute"`   // minutes from midnight
+	Status      string `json:"status"`       // "planned", "active", "completed", "skipped"
+	ActualStart int64  `json:"actual_start"` // unix timestamp, 0 if not started
+	ActualEnd   int64  `json:"actual_end"`   // unix timestamp, 0 if not ended
+	Notes       string `json:"notes"`
+}
+
+// DaySchedule is the full block plan for a day.
+type DaySchedule struct {
+	Day             string          `json:"day"`
+	Blocks          []DayBlock      `json:"blocks"`
+	NonNegotiables  []NonNegotiable `json:"non_negotiables"` // today's breaks
+	TotalBlocks     int             `json:"total_blocks"`
+	CompletedBlocks int             `json:"completed_blocks"`
+	ActiveBlock     *DayBlock       `json:"active_block"` // currently running, nil if none
+	BlocksRemaining int             `json:"blocks_remaining"`
+	DayComplete     bool            `json:"day_complete"`
+}

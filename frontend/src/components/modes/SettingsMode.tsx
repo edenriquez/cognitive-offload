@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../../api/client";
+import type { BlockConfig } from "../../types";
 
 // ---------------------------------------------------------------------------
 // Engine rules — all 11 from engine.go
@@ -35,6 +36,20 @@ function timeOptions(startHour: number, endHour: number) {
 
 const CUTOFF_OPTIONS = timeOptions(14, 22);
 const LUNCH_OPTIONS = timeOptions(11, 15);
+const WORKDAY_START_OPTIONS = timeOptions(5, 12);
+const WORKDAY_END_OPTIONS = timeOptions(14, 22);
+const BREAK_START_OPTIONS = timeOptions(5, 22);
+const BREAK_END_OPTIONS = timeOptions(5, 22);
+
+function formatHour(h: number): string {
+  const hh = Math.floor(h);
+  const mm = h % 1 === 0.5 ? "30" : "00";
+  const ampm = hh >= 12 ? "PM" : "AM";
+  const display = hh > 12 ? hh - 12 : hh === 0 ? 12 : hh;
+  return `${display}:${mm} ${ampm}`;
+}
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // ---------------------------------------------------------------------------
 // Config shape
@@ -68,6 +83,11 @@ export default function SettingsMode() {
   const [saved, setSaved] = useState(false);
   const [newPath, setNewPath] = useState("");
   const [newIgnore, setNewIgnore] = useState("");
+  const [blockConfig, setBlockConfig] = useState<BlockConfig | null>(null);
+  const [newBreakLabel, setNewBreakLabel] = useState("");
+  const [newBreakStart, setNewBreakStart] = useState(12.0);
+  const [newBreakEnd, setNewBreakEnd] = useState(13.0);
+  const [newBreakDays, setNewBreakDays] = useState<number[]>([]);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -89,6 +109,10 @@ export default function SettingsMode() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+    api
+      .getBlockConfig()
+      .then(setBlockConfig)
+      .catch(() => {});
   }, []);
 
   // Flash the "Saved" indicator
@@ -186,6 +210,101 @@ export default function SettingsMode() {
     setNewIgnore("");
   }, [newIgnore, persistImmediate]);
 
+  // ---- Block Config persistence ----
+  const saveBlockConfig = useCallback(
+    (cfg: BlockConfig | null) => {
+      if (!cfg) return;
+      api
+        .updateBlockConfig(cfg)
+        .then(() => flashSaved())
+        .catch(() => {});
+    },
+    [flashSaved],
+  );
+
+  const updateBlockField = useCallback(
+    <K extends keyof BlockConfig>(key: K, value: BlockConfig[K]) => {
+      setBlockConfig((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev, [key]: value };
+        saveBlockConfig(next);
+        return next;
+      });
+    },
+    [saveBlockConfig],
+  );
+
+  const updateAllocation = useCallback(
+    (idx: number, pct: number) => {
+      setBlockConfig((prev) => {
+        if (!prev) return prev;
+        const allocs = [...prev.allocations];
+        // distribute the delta to the other allocation
+        const old = allocs[idx].pct;
+        const delta = pct - old;
+        allocs[idx] = { ...allocs[idx], pct };
+        // find the other non-zero allocation to adjust
+        const otherIdx = idx === 0 ? 1 : 0;
+        if (allocs[otherIdx]) {
+          allocs[otherIdx] = {
+            ...allocs[otherIdx],
+            pct: Math.max(0, Math.min(100, allocs[otherIdx].pct - delta)),
+          };
+        }
+        const next = { ...prev, allocations: allocs };
+        saveBlockConfig(next);
+        return next;
+      });
+    },
+    [saveBlockConfig],
+  );
+
+  const addNonNegotiable = useCallback(() => {
+    const trimmed = newBreakLabel.trim();
+    if (!trimmed) return;
+    setBlockConfig((prev) => {
+      if (!prev) return prev;
+      const entry = {
+        id: `brk_${Date.now()}`,
+        label: trimmed,
+        start_hour: newBreakStart,
+        end_hour: newBreakEnd,
+        days: newBreakDays.length > 0 ? newBreakDays : [],
+      };
+      const next = {
+        ...prev,
+        non_negotiables: [...prev.non_negotiables, entry],
+      };
+      saveBlockConfig(next);
+      return next;
+    });
+    setNewBreakLabel("");
+    setNewBreakStart(12.0);
+    setNewBreakEnd(13.0);
+    setNewBreakDays([]);
+  }, [
+    newBreakLabel,
+    newBreakStart,
+    newBreakEnd,
+    newBreakDays,
+    saveBlockConfig,
+  ]);
+
+  const removeNonNegotiable = useCallback(
+    (id: string) => {
+      setBlockConfig((prev) => {
+        if (!prev) return prev;
+        const next = {
+          ...prev,
+          non_negotiables: prev.non_negotiables.filter((n) => n.id !== id),
+        };
+        saveBlockConfig(next);
+        return next;
+      });
+    },
+    [saveBlockConfig],
+  );
+
   const removeIgnoreDir = useCallback(
     (dir: string) => {
       setConfig((prev) => {
@@ -228,6 +347,261 @@ export default function SettingsMode() {
           </div>
           <span className={`settings-saved ${saved ? "on" : ""}`}>✓ Saved</span>
         </div>
+
+        {/* ---- Block Budget ---- */}
+        {blockConfig && (
+          <div className="settings-section">
+            <div className="settings-section-title">Block Budget</div>
+            <span className="settings-section-desc">
+              Configure how your workday is divided into focused time blocks
+            </span>
+
+            <div className="settings-row">
+              <div className="settings-label-group">
+                <span className="settings-label">Block duration</span>
+                <span className="settings-desc">
+                  Length of each focus block in minutes
+                </span>
+              </div>
+              <input
+                type="number"
+                className="settings-input"
+                min={15}
+                max={180}
+                step={15}
+                value={blockConfig.block_duration_min}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v) && v >= 15 && v <= 180) {
+                    updateBlockField("block_duration_min", v);
+                  }
+                }}
+              />
+            </div>
+
+            <div className="settings-row">
+              <div className="settings-label-group">
+                <span className="settings-label">Workday start</span>
+                <span className="settings-desc">When your workday begins</span>
+              </div>
+              <select
+                className="settings-select"
+                value={blockConfig.workday_start_hour}
+                onChange={(e) =>
+                  updateBlockField(
+                    "workday_start_hour",
+                    parseFloat(e.target.value),
+                  )
+                }
+              >
+                {WORKDAY_START_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="settings-row">
+              <div className="settings-label-group">
+                <span className="settings-label">Workday end</span>
+                <span className="settings-desc">When your workday ends</span>
+              </div>
+              <select
+                className="settings-select"
+                value={blockConfig.workday_end_hour}
+                onChange={(e) =>
+                  updateBlockField(
+                    "workday_end_hour",
+                    parseFloat(e.target.value),
+                  )
+                }
+              >
+                {WORKDAY_END_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Allocation sliders */}
+            {blockConfig.allocations.length >= 2 && (
+              <div
+                className="settings-row"
+                style={{
+                  flexDirection: "column",
+                  alignItems: "stretch",
+                  gap: "0.5rem",
+                }}
+              >
+                <div className="settings-label-group">
+                  <span className="settings-label">Time allocation</span>
+                  <span className="settings-desc">
+                    How to split blocks between categories
+                  </span>
+                </div>
+                {blockConfig.allocations.map((alloc, idx) => (
+                  <div
+                    key={alloc.category}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      padding: "0.25rem 0",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        background: alloc.color,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span style={{ minWidth: 90, fontSize: "0.85rem" }}>
+                      {alloc.label}
+                    </span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={alloc.pct}
+                      onChange={(e) =>
+                        updateAllocation(idx, parseInt(e.target.value, 10))
+                      }
+                      style={{ flex: 1 }}
+                    />
+                    <span
+                      style={{
+                        minWidth: 36,
+                        textAlign: "right",
+                        fontSize: "0.85rem",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {alloc.pct}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Non-negotiable breaks */}
+            <div style={{ marginTop: "0.75rem" }}>
+              <div
+                className="settings-label-group"
+                style={{ marginBottom: "0.5rem" }}
+              >
+                <span className="settings-label">Non-negotiable breaks</span>
+                <span className="settings-desc">
+                  Fixed time blocks that won't be scheduled over
+                </span>
+              </div>
+
+              <div className="settings-list">
+                {blockConfig.non_negotiables.map((brk) => (
+                  <div key={brk.id} className="settings-list-item">
+                    <span className="settings-list-path">
+                      {brk.label} — {formatHour(brk.start_hour)}–
+                      {formatHour(brk.end_hour)}
+                      {brk.days.length > 0 &&
+                        ` (${brk.days.map((d) => DAY_LABELS[d]).join(", ")})`}
+                    </span>
+                    <button
+                      className="settings-list-remove"
+                      onClick={() => removeNonNegotiable(brk.id)}
+                      title="Remove"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {blockConfig.non_negotiables.length === 0 && (
+                  <div className="settings-list-empty">
+                    No breaks configured
+                  </div>
+                )}
+              </div>
+
+              <div
+                className="settings-add-row"
+                style={{ flexWrap: "wrap", gap: "0.5rem" }}
+              >
+                <input
+                  type="text"
+                  className="settings-add-input"
+                  placeholder="Break label (e.g. Lunch)"
+                  value={newBreakLabel}
+                  onChange={(e) => setNewBreakLabel(e.target.value)}
+                  style={{ minWidth: 140 }}
+                />
+                <select
+                  className="settings-select"
+                  value={newBreakStart}
+                  onChange={(e) => setNewBreakStart(parseFloat(e.target.value))}
+                >
+                  {BREAK_START_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <span
+                  style={{ fontSize: "0.85rem", color: "var(--c-text-dim)" }}
+                >
+                  to
+                </span>
+                <select
+                  className="settings-select"
+                  value={newBreakEnd}
+                  onChange={(e) => setNewBreakEnd(parseFloat(e.target.value))}
+                >
+                  {BREAK_END_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "0.25rem",
+                    alignItems: "center",
+                  }}
+                >
+                  {DAY_LABELS.map((label, idx) => (
+                    <button
+                      key={idx}
+                      className={`settings-add-btn${newBreakDays.includes(idx) ? "" : ""}`}
+                      style={{
+                        padding: "0.15rem 0.35rem",
+                        fontSize: "0.7rem",
+                        opacity: newBreakDays.includes(idx) ? 1 : 0.4,
+                        minWidth: 0,
+                      }}
+                      onClick={() =>
+                        setNewBreakDays((prev) =>
+                          prev.includes(idx)
+                            ? prev.filter((d) => d !== idx)
+                            : [...prev, idx],
+                        )
+                      }
+                      title={`${newBreakDays.includes(idx) ? "Remove" : "Add"} ${label}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <button className="settings-add-btn" onClick={addNonNegotiable}>
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ---- Time & Thresholds ---- */}
         <div className="settings-section">
