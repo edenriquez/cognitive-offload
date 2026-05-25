@@ -68,6 +68,8 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 
 		// Review
 		r.Get("/review/{day}", h.getReview)
+		r.Post("/review/patterns/{id}/acknowledge", h.acknowledgePattern)
+		r.Post("/review/patterns/{id}/dismiss", h.dismissPattern)
 
 		// Tomorrow
 		r.Get("/tomorrow", h.getTomorrow)
@@ -583,6 +585,24 @@ func (h *handler) getReview(w http.ResponseWriter, r *http.Request) {
 	})
 
 	writeJSON(w, 200, review)
+}
+
+func (h *handler) acknowledgePattern(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.db.AcknowledgePattern(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "acknowledged"})
+}
+
+func (h *handler) dismissPattern(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.db.DismissPattern(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "dismissed"})
 }
 
 // ---------- Tomorrow ----------

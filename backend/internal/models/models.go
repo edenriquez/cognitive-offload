@@ -38,15 +38,17 @@ type Bucket struct {
 
 // Pattern is a detected behavioral signal.
 type Pattern struct {
-	ID         string         `json:"id"`
-	Day        string         `json:"day"`
-	Kind       string         `json:"kind"`     // perf-degradation | crash | stuck | fatigue | cold-start | open-loops | overwork
-	Severity   string         `json:"severity"` // high | medium | low
-	Title      string         `json:"title"`
-	Detail     string         `json:"detail"`
-	Window     string         `json:"window"`
-	Evidence   map[string]any `json:"evidence"`
-	DetectedAt time.Time      `json:"detected_at"`
+	ID           string         `json:"id"`
+	Day          string         `json:"day"`
+	Kind         string         `json:"kind"`     // perf-degradation | crash | stuck | fatigue | cold-start | open-loops | overwork
+	Severity     string         `json:"severity"` // high | medium | low
+	Title        string         `json:"title"`
+	Detail       string         `json:"detail"`
+	Window       string         `json:"window"`
+	Evidence     map[string]any `json:"evidence"`
+	DetectedAt   time.Time      `json:"detected_at"`
+	Acknowledged bool           `json:"acknowledged"`
+	Dismissed    bool           `json:"dismissed"`
 }
 
 // Task is a daily must-win or personal item.

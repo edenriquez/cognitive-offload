@@ -1,8 +1,9 @@
 import { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import type { Node } from "@xyflow/react";
 import type { Task, TaskEstimate } from "../../types";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface TaskNodeData extends Record<string, unknown> {
   task: Task;
@@ -11,116 +12,99 @@ export interface TaskNodeData extends Record<string, unknown> {
   isFocused: boolean;
 }
 
-// v12: NodeProps takes a full Node<Data> type. Build the node type here.
-import type { Node } from "@xyflow/react";
 export type TaskNodeType = Node<TaskNodeData, "task">;
 
-// ── Color maps ────────────────────────────────────────────────────────────────
+// ── Icons ─────────────────────────────────────────────────────────────────────
 
-const KIND_COLORS: Record<string, string> = {
-  must: "var(--color-ink)",
-  personal: "var(--color-action-blue)",
-  small: "var(--color-lead)",
-};
+function IconLock() {
+  return (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="7" width="10" height="8" rx="1.5" />
+      <path d="M5 7V5a3 3 0 0 1 6 0v2" />
+    </svg>
+  );
+}
 
-const COMPLEXITY_COLORS: Record<string, string> = {
-  trivial: "var(--color-success-green)",
-  low: "var(--color-success-green)",
-  medium: "var(--color-warning-yellow)",
-  high: "var(--color-danger-red)",
-  extreme: "var(--color-danger-red)",
-};
+function IconDone() {
+  return (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 8l4 4 6-7" />
+    </svg>
+  );
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function TaskNode({ data, selected }: NodeProps<TaskNodeType>) {
   const { task, estimate, isReady, isFocused } = data;
-
   const isBlocked = !isReady && !task.done;
-  const statusClass = task.done
+
+  const stateClass = task.done
     ? "tnode--done"
     : isFocused
-      ? "tnode--focused"
+      ? "tnode--active"
       : isBlocked
         ? "tnode--blocked"
-        : "tnode--ready";
+        : "tnode--idle";
 
   return (
-    <div
-      className={`tnode ${statusClass}${selected ? " tnode--selected" : ""}`}
-    >
-      {/* Target handle — left side */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="tnode-handle tnode-handle--target"
-      />
+    <div className={`tnode ${stateClass}${selected ? " tnode--selected" : ""}`}>
+      <Handle type="target" position={Position.Left} className="tnode-handle" />
 
-      {/* Kind indicator row */}
-      <div className="tnode-kind">
-        <span
-          className="tnode-kind-dot"
-          style={{
-            backgroundColor:
-              KIND_COLORS[task.kind] ?? "var(--color-lead)",
-          }}
-        />
-        <span className="tnode-kind-label">{task.kind}</span>
-
-        {isBlocked && (
-          <span
-            className="tnode-blocked-icon"
-            title="Blocked by incomplete dependencies"
-          >
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="7" width="10" height="8" rx="1.5" />
-              <path d="M5 7V5a3 3 0 0 1 6 0v2" />
-            </svg>
+      {/* Header row: kind label + status icon */}
+      <div className="tnode-header">
+        <span className="tnode-kind">{task.kind}</span>
+        {task.done && (
+          <span className="tnode-status-icon tnode-status-icon--done">
+            <IconDone />
           </span>
         )}
-
-        {isFocused && <span className="tnode-focus-dot" />}
+        {isBlocked && !task.done && (
+          <span className="tnode-status-icon tnode-status-icon--blocked">
+            <IconLock />
+          </span>
+        )}
+        {isFocused && <span className="tnode-pulse" />}
       </div>
 
       {/* Task text */}
-      <div className={`tnode-text${task.done ? " tnode-text--done" : ""}`}>
-        {task.text}
-      </div>
+      <div className="tnode-text">{task.text}</div>
 
-      {/* Cognitive load bar — only if estimate exists */}
+      {/* Cognitive load bar */}
       {estimate && (
-        <div className="tnode-estimate">
-          <div className="tnode-estimate-bar">
+        <div className="tnode-load">
+          <div className="tnode-load-track">
             <div
-              className="tnode-estimate-fill"
-              style={{
-                width: `${estimate.cognitive_load}%`,
-                backgroundColor:
-                  COMPLEXITY_COLORS[estimate.complexity] ??
-                  "var(--color-lead)",
-              }}
+              className="tnode-load-fill"
+              style={{ width: `${estimate.cognitive_load}%` }}
             />
           </div>
-          <span className="tnode-estimate-label">
-            {estimate.estimated_min}m · {estimate.complexity}
-          </span>
+          <span className="tnode-load-label">{estimate.estimated_min}m</span>
         </div>
       )}
 
-      {/* Source handle — right side */}
       <Handle
         type="source"
         position={Position.Right}
-        className="tnode-handle tnode-handle--source"
+        className="tnode-handle"
       />
     </div>
   );

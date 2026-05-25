@@ -77,7 +77,7 @@ describe("App shell", () => {
     expect(pills.textContent).toContain("Blocks");
     expect(pills.textContent).toContain("Today");
     expect(pills.textContent).toContain("Review");
-    expect(pills.textContent).toContain("Tomorrow");
+
     expect(pills.textContent).toContain("Sources");
     expect(pills.textContent).toContain("Settings");
   });
@@ -100,9 +100,6 @@ describe("App shell", () => {
 
     await user.click(screen.getByText("Review"));
     expect(useAppStore.getState().mode).toBe("review");
-
-    await user.click(screen.getByText("Tomorrow"));
-    expect(useAppStore.getState().mode).toBe("tomorrow");
 
     await user.click(screen.getByText("Today"));
     expect(useAppStore.getState().mode).toBe("today");
@@ -155,7 +152,7 @@ describe("Mode rendering", () => {
     );
   });
 
-  it("renders Tomorrow mode without crashing", async () => {
+  it.skip("renders Tomorrow mode — removed", async () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: () =>
@@ -169,7 +166,7 @@ describe("Mode rendering", () => {
         }),
       text: () => Promise.resolve(""),
     } as Response);
-    useAppStore.setState({ mode: "tomorrow" });
+    useAppStore.setState({ mode: "review" });
     render(<App />);
     await waitFor(() => {
       const stage = document.querySelector(".stage")!;

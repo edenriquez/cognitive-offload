@@ -30,7 +30,7 @@ import "./styles/map.css";
 const TodayMode = lazy(() => import("./components/modes/TodayMode"));
 
 const ReviewMode = lazy(() => import("./components/modes/ReviewMode"));
-const TomorrowMode = lazy(() => import("./components/modes/TomorrowMode"));
+
 const SourcesMode = lazy(() => import("./components/modes/SourcesMode"));
 const SettingsMode = lazy(() => import("./components/modes/SettingsMode"));
 const BlockBudgetMode = lazy(
@@ -45,14 +45,13 @@ const MODES: { id: Mode; label: string }[] = [
   { id: "map", label: "Map" },
 
   { id: "review", label: "Review" },
-  { id: "tomorrow", label: "Tomorrow" },
   { id: "threads", label: "Threads" },
   { id: "sources", label: "Sources" },
   { id: "settings", label: "Settings" },
 ];
 
 function suggestedMode(hour: number): Mode {
-  if (hour < 9) return "tomorrow";
+  if (hour < 9) return "review";
   if (hour < 17) return "blocks";
   if (hour < 20) return "review";
   return "today";
@@ -182,10 +181,9 @@ export default function App() {
       if (e.key === "2") setMode("today");
       if (e.key === "3") setMode("map");
       if (e.key === "4") setMode("review");
-      if (e.key === "5") setMode("tomorrow");
-      if (e.key === "6") setMode("threads");
-      if (e.key === "7") setMode("sources");
-      if (e.key === "8") setMode("settings");
+      if (e.key === "5") setMode("threads");
+      if (e.key === "6") setMode("sources");
+      if (e.key === "7") setMode("settings");
       if (e.key === "Escape") setMode("today");
     };
     window.addEventListener("keydown", onKey);
@@ -496,7 +494,7 @@ export default function App() {
               {mode === "map" && <MapMode />}
 
               {mode === "review" && <ReviewMode />}
-              {mode === "tomorrow" && <TomorrowMode />}
+
               {mode === "threads" && <ThreadsMode />}
               {mode === "sources" && <SourcesMode />}
               {mode === "settings" && <SettingsMode />}

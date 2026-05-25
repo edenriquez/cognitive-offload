@@ -3,7 +3,6 @@ export type Mode =
   | "today"
   | "map"
   | "review"
-  | "tomorrow"
   | "threads"
   | "sources"
   | "settings";
@@ -63,6 +62,8 @@ export interface Pattern {
   window: string;
   evidence: Record<string, unknown>;
   detected_at: string;
+  acknowledged: boolean;
+  dismissed: boolean;
 }
 
 export interface Leak {

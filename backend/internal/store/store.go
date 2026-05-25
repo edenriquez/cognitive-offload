@@ -68,15 +68,17 @@ func (d *DB) Migrate() error {
 	);
 
 	CREATE TABLE IF NOT EXISTS patterns (
-		id          TEXT PRIMARY KEY,
-		day         TEXT NOT NULL,
-		kind        TEXT NOT NULL,
-		severity    TEXT NOT NULL,
-		title       TEXT NOT NULL,
-		detail      TEXT NOT NULL DEFAULT '',
-		window      TEXT NOT NULL DEFAULT '',
-		evidence    TEXT NOT NULL DEFAULT '{}',
-		detected_at INTEGER NOT NULL
+		id           TEXT PRIMARY KEY,
+		day          TEXT NOT NULL,
+		kind         TEXT NOT NULL,
+		severity     TEXT NOT NULL,
+		title        TEXT NOT NULL,
+		detail       TEXT NOT NULL DEFAULT '',
+		window       TEXT NOT NULL DEFAULT '',
+		evidence     TEXT NOT NULL DEFAULT '{}',
+		detected_at  INTEGER NOT NULL,
+		acknowledged INTEGER NOT NULL DEFAULT 0,
+		dismissed    INTEGER NOT NULL DEFAULT 0
 	);
 	CREATE INDEX IF NOT EXISTS idx_patterns_day ON patterns(day);
 
@@ -204,7 +206,13 @@ func (d *DB) Migrate() error {
 	CREATE INDEX IF NOT EXISTS idx_task_edges_target ON task_edges(target_id);
 	`
 	_, err := d.db.Exec(schema)
-	return err
+	if err != nil {
+		return err
+	}
+	// Add new columns to existing tables (idempotent — ignore errors if already present)
+	d.db.ExecContext(context.Background(), `ALTER TABLE patterns ADD COLUMN acknowledged INTEGER NOT NULL DEFAULT 0`)
+	d.db.ExecContext(context.Background(), `ALTER TABLE patterns ADD COLUMN dismissed INTEGER NOT NULL DEFAULT 0`)
+	return nil
 }
 
 // ---------- Events ----------
@@ -450,7 +458,7 @@ func (d *DB) RecentCaptures(ctx context.Context, limit int) ([]models.Capture, e
 
 func (d *DB) PatternsByDay(ctx context.Context, day string) ([]models.Pattern, error) {
 	rows, err := d.db.QueryContext(ctx,
-		`SELECT id, day, kind, severity, title, detail, window, evidence, detected_at
+		`SELECT id, day, kind, severity, title, detail, window, evidence, detected_at, acknowledged, dismissed
 		 FROM patterns WHERE day = ? ORDER BY detected_at DESC`, day)
 	if err != nil {
 		return nil, err
@@ -462,14 +470,29 @@ func (d *DB) PatternsByDay(ctx context.Context, day string) ([]models.Pattern, e
 		var p models.Pattern
 		var evidenceStr string
 		var detectedAt int64
-		if err := rows.Scan(&p.ID, &p.Day, &p.Kind, &p.Severity, &p.Title, &p.Detail, &p.Window, &evidenceStr, &detectedAt); err != nil {
+		var acknowledged, dismissed int
+		if err := rows.Scan(&p.ID, &p.Day, &p.Kind, &p.Severity, &p.Title, &p.Detail, &p.Window, &evidenceStr, &detectedAt, &acknowledged, &dismissed); err != nil {
 			return nil, err
 		}
 		json.Unmarshal([]byte(evidenceStr), &p.Evidence)
 		p.DetectedAt = time.Unix(detectedAt, 0)
+		p.Acknowledged = acknowledged == 1
+		p.Dismissed = dismissed == 1
 		out = append(out, p)
 	}
 	return out, nil
+}
+
+func (d *DB) AcknowledgePattern(ctx context.Context, id string) error {
+	_, err := d.db.ExecContext(ctx,
+		`UPDATE patterns SET acknowledged = 1 WHERE id = ?`, id)
+	return err
+}
+
+func (d *DB) DismissPattern(ctx context.Context, id string) error {
+	_, err := d.db.ExecContext(ctx,
+		`UPDATE patterns SET dismissed = 1 WHERE id = ?`, id)
+	return err
 }
 
 func (d *DB) InsertPattern(ctx context.Context, p models.Pattern) error {

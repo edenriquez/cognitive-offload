@@ -137,6 +137,17 @@ export const api = {
   getReview: (day: string) =>
     request<ReviewSummary>("GET", `/api/v1/review/${day}`),
 
+  acknowledgePattern: (id: string) =>
+    request<{ status: string }>(
+      "POST",
+      `/api/v1/review/patterns/${id}/acknowledge`,
+    ),
+  dismissPattern: (id: string) =>
+    request<{ status: string }>(
+      "POST",
+      `/api/v1/review/patterns/${id}/dismiss`,
+    ),
+
   // ---------- Tomorrow ----------
   getTomorrow: () => request<Plan>("GET", "/api/v1/tomorrow"),
 

@@ -3174,3 +3174,653 @@
     margin-top: 6px;
     letter-spacing: -0.14px;
 }
+
+/* ============================================================
+   REVIEW MODE — Redesign (rv-* classes)
+   Reflect → Decide → Commit
+============================================================ */
+
+.rv {
+    min-height: 100%;
+    padding: 40px 48px 80px;
+}
+
+.rv-inner {
+    max-width: 680px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* Header */
+.rv-header {
+    margin-bottom: 32px;
+}
+
+.rv-h {
+    font-family: var(--font-tiempos);
+    font-feature-settings: normal;
+    font-weight: 400;
+    font-size: 36px;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+    color: var(--color-ink);
+    margin: 0 0 4px;
+}
+
+.rv-date {
+    display: block;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--color-carbon);
+    letter-spacing: -0.14px;
+    margin-bottom: 3px;
+}
+
+.rv-sub {
+    display: block;
+    font-size: 12px;
+    color: var(--color-overcast);
+    letter-spacing: -0.12px;
+}
+
+.rv-loading,
+.rv-empty {
+    font-size: 13px;
+    color: var(--color-overcast);
+    padding: 48px 0;
+}
+
+/* Sections */
+.rv-section {
+    padding: 28px 0;
+    border-bottom: 1px solid var(--color-stone);
+}
+
+.rv-section:last-child {
+    border-bottom: none;
+}
+
+.rv-section--stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    padding: 0;
+}
+
+.rv-section-h {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-overcast);
+    margin: 0 0 6px;
+}
+
+.rv-section-sub {
+    font-size: 13px;
+    color: var(--color-carbon);
+    margin: 0 0 16px;
+    line-height: 1.5;
+    letter-spacing: -0.13px;
+}
+
+/* Signal cards container */
+.rv-signals {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Open threads panel */
+.rv-threads-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--color-ash);
+    border: 1px solid var(--color-stone);
+    border-radius: var(--radius-cards);
+    margin-bottom: 16px;
+}
+
+.rv-threads-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.rv-threads-count {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-ink);
+    letter-spacing: -0.13px;
+}
+
+.rv-threads-preview {
+    font-size: 12px;
+    color: var(--color-overcast);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rv-threads-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.rv-threads-btn {
+    font-family: var(--font-inter);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: var(--radius-buttons);
+    background: var(--color-ink);
+    color: var(--color-white);
+    border: 1px solid var(--color-ink);
+    cursor: pointer;
+    letter-spacing: -0.12px;
+    transition: background 0.12s;
+}
+
+.rv-threads-btn:hover {
+    background: #000;
+}
+
+.rv-threads-btn--ghost {
+    background: var(--color-white);
+    color: var(--color-carbon);
+    border-color: var(--color-slate);
+}
+
+.rv-threads-btn--ghost:hover {
+    background: var(--color-ash);
+}
+
+/* Tomorrow CTA */
+.rv-tomorrow-cta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 0 0;
+}
+
+.rv-cta-eye {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-overcast);
+    margin-bottom: 4px;
+}
+
+.rv-cta-line {
+    font-size: 14px;
+    color: var(--color-carbon);
+    letter-spacing: -0.14px;
+}
+
+/* ── Arc Strip ────────────────────────────────────────────── */
+
+.arc-strip {
+    width: 100%;
+}
+
+.arc-sentence {
+    font-size: 13px;
+    color: var(--color-carbon);
+    line-height: 1.55;
+    letter-spacing: -0.13px;
+    margin: 10px 0 0;
+}
+
+/* ── Insight Stat ─────────────────────────────────────────── */
+
+.insight-stat {
+    padding: 20px 24px;
+    border-right: 1px solid var(--color-stone);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.insight-stat:last-child {
+    border-right: none;
+}
+
+.insight-stat-value {
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.8px;
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.insight-stat-value--danger {
+    color: var(--color-danger-red);
+}
+
+.insight-stat-label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-overcast);
+    margin-bottom: 6px;
+}
+
+.insight-stat-footer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.insight-stat-dir {
+    display: flex;
+    align-items: center;
+    color: var(--color-lead);
+}
+
+.insight-stat-dir.good {
+    color: var(--color-success-green);
+}
+.insight-stat-dir.bad {
+    color: var(--color-danger-red);
+}
+
+/* ── Signal Card ──────────────────────────────────────────── */
+
+.signal-card {
+    border: 1px solid var(--color-stone);
+    border-radius: var(--radius-cards);
+    background: var(--color-white);
+    overflow: hidden;
+    transition: border-color 0.12s var(--ease);
+}
+
+.signal-card--high {
+    border-left: 3px solid var(--color-danger-red);
+}
+
+.signal-card--open {
+    border-color: var(--color-slate);
+    box-shadow: var(--shadow-subtle-2);
+}
+
+.signal-card--dismissed {
+    background: var(--color-ash);
+    border-color: var(--color-stone);
+    padding: 10px 14px;
+}
+
+.signal-card-dismissed-label {
+    font-size: 12px;
+    color: var(--color-lead);
+    letter-spacing: -0.12px;
+}
+
+.signal-card--acknowledged {
+    background: var(--color-ash);
+    border-color: var(--color-stone);
+    padding: 10px 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.signal-card-ack-icon {
+    color: var(--color-success-green);
+    display: flex;
+    align-items: center;
+    margin-top: 1px;
+    flex-shrink: 0;
+}
+
+.signal-card-ack-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-carbon);
+    letter-spacing: -0.12px;
+}
+
+.signal-card-ack-commit {
+    display: block;
+    font-size: 11px;
+    color: var(--color-overcast);
+    margin-top: 2px;
+}
+
+/* Card header (always visible) */
+.signal-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 14px;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.signal-card-header:hover {
+    background: var(--color-ash);
+}
+
+.signal-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-tags);
+    background: var(--color-ash);
+    color: var(--color-carbon);
+    flex-shrink: 0;
+}
+
+.signal-card-icon--high {
+    background: #fef2f2;
+    color: var(--color-danger-red);
+}
+
+.signal-card-header-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.signal-card-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-ink);
+    letter-spacing: -0.13px;
+}
+
+.signal-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.signal-card-sev {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-overcast);
+}
+
+.signal-card-sev--high {
+    color: var(--color-danger-red);
+}
+.signal-card-sev--medium {
+    color: var(--color-warning-yellow);
+}
+.signal-card-sev--low {
+    color: var(--color-lead);
+}
+
+.signal-card-window {
+    font-size: 11px;
+    color: var(--color-overcast);
+    font-variant-numeric: tabular-nums;
+}
+
+.signal-card-chevron {
+    color: var(--color-lead);
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    transition: color 0.12s;
+}
+
+.signal-card-header:hover .signal-card-chevron {
+    color: var(--color-carbon);
+}
+
+/* Expanded body */
+.signal-card-body {
+    padding: 0 14px 14px;
+    border-top: 1px solid var(--color-stone);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.signal-card-detail {
+    font-size: 12px;
+    color: var(--color-carbon);
+    line-height: 1.5;
+    margin: 12px 0 0;
+    letter-spacing: -0.12px;
+}
+
+.signal-card-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.signal-card-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-overcast);
+}
+
+.signal-card-section-text {
+    font-size: 13px;
+    color: var(--color-carbon);
+    line-height: 1.55;
+    letter-spacing: -0.13px;
+    margin: 0;
+}
+
+.signal-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 4px;
+}
+
+.signal-card-btn {
+    font-family: var(--font-inter);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 13px;
+    border-radius: var(--radius-buttons);
+    cursor: pointer;
+    letter-spacing: -0.12px;
+    transition:
+        background 0.12s,
+        border-color 0.12s;
+}
+
+.signal-card-btn--primary {
+    background: var(--color-ink);
+    color: var(--color-white);
+    border: 1px solid var(--color-ink);
+}
+
+.signal-card-btn--primary:hover {
+    background: #000;
+}
+
+.signal-card-btn--ghost {
+    background: transparent;
+    color: var(--color-overcast);
+    border: 1px solid transparent;
+}
+
+.signal-card-btn--ghost:hover {
+    color: var(--color-carbon);
+    border-color: var(--color-stone);
+    background: var(--color-ash);
+}
+
+.signal-card-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ── Commitment Card ──────────────────────────────────────── */
+
+.commitment-card {
+    border: 1px solid var(--color-stone);
+    border-radius: var(--radius-cards);
+    background: var(--color-white);
+    padding: 18px 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: var(--shadow-subtle-2);
+}
+
+.commitment-card--done {
+    background: var(--color-ash);
+    border-color: var(--color-stone);
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+}
+
+.commitment-done-icon {
+    color: var(--color-success-green);
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.commitment-done-text {
+    font-size: 13px;
+    color: var(--color-carbon);
+    letter-spacing: -0.13px;
+}
+
+.commitment-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-overcast);
+}
+
+.commitment-text-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.commitment-text {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--color-ink);
+    letter-spacing: -0.3px;
+    line-height: 1.3;
+    cursor: text;
+}
+
+.commitment-edit-btn {
+    display: flex;
+    align-items: center;
+    color: var(--color-lead);
+    padding: 2px;
+    border-radius: 3px;
+    transition: color 0.12s;
+    flex-shrink: 0;
+}
+
+.commitment-edit-btn:hover {
+    color: var(--color-carbon);
+}
+
+.commitment-input {
+    font-family: var(--font-inter);
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.3px;
+    color: var(--color-ink);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid var(--color-action-blue);
+    outline: none;
+    padding: 2px 0;
+    width: 100%;
+}
+
+.commitment-why {
+    font-size: 13px;
+    color: var(--color-carbon);
+    line-height: 1.55;
+    letter-spacing: -0.13px;
+    margin: 0;
+}
+
+.commitment-metric {
+    font-size: 11px;
+    color: var(--color-overcast);
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.commitment-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 4px;
+}
+
+.commitment-btn {
+    font-family: var(--font-inter);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: var(--radius-buttons);
+    cursor: pointer;
+    letter-spacing: -0.13px;
+    transition:
+        background 0.12s,
+        border-color 0.12s;
+}
+
+.commitment-btn--primary {
+    background: var(--color-ink);
+    color: var(--color-white);
+    border: 1px solid var(--color-ink);
+}
+
+.commitment-btn--primary:hover {
+    background: #000;
+}
+
+.commitment-btn--ghost {
+    background: transparent;
+    color: var(--color-overcast);
+    border: 1px solid transparent;
+}
+
+.commitment-btn--ghost:hover {
+    color: var(--color-carbon);
+    border-color: var(--color-stone);
+    background: var(--color-ash);
+}
+
+.commitment-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
