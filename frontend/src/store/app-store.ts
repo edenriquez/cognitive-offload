@@ -14,7 +14,8 @@ interface AppState {
 
   // Focus
   focus: FocusState;
-  startFocus: (task: string) => void;
+  startFocus: (task: string, durationSecs?: number) => void;
+  setFocusDuration: (secs: number) => void;
   pauseFocus: () => void;
   resumeFocus: () => void;
   exitFocus: (outcome: "done" | "paused") => void;
@@ -82,25 +83,28 @@ export const useAppStore = create<AppState>((set, get) => ({
     isPaused: false,
     sessionId: null,
   },
-  startFocus: (task) => {
+  startFocus: (task, durationSecs) => {
     const current = get().focus;
+    const dur = durationSecs ?? FOCUS_BLOCK_SECS;
     if (
       current.task === task &&
       current.remainingSecs > 0 &&
-      current.remainingSecs < FOCUS_BLOCK_SECS
+      current.remainingSecs < dur
     ) {
       set({ focus: { ...current, isPaused: false } });
     } else {
       set({
         focus: {
           task,
-          remainingSecs: FOCUS_BLOCK_SECS,
+          remainingSecs: dur,
           isPaused: false,
           sessionId: null,
         },
       });
     }
   },
+  setFocusDuration: (secs) =>
+    set((s) => ({ focus: { ...s.focus, remainingSecs: secs } })),
   pauseFocus: () => {
     set((s) => ({ focus: { ...s.focus, isPaused: true } }));
   },

@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import dagre from "@dagrejs/dagre";
 import {
   ReactFlow,
   Background,
@@ -23,9 +24,11 @@ import TaskNode, {
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const GRID_COL = 280;
-const GRID_ROW = 140;
+const NODE_W = 240;
+const NODE_H = 72;
 const nodeTypes = { task: TaskNode } as const;
+
+type LayoutDirection = "free" | "LR";
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 
@@ -150,68 +153,126 @@ function IconUnlink() {
   );
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── Time helpers ─────────────────────────────────────────────────────────────
 
-function loadPositions(): Record<string, { x: number; y: number }> {
+function nowHour(): number {
+  const n = new Date();
+  return n.getHours() + n.getMinutes() / 60;
+}
+
+function isTaskLocked(
+  task: { kind: string },
+  hour: number,
+  lunchStart: number,
+  lunchEnd: number,
+  cutoffHour: number,
+): "lunch" | "cutoff" | null {
+  if (hour >= lunchStart && hour < lunchEnd) return "lunch";
+  if (hour >= cutoffHour && task.kind === "must") return "cutoff";
+  return null;
+}
+
+function fmtSecs(s: number): string {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
+
+function fmtHour(h: number): string {
+  const hh = Math.floor(h);
+  const mm = Math.round((h % 1) * 60);
+  const ampm = hh >= 12 ? "PM" : "AM";
+  const display = hh > 12 ? hh - 12 : hh === 0 ? 12 : hh;
+  return mm > 0
+    ? `${display}:${String(mm).padStart(2, "0")} ${ampm}`
+    : `${display} ${ampm}`;
+}
+
+function fmtAccum(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+const DURATION_PRESETS = [
+  { label: "15m", secs: 900 },
+  { label: "30m", secs: 1800 },
+  { label: "45m", secs: 2700 },
+  { label: "1h", secs: 3600 },
+  { label: "1.5h", secs: 5400 },
+  { label: "2h", secs: 7200 },
+];
+
+const CATEGORY_FOR_KIND: Record<string, string> = {
+  must: "work",
+  personal: "side_project",
+  small: "work",
+};
+
+// sessionStorage time accumulator
+const TIME_STORAGE_KEY = "cogload_time_today";
+
+function loadAccumulated(): Record<string, number> {
   try {
-    return JSON.parse(
-      localStorage.getItem("cogload_map_positions") ?? "{}",
-    ) as Record<string, { x: number; y: number }>;
+    const raw = sessionStorage.getItem(TIME_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, number>) : {};
   } catch {
     return {};
   }
 }
 
-function savePositions(pos: Record<string, { x: number; y: number }>) {
-  localStorage.setItem("cogload_map_positions", JSON.stringify(pos));
+function saveAccumulated(acc: Record<string, number>) {
+  try {
+    sessionStorage.setItem(TIME_STORAGE_KEY, JSON.stringify(acc));
+  } catch {}
 }
 
-function autoLayoutPositions(
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+const POS_KEY_FREE = "cogload_map_pos_free";
+
+function loadFreePositions(): Record<string, { x: number; y: number }> {
+  try {
+    return JSON.parse(localStorage.getItem(POS_KEY_FREE) ?? "{}") as Record<
+      string,
+      { x: number; y: number }
+    >;
+  } catch {
+    return {};
+  }
+}
+
+function saveFreePositions(pos: Record<string, { x: number; y: number }>) {
+  localStorage.setItem(POS_KEY_FREE, JSON.stringify(pos));
+}
+
+function dagreLayout(
   tasks: Task[],
   edges: TaskEdge[],
+  direction: "LR" | "TB",
 ): Record<string, { x: number; y: number }> {
-  const inDeg: Record<string, number> = {};
-  const adj: Record<string, string[]> = {};
-  tasks.forEach((t) => {
-    inDeg[t.id] = 0;
-    adj[t.id] = [];
-  });
-  edges.forEach((e) => {
-    if (adj[e.source_id]) adj[e.source_id].push(e.target_id);
-    inDeg[e.target_id] = (inDeg[e.target_id] ?? 0) + 1;
+  const g = new dagre.graphlib.Graph();
+  g.setDefaultEdgeLabel(() => ({}));
+  g.setGraph({
+    rankdir: direction,
+    nodesep: direction === "LR" ? 40 : 60,
+    ranksep: direction === "LR" ? 100 : 80,
+    marginx: 40,
+    marginy: 40,
   });
 
-  const layer: Record<string, number> = {};
-  const queue = tasks.filter((t) => (inDeg[t.id] ?? 0) === 0).map((t) => t.id);
-  queue.forEach((id) => (layer[id] = 0));
-  let head = 0;
-  while (head < queue.length) {
-    const id = queue[head++];
-    (adj[id] ?? []).forEach((child) => {
-      const next = (layer[id] ?? 0) + 1;
-      if (layer[child] === undefined || layer[child] < next) {
-        layer[child] = next;
-        queue.push(child);
-      }
-    });
-  }
+  tasks.forEach((t) => g.setNode(t.id, { width: NODE_W, height: NODE_H }));
+  edges.forEach((e) => g.setEdge(e.source_id, e.target_id));
 
-  const byLayer: Record<number, string[]> = {};
-  tasks.forEach((t) => {
-    const l = layer[t.id] ?? 0;
-    if (!byLayer[l]) byLayer[l] = [];
-    byLayer[l].push(t.id);
-  });
+  dagre.layout(g);
 
   const pos: Record<string, { x: number; y: number }> = {};
-  Object.entries(byLayer).forEach(([lStr, ids]) => {
-    const l = Number(lStr);
-    ids.forEach((id, i) => {
-      pos[id] = {
-        x: i * GRID_COL - ((ids.length - 1) * GRID_COL) / 2,
-        y: l * GRID_ROW,
-      };
-    });
+  tasks.forEach((t) => {
+    const node = g.node(t.id);
+    if (node) {
+      // dagre centres nodes — convert to top-left origin for React Flow
+      pos[t.id] = { x: node.x - NODE_W / 2, y: node.y - NODE_H / 2 };
+    }
   });
   return pos;
 }
@@ -239,7 +300,91 @@ function toFlowEdge(e: TaskEdge): Edge {
   };
 }
 
-// ── Edge kind popover ──────────────────────────────────────────────────────────
+// ── Day Timeline strip ────────────────────────────────────────────────────────────────────
+
+function DayTimeline({
+  now,
+  workdayStart,
+  workdayEnd,
+  lunchStart,
+  lunchEnd,
+  cutoffHour,
+}: {
+  now: Date;
+  workdayStart: number;
+  workdayEnd: number;
+  lunchStart: number;
+  lunchEnd: number;
+  cutoffHour: number;
+}) {
+  const span = workdayEnd - workdayStart;
+  const toX = (h: number) =>
+    `${Math.max(0, Math.min(100, ((h - workdayStart) / span) * 100))}%`;
+
+  const nowH = now.getHours() + now.getMinutes() / 60;
+  const isLunch = nowH >= lunchStart && nowH < lunchEnd;
+  const isPastCutoff = nowH >= cutoffHour;
+
+  const tickHours: number[] = [];
+  for (let h = Math.ceil(workdayStart); h <= workdayEnd; h++) {
+    tickHours.push(h);
+  }
+
+  return (
+    <div className="day-timeline" aria-hidden="true">
+      {/* Lunch band */}
+      <div
+        className={`day-tl-band day-tl-band--lunch${isLunch ? " day-tl-band--blink" : ""}`}
+        style={{
+          left: toX(lunchStart),
+          width: `calc(${toX(lunchEnd)} - ${toX(lunchStart)})`,
+        }}
+      />
+
+      {/* Post-cutoff band */}
+      {isPastCutoff && (
+        <div
+          className="day-tl-band day-tl-band--cutoff"
+          style={{ left: toX(cutoffHour), right: 0 }}
+        />
+      )}
+
+      {/* Hour ticks */}
+      {tickHours.map((h) => (
+        <div key={h} className="day-tl-tick" style={{ left: toX(h) }}>
+          <span className="day-tl-tick-label">{fmtHour(h)}</span>
+        </div>
+      ))}
+
+      {/* Cutoff marker */}
+      <div className="day-tl-cutoff-line" style={{ left: toX(cutoffHour) }}>
+        <span className="day-tl-cutoff-label">cutoff</span>
+      </div>
+
+      {/* Now caret */}
+      {nowH >= workdayStart && nowH <= workdayEnd && (
+        <div
+          className={`day-tl-now${isPastCutoff ? " day-tl-now--over" : ""}`}
+          style={{ left: toX(nowH) }}
+        >
+          <span className="day-tl-now-label">{fmtHour(nowH)}</span>
+        </div>
+      )}
+
+      {/* Lunch label */}
+      {isLunch && (
+        <div
+          className="day-tl-lunch-label"
+          style={{ left: `calc(${toX(lunchStart)} + 4px)` }}
+        >
+          Lunch break
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Edge kind popover ────────────────────────────────────────────────────────────────────
 
 function EdgePopover({
   x,
@@ -524,7 +669,479 @@ function InsertOnEdgePopover({
   );
 }
 
-// ── Add Task panel ─────────────────────────────────────────────────────────────
+// ── Ambient sidebar (nothing selected) ────────────────────────────────────────────────────────────
+
+type BlockConfigShape = {
+  allocations: {
+    category: string;
+    label: string;
+    color: string;
+    pct: number;
+  }[];
+  workday_start_hour: number;
+  workday_end_hour: number;
+};
+
+function AmbientSidebar({
+  accumulated,
+  blockConfig,
+  allTasks,
+  now,
+  lunchStart,
+  lunchEnd,
+  cutoffHour,
+  onSelectHint,
+}: {
+  accumulated: Record<string, number>;
+  blockConfig: BlockConfigShape | null;
+  allTasks: Task[];
+  now: Date;
+  lunchStart: number;
+  lunchEnd: number;
+  cutoffHour: number;
+  onSelectHint?: string;
+}) {
+  const nowH = now.getHours() + now.getMinutes() / 60;
+  const isLunch = nowH >= lunchStart && nowH < lunchEnd;
+  const isPastCutoff = nowH >= cutoffHour;
+
+  const workdayHours = blockConfig
+    ? blockConfig.workday_end_hour - blockConfig.workday_start_hour
+    : 8;
+  const workdaySecs = workdayHours * 3600;
+
+  const allocs = blockConfig?.allocations ?? [
+    { category: "work", label: "Work", color: "#6b8cce", pct: 60 },
+    {
+      category: "side_project",
+      label: "Side project",
+      color: "#ce6b8c",
+      pct: 40,
+    },
+  ];
+
+  const rows = allocs.filter(
+    (a) => a.category === "work" || a.category === "side_project",
+  );
+
+  return (
+    <div className="mcp mcp--ambient">
+      {/* Status indicator */}
+      {isLunch && (
+        <div className="mcp-lunch-card">
+          <div className="mcp-lunch-title">Lunch break</div>
+          <div className="mcp-lunch-until">Resumes at {fmtHour(lunchEnd)}</div>
+        </div>
+      )}
+      {!isLunch && isPastCutoff && (
+        <div className="mcp-cutoff-card">
+          <div className="mcp-cutoff-title">Work time done</div>
+          <div className="mcp-cutoff-sub">Side project tasks only</div>
+        </div>
+      )}
+
+      {/* Budget bars — task counts by category */}
+      <div className="mcp-section">
+        <div className="mcp-section-label">Today's progress</div>
+        {rows.map((a) => {
+          // Tasks belonging to this category
+          const catKinds =
+            a.category === "work"
+              ? ["must", "small"]
+              : a.category === "side_project"
+                ? ["personal"]
+                : [];
+          const catTasks = allTasks.filter((t) => catKinds.includes(t.kind));
+          const total = catTasks.length;
+          const done = catTasks.filter((t) => t.done).length;
+          const pct = total > 0 ? Math.min(100, (done / total) * 100) : 0;
+          return (
+            <div key={a.category} className="mcp-budget-row">
+              <div className="mcp-budget-header">
+                <span className="mcp-budget-label">{a.label}</span>
+                <span className="mcp-budget-value">
+                  {done}/{total} tasks
+                </span>
+              </div>
+              <div className="mcp-budget-track">
+                <div
+                  className="mcp-budget-fill"
+                  style={{ width: `${pct}%`, backgroundColor: a.color }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Day info */}
+      <div className="mcp-section">
+        <div className="mcp-section-label">Day info</div>
+        <div className="mcp-info-row">
+          <span className="mcp-info-key">Time of day</span>
+          <span className="mcp-info-val">{fmtHour(nowH)}</span>
+        </div>
+        <div className="mcp-info-row">
+          <span className="mcp-info-key">Workday ends</span>
+          <span className="mcp-info-val">{fmtHour(cutoffHour)}</span>
+        </div>
+        <div className="mcp-info-row">
+          <span className="mcp-info-key">Lunch</span>
+          <span className="mcp-info-val">
+            {fmtHour(lunchStart)}–{fmtHour(lunchEnd)}
+          </span>
+        </div>
+      </div>
+
+      {/* Hint */}
+      <div className="mcp-hint">
+        {onSelectHint ?? "Select a task to start focusing"}
+      </div>
+    </div>
+  );
+}
+
+// ── Task control panel (node selected) ────────────────────────────────────────────────────────────
+
+function TaskControlPanel({
+  task,
+  edges,
+  tasks,
+  allTasks,
+  focus,
+  accumulated,
+  blockConfig,
+  locked,
+  onStartFocus,
+  onPauseFocus,
+  onCompleteFocus,
+  onDeleteEdge,
+  onDeleteTask,
+  onSelectTask,
+  onClose,
+}: {
+  task: Task;
+  edges: TaskEdge[];
+  tasks: Task[];
+  allTasks: Task[];
+  focus: { task: string | null; remainingSecs: number; isPaused: boolean };
+  accumulated: Record<string, number>;
+  blockConfig: BlockConfigShape | null;
+  locked: "lunch" | "cutoff" | null;
+  onStartFocus: (taskId: string, durationSecs: number) => void;
+  onPauseFocus: () => void;
+  onCompleteFocus: (taskId: string) => void;
+  onDeleteEdge: (id: string) => void;
+  onDeleteTask: (taskId: string) => void;
+  onSelectTask: (id: string) => void;
+  onClose: () => void;
+}) {
+  const [durIdx, setDurIdx] = useState(4); // default 1.5h = index 4
+  const isThisTaskFocused = focus.task === task.text;
+  const isRunning = isThisTaskFocused && !focus.isPaused;
+  const isPaused = isThisTaskFocused && focus.isPaused;
+
+  const taskMap = Object.fromEntries(tasks.map((t) => [t.id, t]));
+  const blockedBy = edges.filter(
+    (e) => e.target_id === task.id && e.kind === "blocks",
+  );
+  const blocking = edges.filter(
+    (e) => e.source_id === task.id && e.kind === "blocks",
+  );
+
+  const category = CATEGORY_FOR_KIND[task.kind] ?? "work";
+  const alloc = blockConfig?.allocations.find((a) => a.category === category);
+
+  // Task count progress for this task's category
+  const catKinds =
+    category === "work"
+      ? ["must", "small"]
+      : category === "side_project"
+        ? ["personal"]
+        : [];
+  const catTasks = allTasks.filter((t) => catKinds.includes(t.kind));
+  const catTotal = catTasks.length;
+  const catDone = catTasks.filter((t) => t.done).length;
+  const budgetPct =
+    catTotal > 0 ? Math.min(100, (catDone / catTotal) * 100) : 0;
+
+  const totalDur = DURATION_PRESETS[durIdx]?.secs ?? 5400;
+  const elapsed = isThisTaskFocused ? totalDur - focus.remainingSecs : 0;
+  const progressPct = isThisTaskFocused
+    ? Math.min(100, (elapsed / totalDur) * 100)
+    : 0;
+
+  return (
+    <div className="mcp">
+      {/* Header */}
+      <div className="mcp-header">
+        <button className="mcp-back" onClick={onClose}>
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M10 3L5 8l5 5" />
+          </svg>
+        </button>
+        <span className={`mcp-kind mcp-kind--${task.kind}`}>{task.kind}</span>
+        <button
+          className="mcp-delete-btn"
+          onClick={() => onDeleteTask(task.id)}
+          title="Delete task"
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 4h10M6 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1" />
+            <path d="M5 4l.5 9h5l.5-9" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="mcp-task-name">{task.text}</div>
+
+      {/* Lunch lock */}
+      {locked === "lunch" && (
+        <div className="mcp-lock-card mcp-lock-card--lunch">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="3" y="7" width="10" height="8" rx="1.5" />
+            <path d="M5 7V5a3 3 0 0 1 6 0v2" />
+          </svg>
+          Paused for lunch break
+        </div>
+      )}
+
+      {/* Cutoff lock */}
+      {locked === "cutoff" && (
+        <div className="mcp-lock-card mcp-lock-card--cutoff">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="3" y="7" width="10" height="8" rx="1.5" />
+            <path d="M5 7V5a3 3 0 0 1 6 0v2" />
+          </svg>
+          Work time ended — switch to personal tasks
+        </div>
+      )}
+
+      {/* Timer block */}
+      {!locked && (
+        <>
+          {isThisTaskFocused ? (
+            <div className="mcp-timer-block">
+              <div className="mcp-countdown">
+                {fmtSecs(focus.remainingSecs)}
+              </div>
+              <div className="mcp-timer-meta">
+                remaining of {DURATION_PRESETS[durIdx]?.label ?? "—"}
+              </div>
+              <div className="mcp-timer-track">
+                <div
+                  className="mcp-timer-fill"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="mcp-duration-block">
+              <div className="mcp-duration-label">Focus duration</div>
+              <div className="mcp-duration-presets">
+                {DURATION_PRESETS.map((p, i) => (
+                  <button
+                    key={p.secs}
+                    className={`mcp-preset${durIdx === i ? " mcp-preset--on" : ""}`}
+                    onClick={() => setDurIdx(i)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Action button */}
+          <div className="mcp-actions">
+            {isRunning ? (
+              <>
+                <button
+                  className="mcp-btn mcp-btn--pause"
+                  onClick={onPauseFocus}
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  >
+                    <path d="M5 3v10M11 3v10" />
+                  </svg>
+                  Pause
+                </button>
+                <button
+                  className="mcp-btn mcp-btn--done"
+                  onClick={() => onCompleteFocus(task.id)}
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 8l4 4 6-7" />
+                  </svg>
+                  Done
+                </button>
+              </>
+            ) : (
+              <button
+                className="mcp-btn mcp-btn--start"
+                onClick={() =>
+                  onStartFocus(task.id, DURATION_PRESETS[durIdx]?.secs ?? 5400)
+                }
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M4 2l10 6-10 6V2z" />
+                </svg>
+                {isPaused ? "Resume" : "Start"}
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Category task progress */}
+      {alloc && catTotal > 0 && (
+        <div className="mcp-section mcp-section--budget">
+          <div className="mcp-section-label">Today on {alloc.label}</div>
+          <div className="mcp-budget-header">
+            <span />
+            <span className="mcp-budget-value">
+              {catDone}/{catTotal} tasks
+            </span>
+          </div>
+          <div className="mcp-budget-track">
+            <div
+              className="mcp-budget-fill"
+              style={{ width: `${budgetPct}%`, backgroundColor: alloc.color }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Dependencies */}
+      {blockedBy.length > 0 && (
+        <div className="mcp-section">
+          <div className="mcp-section-label">Blocked by</div>
+          {blockedBy.map((e) => {
+            const t = taskMap[e.source_id];
+            return t ? (
+              <button
+                key={e.id}
+                className="mcp-dep-row"
+                onClick={() => onSelectTask(t.id)}
+              >
+                <span className="mcp-dep-text">{t.text}</span>
+                <span className="mcp-dep-arrow">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 8h10M9 4l4 4-4 4" />
+                  </svg>
+                </span>
+              </button>
+            ) : null;
+          })}
+        </div>
+      )}
+
+      {blocking.length > 0 && (
+        <div className="mcp-section">
+          <div className="mcp-section-label">Unlocks</div>
+          {blocking.map((e) => {
+            const t = taskMap[e.target_id];
+            return t ? (
+              <button
+                key={e.id}
+                className="mcp-dep-row"
+                onClick={() => onSelectTask(t.id)}
+              >
+                <span className="mcp-dep-text">{t.text}</span>
+                <span className="mcp-dep-arrow">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 8h10M9 4l4 4-4 4" />
+                  </svg>
+                </span>
+              </button>
+            ) : null;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Add Task panel ────────────────────────────────────────────────────────────────────
 
 function AddTaskPanel({
   onAdd,
@@ -595,7 +1212,7 @@ function AddTaskPanel({
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function MapMode() {
-  const { focus } = useAppStore();
+  const { focus, startFocus, pauseFocus, exitFocus } = useAppStore();
 
   const [graph, setGraph] = useState<TaskGraph | null>(null);
   const [readyIds, setReadyIds] = useState<Set<string>>(new Set());
@@ -615,6 +1232,7 @@ export default function MapMode() {
     y: number;
   } | null>(null);
   const [showAddPanel, setShowAddPanel] = useState(false);
+  const [layoutDir, setLayoutDir] = useState<LayoutDirection>("LR");
   const [insertOnEdge, setInsertOnEdge] = useState<{
     edgeId: string;
     sourceId: string;
@@ -624,7 +1242,17 @@ export default function MapMode() {
     y: number;
   } | null>(null);
 
-  // ── Build nodes ────────────────────────────────────────────────────────────
+  // ── New state: time tracking, config, clock ──────────────────────────────────────────
+
+  const [accumulated, setAccumulated] =
+    useState<Record<string, number>>(loadAccumulated);
+  const [blockConfig, setBlockConfig] = useState<BlockConfigShape | null>(null);
+  const [lunchStart, setLunchStart] = useState(12.5);
+  const [lunchEnd, setLunchEnd] = useState(13.5);
+  const [cutoffHour, setCutoffHour] = useState(16.5);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // ── Build nodes ────────────────────────────────────────────────────────────────────
 
   const buildNodes = useCallback(
     (
@@ -638,14 +1266,16 @@ export default function MapMode() {
           id: task.id,
           type: "task",
           position: pos[task.id] ?? {
-            x: (i % 4) * GRID_COL,
-            y: Math.floor(i / 4) * GRID_ROW,
+            x: (i % 4) * (NODE_W + 60),
+            y: Math.floor(i / 4) * (NODE_H + 60),
           },
           data: {
             task,
             estimate: undefined,
             isReady: readySet.has(task.id),
             isFocused: focusTask === task.text,
+            isPaused: false,
+            locked: null,
           },
         }),
       ),
@@ -668,10 +1298,14 @@ export default function MapMode() {
         setRawTasks(g.tasks);
         setRawEdges(g.edges);
         setReadyIds(readySet);
-        const saved = loadPositions();
-        const pos = g.tasks.some((t) => saved[t.id])
-          ? saved
-          : autoLayoutPositions(g.tasks, g.edges);
+        const savedFree = loadFreePositions();
+        const hasSavedFree = g.tasks.some((t) => savedFree[t.id]);
+        // Free positions exist → use them (and start in free mode)
+        // Otherwise default to LR dagre (no positions written until user drags)
+        const pos = hasSavedFree
+          ? savedFree
+          : dagreLayout(g.tasks, g.edges, "LR");
+        if (hasSavedFree) setLayoutDir("free");
         setNodes(buildNodes(g, readySet, pos, focus.task));
         setEdges(g.edges.map(toFlowEdge));
       } catch {
@@ -687,16 +1321,106 @@ export default function MapMode() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Fetch block config + app config on mount ──────────────────────────────────
+
+  useEffect(() => {
+    api
+      .getBlockConfig()
+      .then(setBlockConfig)
+      .catch(() => {});
+    api
+      .getConfig()
+      .then((c) => {
+        if (c.lunch_start) setLunchStart(c.lunch_start);
+        if (c.lunch_end) setLunchEnd(c.lunch_end);
+        if (c.cutoff_hour) setCutoffHour(c.cutoff_hour);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Clock tick ────────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    const t = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // ── Time accumulator ────────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!focus.task || focus.isPaused) return;
+    const runningTask = rawTasks.find((t) => t.text === focus.task);
+    if (!runningTask) return;
+    const category = CATEGORY_FOR_KIND[runningTask.kind] ?? "work";
+    const t = setInterval(() => {
+      setAccumulated((prev) => {
+        const next = { ...prev, [category]: (prev[category] ?? 0) + 1 };
+        saveAccumulated(next);
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [focus.task, focus.isPaused, rawTasks]);
+
+  // ── Auto-pause on lunch ───────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    const h = currentTime.getHours() + currentTime.getMinutes() / 60;
+    if (h >= lunchStart && h < lunchEnd && focus.task && !focus.isPaused) {
+      pauseFocus();
+      api.stopFocus("paused").catch(() => {});
+    }
+  }, [
+    currentTime,
+    lunchStart,
+    lunchEnd,
+    focus.task,
+    focus.isPaused,
+    pauseFocus,
+  ]);
+
+  // ── Lock states per task ────────────────────────────────────────────────────────────────────
+
+  const lockedStates = useMemo(() => {
+    const h = currentTime.getHours() + currentTime.getMinutes() / 60;
+    const result: Record<string, "lunch" | "cutoff" | null> = {};
+    rawTasks.forEach((t) => {
+      result[t.id] = isTaskLocked(t, h, lunchStart, lunchEnd, cutoffHour);
+    });
+    return result;
+  }, [currentTime, rawTasks, lunchStart, lunchEnd, cutoffHour]);
+
+  // Keep node data in sync with lock states and focus
+  useEffect(() => {
+    setNodes((prev) =>
+      prev.map((n) => ({
+        ...n,
+        data: {
+          ...n.data,
+          locked: lockedStates[n.id] ?? null,
+          isFocused: focus.task === (n.data.task as Task).text,
+          isPaused: focus.isPaused && focus.task === (n.data.task as Task).text,
+        },
+      })),
+    );
+  }, [lockedStates, focus.task, focus.isPaused, setNodes]);
+
   // ── Position persistence ───────────────────────────────────────────────────
 
   const handleNodesChange: typeof onNodesChange = useCallback(
     (changes) => {
       onNodesChange(changes);
-      const posUpdate = { ...loadPositions() };
-      changes.forEach((c) => {
-        if (c.type === "position" && c.position) posUpdate[c.id] = c.position;
-      });
-      savePositions(posUpdate);
+      // Drag always writes to the free positions key
+      const hasDrag = changes.some(
+        (c) => c.type === "position" && c.position && c.dragging,
+      );
+      if (hasDrag) {
+        const posUpdate = { ...loadFreePositions() };
+        changes.forEach((c) => {
+          if (c.type === "position" && c.position) posUpdate[c.id] = c.position;
+        });
+        saveFreePositions(posUpdate);
+      }
     },
     [onNodesChange],
   );
@@ -755,21 +1479,28 @@ export default function MapMode() {
     async (text: string, kind: "must" | "personal" | "small") => {
       try {
         const task = await api.createTask(kind, text);
-        // Place it to the right of the existing layout
-        const existingPos = loadPositions();
+        // Place it to the right of the existing free layout
+        const existingPos = loadFreePositions();
         const maxX = Object.values(existingPos).reduce(
           (m, p) => Math.max(m, p.x),
           0,
         );
-        const newPos = { x: maxX + GRID_COL, y: 0 };
+        const newPos = { x: maxX + NODE_W + 60, y: 0 };
         existingPos[task.id] = newPos;
-        savePositions(existingPos);
+        saveFreePositions(existingPos);
 
         const newNode: TaskNodeType = {
           id: task.id,
           type: "task",
           position: newPos,
-          data: { task, estimate: undefined, isReady: true, isFocused: false },
+          data: {
+            task,
+            estimate: undefined,
+            isReady: true,
+            isFocused: false,
+            isPaused: false,
+            locked: null,
+          },
         };
         setNodes((prev) => [...prev, newNode]);
         setRawTasks((prev) => [...prev, task]);
@@ -815,15 +1546,15 @@ export default function MapMode() {
         const task = await api.createTask(kind, text);
 
         // 2. Position it between source and target nodes
-        const existingPos = loadPositions();
+        const existingPos = loadFreePositions();
         const srcPos = existingPos[sourceId] ?? { x: 0, y: 0 };
-        const tgtPos = existingPos[targetId] ?? { x: GRID_COL, y: 0 };
+        const tgtPos = existingPos[targetId] ?? { x: NODE_W + 60, y: 0 };
         const midPos = {
           x: (srcPos.x + tgtPos.x) / 2,
-          y: (srcPos.y + tgtPos.y) / 2 + GRID_ROW * 0.5,
+          y: (srcPos.y + tgtPos.y) / 2 + NODE_H * 1.5,
         };
         existingPos[task.id] = midPos;
-        savePositions(existingPos);
+        saveFreePositions(existingPos);
 
         // 3. Delete the original edge
         await api.deleteEdge(edgeId);
@@ -839,7 +1570,14 @@ export default function MapMode() {
           id: task.id,
           type: "task",
           position: midPos,
-          data: { task, estimate: undefined, isReady: false, isFocused: false },
+          data: {
+            task,
+            estimate: undefined,
+            isReady: false,
+            isFocused: false,
+            isPaused: false,
+            locked: null,
+          },
         };
 
         setNodes((prev) => [...prev, newNode]);
@@ -864,7 +1602,98 @@ export default function MapMode() {
     [insertOnEdge, setNodes, setEdges],
   );
 
-  // ── Node click ─────────────────────────────────────────────────────────────
+  // ── Focus handlers ────────────────────────────────────────────────────────────────────
+
+  const handleStartFocus = useCallback(
+    (taskId: string, durationSecs: number) => {
+      const task = rawTasks.find((t) => t.id === taskId);
+      if (!task) return;
+      api.startFocus(taskId).catch(() => {});
+      startFocus(task.text, durationSecs);
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id === taskId
+            ? { ...n, data: { ...n.data, isFocused: true, isPaused: false } }
+            : { ...n, data: { ...n.data, isFocused: false } },
+        ),
+      );
+    },
+    [rawTasks, startFocus, setNodes],
+  );
+
+  const handlePauseFocus = useCallback(() => {
+    pauseFocus();
+    api.stopFocus("paused").catch(() => {});
+    setNodes((prev) =>
+      prev.map((n) => ({
+        ...n,
+        data: {
+          ...n.data,
+          isPaused: n.data.isFocused ? true : n.data.isPaused,
+        },
+      })),
+    );
+  }, [pauseFocus, setNodes]);
+
+  const handleCompleteFocus = useCallback(
+    async (taskId: string) => {
+      try {
+        await api.stopFocus("done");
+        await api.toggleTask(taskId);
+      } catch {}
+      exitFocus("done");
+      setNodes((prev) =>
+        prev.map((n) => ({
+          ...n,
+          data: {
+            ...n.data,
+            isFocused: false,
+            isPaused: false,
+            task:
+              n.id === taskId
+                ? { ...(n.data.task as Task), done: true }
+                : n.data.task,
+          },
+        })),
+      );
+      setRawTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, done: true } : t)),
+      );
+      setSelectedTaskId(null);
+      api.getReadyTasks().then((r) => setReadyIds(new Set(r.ready)));
+    },
+    [exitFocus, setNodes],
+  );
+
+  // ── Delete task ─────────────────────────────────────────────────────────────────
+
+  const handleDeleteTask = useCallback(
+    async (taskId: string) => {
+      try {
+        await api.deleteTask(taskId);
+      } catch {
+        /* ignore */
+      }
+      setNodes((prev) => prev.filter((n) => n.id !== taskId));
+      setRawTasks((prev) => prev.filter((t) => t.id !== taskId));
+      setRawEdges((prev) =>
+        prev.filter((e) => e.source_id !== taskId && e.target_id !== taskId),
+      );
+      setEdges((prev) =>
+        prev.filter((e) => e.source !== taskId && e.target !== taskId),
+      );
+      setGraph((prev) =>
+        prev
+          ? { ...prev, tasks: prev.tasks.filter((t) => t.id !== taskId) }
+          : prev,
+      );
+      setSelectedTaskId(null);
+      api.getReadyTasks().then((r) => setReadyIds(new Set(r.ready)));
+    },
+    [setNodes, setEdges],
+  );
+
+  // ── Node click ────────────────────────────────────────────────────────────────────
 
   const handleNodeClick: NodeMouseHandler<TaskNodeType> = useCallback(
     (_e, node) => {
@@ -877,14 +1706,31 @@ export default function MapMode() {
 
   // ── Auto-layout ────────────────────────────────────────────────────────────
 
-  const handleAutoLayout = useCallback(() => {
-    if (!graph) return;
-    const pos = autoLayoutPositions(graph.tasks, rawEdges);
-    savePositions(pos);
+  const handleAutoLayout = useCallback(
+    (dir?: "LR") => {
+      if (!graph) return;
+      const direction = dir ?? "LR";
+      // LR: compute dagre positions, apply to canvas — do NOT save to localStorage
+      // This keeps free positions untouched
+      const pos = dagreLayout(graph.tasks, rawEdges, direction);
+      setNodes((prev) =>
+        prev.map((n) => ({ ...n, position: pos[n.id] ?? n.position })),
+      );
+    },
+    [graph, rawEdges, setNodes],
+  );
+
+  // When switching back to Free, restore saved free positions
+  const handleRestoreFree = useCallback(() => {
+    const saved = loadFreePositions();
+    if (Object.keys(saved).length === 0) return; // nothing saved yet
     setNodes((prev) =>
-      prev.map((n) => ({ ...n, position: pos[n.id] ?? n.position })),
+      prev.map((n) => ({
+        ...n,
+        position: saved[n.id] ?? n.position,
+      })),
     );
-  }, [graph, rawEdges, setNodes]);
+  }, [setNodes]);
 
   // ── Keyboard ───────────────────────────────────────────────────────────────
 
@@ -956,9 +1802,56 @@ export default function MapMode() {
           >
             <IconAdd /> Add task
           </button>
-          <button className="map-btn" onClick={handleAutoLayout}>
-            <IconLayout /> Auto-layout
-          </button>
+          {/* Layout toggle: Free / Horizontal */}
+          <div className="map-layout-toggle">
+            <button
+              className={`map-layout-btn${layoutDir === "free" ? " map-layout-btn--on" : ""}`}
+              title="Free — drag nodes anywhere"
+              onClick={() => {
+                setLayoutDir("free");
+                handleRestoreFree();
+              }}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              >
+                <circle cx="3" cy="3" r="1.5" />
+                <circle cx="13" cy="7" r="1.5" />
+                <circle cx="6" cy="13" r="1.5" />
+                <circle cx="11" cy="12" r="1.5" />
+              </svg>
+            </button>
+            <button
+              className={`map-layout-btn${layoutDir === "LR" ? " map-layout-btn--on" : ""}`}
+              title="Horizontal tree (left → right)"
+              onClick={() => {
+                setLayoutDir("LR");
+                handleAutoLayout("LR");
+              }}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="1" y="5" width="4" height="6" rx="1" />
+                <rect x="10" y="2" width="4" height="4" rx="1" />
+                <rect x="10" y="10" width="4" height="4" rx="1" />
+                <path d="M5 8h3M8 4l2 4-2 4" strokeWidth="1.3" />
+              </svg>
+            </button>
+          </div>
           <button
             className="map-btn map-btn--ghost"
             onClick={async () => {
@@ -1005,6 +1898,14 @@ export default function MapMode() {
               color="var(--color-stone)"
             />
             <Controls showInteractive={false} />
+            <DayTimeline
+              now={currentTime}
+              workdayStart={blockConfig?.workday_start_hour ?? 9}
+              workdayEnd={blockConfig?.workday_end_hour ?? 17}
+              lunchStart={lunchStart}
+              lunchEnd={lunchEnd}
+              cutoffHour={cutoffHour}
+            />
           </ReactFlow>
         </div>
 
@@ -1016,16 +1917,37 @@ export default function MapMode() {
           />
         )}
 
-        {/* Detail panel — shown when a node is selected */}
-        {selectedTask && !showAddPanel && (
-          <DetailPanel
-            task={selectedTask}
-            edges={rawEdges}
-            tasks={rawTasks}
-            onDeleteEdge={handleDeleteEdge}
-            onClose={() => setSelectedTaskId(null)}
-          />
-        )}
+        {/* Right sidebar — always visible when no add panel */}
+        {!showAddPanel &&
+          (selectedTask ? (
+            <TaskControlPanel
+              task={selectedTask}
+              edges={rawEdges}
+              tasks={rawTasks}
+              allTasks={rawTasks}
+              focus={focus}
+              accumulated={accumulated}
+              blockConfig={blockConfig}
+              locked={lockedStates[selectedTask.id] ?? null}
+              onStartFocus={handleStartFocus}
+              onPauseFocus={handlePauseFocus}
+              onCompleteFocus={handleCompleteFocus}
+              onDeleteEdge={handleDeleteEdge}
+              onDeleteTask={handleDeleteTask}
+              onSelectTask={(id) => setSelectedTaskId(id)}
+              onClose={() => setSelectedTaskId(null)}
+            />
+          ) : (
+            <AmbientSidebar
+              accumulated={accumulated}
+              blockConfig={blockConfig}
+              allTasks={rawTasks}
+              now={currentTime}
+              lunchStart={lunchStart}
+              lunchEnd={lunchEnd}
+              cutoffHour={cutoffHour}
+            />
+          ))}
       </div>
 
       {/* Insert intermediate task popover */}

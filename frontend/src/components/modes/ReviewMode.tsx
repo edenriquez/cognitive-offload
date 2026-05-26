@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
-import { useAppStore } from "../../store/app-store";
 import { api } from "../../api/client";
 import type {
   ReviewSummary,
   DailyReport,
   DailySummaryRecord,
-  Session,
 } from "../../types";
 import ArcStrip from "../shared/ArcStrip";
 import InsightStat from "../shared/InsightStat";
@@ -35,57 +33,12 @@ function formatDateHeader(iso: string): string {
   });
 }
 
-// ── Open threads mini-panel ───────────────────────────────────────────────────
-
-function OpenThreadsPanel({
-  sessions,
-  onResolveAll,
-  onReview,
-}: {
-  sessions: Session[];
-  onResolveAll: () => void;
-  onReview: () => void;
-}) {
-  const open = sessions.filter(
-    (s) => s.status === "open" || s.status === "stalled",
-  );
-  if (open.length === 0) return null;
-
-  const labels = open.slice(0, 2).map((s) => `"${s.label || "Untitled"}"`);
-  const extra = open.length > 2 ? ` +${open.length - 2} more` : "";
-  const preview = labels.join(" · ") + extra;
-
-  return (
-    <div className="rv-threads-panel">
-      <div className="rv-threads-body">
-        <span className="rv-threads-count">
-          {open.length} thread{open.length !== 1 ? "s" : ""} still open
-        </span>
-        <span className="rv-threads-preview">{preview}</span>
-      </div>
-      <div className="rv-threads-actions">
-        <button className="rv-threads-btn" onClick={onResolveAll}>
-          Resolve all
-        </button>
-        <button
-          className="rv-threads-btn rv-threads-btn--ghost"
-          onClick={onReview}
-        >
-          Review
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ReviewMode() {
-  const setMode = useAppStore((s) => s.setMode);
   const [review, setReview] = useState<ReviewSummary | null>(null);
   const [report, setReport] = useState<DailyReport | null>(null);
   const [trends, setTrends] = useState<DailySummaryRecord[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [commitmentSkipped, setCommitmentSkipped] = useState(false);
@@ -97,7 +50,6 @@ export default function ReviewMode() {
       .then(([rev, rep, tr]) => {
         if (rev) {
           setReview(rev);
-          setSessions(rev.sessions ?? []);
         }
         if (rep) setReport(rep);
         if (tr) setTrends(tr);
@@ -114,20 +66,6 @@ export default function ReviewMode() {
 
   const handleDismiss = async (id: string) => {
     await api.dismissPattern(id);
-  };
-
-  const handleResolveAll = async () => {
-    const open = sessions.filter(
-      (s) => s.status === "open" || s.status === "stalled",
-    );
-    await Promise.all(open.map((s) => api.closeSession(s.id).catch(() => {})));
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.status === "open" || s.status === "stalled"
-          ? { ...s, status: "closed" as const }
-          : s,
-      ),
-    );
   };
 
   // ── Loading ──────────────────────────────────────────────────────────────────
@@ -181,8 +119,6 @@ export default function ReviewMode() {
     .slice(-7);
   const deepWorkTrend = trendsSorted.map((t) => t.deep_work_min);
   const leakedTrend = trendsSorted.map((t) => t.leaked_min);
-  const sessionsTrend = trendsSorted.map((t) => t.sessions_count);
-
   // Top suggestion for commitment card
   const topSuggestion =
     report?.suggestions && report.suggestions.length > 0
@@ -231,12 +167,6 @@ export default function ReviewMode() {
             higherIsBetter={false}
             danger={summary.leaked_min > 60}
           />
-          <InsightStat
-            value={String(summary.sessions_count)}
-            label="Sessions"
-            trend={sessionsTrend}
-            higherIsBetter={false}
-          />
         </section>
 
         {/* ── Section 3: Signal Cards ─────────────────────────────────────── */}
@@ -272,15 +202,6 @@ export default function ReviewMode() {
             />
           </section>
         )}
-
-        {/* ── Section 5: Wrap Up ──────────────────────────────────────────── */}
-        <section className="rv-section">
-          <OpenThreadsPanel
-            sessions={sessions}
-            onResolveAll={handleResolveAll}
-            onReview={() => setMode("threads")}
-          />
-        </section>
       </div>
     </div>
   );

@@ -118,7 +118,7 @@ describe("Mode rendering", () => {
   });
 
   it("renders Blocks mode without crashing", async () => {
-    useAppStore.setState({ mode: "blocks" });
+    useAppStore.setState({ mode: "map" });
     render(<App />);
     // Blocks mode renders without throwing
     expect(document.body).toBeTruthy();

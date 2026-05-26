@@ -4,7 +4,6 @@ import type {
   TodayResponse,
   ReviewSummary,
   Plan,
-  Session,
   SignalSnapshot,
   FocusSession,
   Project,
@@ -166,20 +165,8 @@ export const api = {
     request<Plan>("PUT", "/api/v1/tomorrow", plan),
 
   // ---------- Sessions ----------
-  listSessions: (day?: string) =>
-    request<Session[]>("GET", `/api/v1/sessions${day ? `?day=${day}` : ""}`),
-
-  createSession: (label: string) =>
-    request<Session>("POST", "/api/v1/sessions", { label }),
-
   closeSession: (id: string) =>
     request<{ status: string }>("POST", `/api/v1/sessions/${id}/close`),
-
-  updateSession: (id: string, label: string, status: string) =>
-    request<{ status: string }>("PUT", `/api/v1/sessions/${id}`, {
-      label,
-      status,
-    }),
 
   // ---------- Signals ----------
   currentSignals: () =>

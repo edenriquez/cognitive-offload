@@ -10,6 +10,8 @@ export interface TaskNodeData extends Record<string, unknown> {
   estimate?: TaskEstimate;
   isReady: boolean;
   isFocused: boolean;
+  isPaused: boolean;
+  locked: "lunch" | "cutoff" | null;
 }
 
 export type TaskNodeType = Node<TaskNodeData, "task">;
@@ -51,25 +53,46 @@ function IconDone() {
   );
 }
 
+function IconPause() {
+  return (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+    >
+      <path d="M5 3v10M11 3v10" />
+    </svg>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function TaskNode({ data, selected }: NodeProps<TaskNodeType>) {
-  const { task, estimate, isReady, isFocused } = data;
+  const { task, estimate, isReady, isFocused, isPaused, locked } = data;
   const isBlocked = !isReady && !task.done;
 
   const stateClass = task.done
     ? "tnode--done"
-    : isFocused
-      ? "tnode--active"
-      : isBlocked
-        ? "tnode--blocked"
-        : "tnode--idle";
+    : locked === "lunch"
+      ? "tnode--locked-lunch"
+      : locked === "cutoff"
+        ? "tnode--locked-cutoff"
+        : isPaused
+          ? "tnode--paused"
+          : isFocused
+            ? "tnode--active"
+            : isBlocked
+              ? "tnode--blocked"
+              : "tnode--idle";
 
   return (
     <div className={`tnode ${stateClass}${selected ? " tnode--selected" : ""}`}>
       <Handle type="target" position={Position.Left} className="tnode-handle" />
 
-      {/* Header row: kind label + status icon */}
       <div className="tnode-header">
         <span className="tnode-kind">{task.kind}</span>
         {task.done && (
@@ -77,18 +100,26 @@ function TaskNode({ data, selected }: NodeProps<TaskNodeType>) {
             <IconDone />
           </span>
         )}
-        {isBlocked && !task.done && (
+        {(locked === "lunch" || locked === "cutoff") && !task.done && (
+          <span className="tnode-status-icon tnode-status-icon--locked">
+            <IconLock />
+          </span>
+        )}
+        {isBlocked && !task.done && !locked && (
           <span className="tnode-status-icon tnode-status-icon--blocked">
             <IconLock />
           </span>
         )}
-        {isFocused && <span className="tnode-pulse" />}
+        {isPaused && !locked && !task.done && (
+          <span className="tnode-status-icon tnode-status-icon--paused">
+            <IconPause />
+          </span>
+        )}
+        {isFocused && !isPaused && <span className="tnode-pulse" />}
       </div>
 
-      {/* Task text */}
       <div className="tnode-text">{task.text}</div>
 
-      {/* Cognitive load bar */}
       {estimate && (
         <div className="tnode-load">
           <div className="tnode-load-track">

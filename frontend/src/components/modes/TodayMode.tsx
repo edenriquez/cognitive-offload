@@ -76,11 +76,6 @@ export default function TodayMode() {
   const dayNumber =
     Math.floor((Date.now() - new Date("2025-04-23").getTime()) / 86400000) + 1;
 
-  const activeThread = signals?.active_session ?? null;
-  const interventions = signals?.interventions ?? [];
-  const warnIntervention =
-    interventions.find((i) => i.severity === "warn") ?? null;
-
   // Refresh tasks from API
   useEffect(() => {
     api

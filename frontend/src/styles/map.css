@@ -135,6 +135,45 @@
     border-color: transparent;
 }
 
+/* ── Layout direction toggle ───────────────────────────────── */
+
+.map-layout-toggle {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    background: var(--color-ash);
+    border: 1px solid var(--color-stone);
+    border-radius: var(--radius-buttons);
+    padding: 2px;
+}
+
+.map-layout-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    color: var(--color-lead);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition:
+        color 0.1s,
+        background 0.1s;
+}
+
+.map-layout-btn:hover {
+    color: var(--color-carbon);
+    background: var(--color-white);
+}
+
+.map-layout-btn--on {
+    background: var(--color-white);
+    color: var(--color-ink);
+    box-shadow: var(--shadow-subtle-2);
+}
+
 /* ── Body ─────────────────────────────────────────────────── */
 
 .map-body {
@@ -827,4 +866,647 @@
 .map-edge-insert-submit:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+}
+
+/* ── Day Timeline strip ───────────────────────────────────── */
+
+.day-timeline {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 28px;
+    z-index: 4;
+    background: var(--color-white);
+    border-bottom: 1px solid var(--color-stone);
+    pointer-events: none;
+    overflow: hidden;
+}
+
+/* Lunch and cutoff bands */
+.day-tl-band {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+}
+
+.day-tl-band--lunch {
+    background: rgba(112, 85, 0, 0.06);
+    border-left: 1px solid rgba(112, 85, 0, 0.2);
+    border-right: 1px solid rgba(112, 85, 0, 0.2);
+}
+
+.day-tl-band--blink {
+    animation: tl-lunch-blink 1.4s step-end infinite;
+}
+
+@keyframes tl-lunch-blink {
+    0%,
+    100% {
+        background: rgba(112, 85, 0, 0.1);
+    }
+    50% {
+        background: rgba(112, 85, 0, 0.03);
+    }
+}
+
+.day-tl-band--cutoff {
+    background: rgba(112, 85, 0, 0.04);
+    border-left: 1px dashed rgba(112, 85, 0, 0.25);
+}
+
+/* Hour ticks */
+.day-tl-tick {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--color-stone);
+    transform: translateX(-50%);
+}
+
+.day-tl-tick-label {
+    position: absolute;
+    top: 50%;
+    left: 4px;
+    transform: translateY(-50%);
+    font-size: 9px;
+    color: var(--color-lead);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-inter);
+}
+
+/* Cutoff marker */
+.day-tl-cutoff-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: transparent;
+    border-left: 1.5px dashed var(--color-warning-yellow);
+    transform: translateX(-50%);
+}
+
+.day-tl-cutoff-label {
+    position: absolute;
+    bottom: 2px;
+    left: 3px;
+    font-size: 9px;
+    color: var(--color-warning-yellow);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-family: var(--font-inter);
+}
+
+/* Now caret */
+.day-tl-now {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1.5px;
+    background: var(--color-action-blue);
+    transform: translateX(-50%);
+}
+
+.day-tl-now--over {
+    background: var(--color-warning-yellow);
+}
+
+.day-tl-now-label {
+    position: absolute;
+    top: 2px;
+    left: 3px;
+    font-size: 9px;
+    color: var(--color-action-blue);
+    font-weight: 600;
+    font-family: var(--font-inter);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.day-tl-now--over .day-tl-now-label {
+    color: var(--color-warning-yellow);
+}
+
+/* Lunch label inside band */
+.day-tl-lunch-label {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    color: var(--color-warning-yellow);
+    font-weight: 600;
+    font-family: var(--font-inter);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+}
+
+/* ── Map Control Panel (mcp) ──────────────────────────────── */
+/* Sidebar that shows either ambient budget or task controls   */
+
+.mcp {
+    width: 260px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--color-stone);
+    background: var(--color-white);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* ── Ambient sidebar ──────────────────────────────────────── */
+
+.mcp--ambient {
+    padding: 16px;
+    gap: 0;
+}
+
+/* Status cards (lunch / cutoff) */
+.mcp-lunch-card,
+.mcp-cutoff-card {
+    padding: 10px 12px;
+    border-radius: var(--radius-cards);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: -0.12px;
+    margin-bottom: 16px;
+}
+
+.mcp-lunch-card {
+    background: rgba(112, 85, 0, 0.06);
+    border: 1px solid rgba(112, 85, 0, 0.18);
+    animation: mcp-lunch-blink 1.4s step-end infinite;
+}
+
+@keyframes mcp-lunch-blink {
+    0%,
+    100% {
+        background: rgba(112, 85, 0, 0.08);
+    }
+    50% {
+        background: rgba(112, 85, 0, 0.03);
+    }
+}
+
+.mcp-lunch-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-warning-yellow);
+    margin-bottom: 2px;
+}
+
+.mcp-lunch-until {
+    font-size: 11px;
+    color: var(--color-overcast);
+}
+
+.mcp-cutoff-card {
+    background: var(--color-ash);
+    border: 1px solid var(--color-stone);
+}
+
+.mcp-cutoff-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-carbon);
+    margin-bottom: 2px;
+}
+
+.mcp-cutoff-sub {
+    font-size: 11px;
+    color: var(--color-overcast);
+}
+
+.mcp-hint {
+    font-size: 12px;
+    color: var(--color-lead);
+    letter-spacing: -0.12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-stone);
+    margin-top: 8px;
+    line-height: 1.5;
+}
+
+/* ── Shared section pattern ───────────────────────────────── */
+
+.mcp-section {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--color-stone);
+}
+
+.mcp-section:last-child {
+    border-bottom: none;
+}
+
+.mcp-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-overcast);
+    margin-bottom: 8px;
+}
+
+/* Budget bars */
+.mcp-budget-row {
+    margin-bottom: 10px;
+}
+
+.mcp-budget-row:last-child {
+    margin-bottom: 0;
+}
+
+.mcp-budget-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.mcp-budget-label {
+    font-size: 12px;
+    color: var(--color-carbon);
+    font-weight: 500;
+    letter-spacing: -0.12px;
+}
+
+.mcp-budget-value {
+    font-size: 11px;
+    color: var(--color-overcast);
+    font-variant-numeric: tabular-nums;
+}
+
+.mcp-budget-track {
+    height: 4px;
+    background: var(--color-stone);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.mcp-budget-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s linear;
+}
+
+/* Day info rows */
+.mcp-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0;
+}
+
+.mcp-info-key {
+    font-size: 12px;
+    color: var(--color-carbon);
+    letter-spacing: -0.12px;
+}
+
+.mcp-info-val {
+    font-size: 12px;
+    color: var(--color-overcast);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Task control panel ───────────────────────────────────── */
+
+.mcp:not(.mcp--ambient) {
+    padding: 0;
+}
+
+.mcp-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--color-stone);
+    flex-shrink: 0;
+}
+
+.mcp-back {
+    display: flex;
+    align-items: center;
+    color: var(--color-lead);
+    border-radius: var(--radius-tags);
+    padding: 2px;
+    transition:
+        color 0.12s,
+        background 0.12s;
+}
+
+.mcp-back:hover {
+    color: var(--color-carbon);
+    background: var(--color-ash);
+}
+
+.mcp-kind {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: 99px;
+}
+
+.mcp-kind--must {
+    background: var(--color-ink);
+    color: var(--color-white);
+}
+.mcp-kind--personal {
+    background: var(--color-action-blue);
+    color: var(--color-white);
+}
+.mcp-kind--small {
+    background: var(--color-stone);
+    color: var(--color-carbon);
+}
+
+.mcp-delete-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-tags);
+    color: var(--color-lead);
+    margin-left: auto;
+    transition:
+        color 0.12s,
+        background 0.12s;
+}
+
+.mcp-delete-btn:hover {
+    color: var(--color-danger-red);
+    background: #fef2f2;
+}
+
+.mcp-task-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-ink);
+    letter-spacing: -0.14px;
+    line-height: 1.4;
+    padding: 12px 14px;
+    word-break: break-word;
+}
+
+/* Lock cards */
+.mcp-lock-card {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0 14px 12px;
+    padding: 9px 11px;
+    border-radius: var(--radius-cards);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: -0.12px;
+}
+
+.mcp-lock-card--lunch {
+    background: rgba(112, 85, 0, 0.06);
+    border: 1px solid rgba(112, 85, 0, 0.18);
+    color: var(--color-warning-yellow);
+    animation: mcp-lunch-blink 1.4s step-end infinite;
+}
+
+.mcp-lock-card--cutoff {
+    background: var(--color-ash);
+    border: 1px solid var(--color-stone);
+    color: var(--color-carbon);
+}
+
+/* Timer block */
+.mcp-timer-block {
+    padding: 16px 14px 12px;
+    border-bottom: 1px solid var(--color-stone);
+}
+
+.mcp-countdown {
+    font-family: var(--font-inter);
+    font-size: 40px;
+    font-weight: 500;
+    letter-spacing: -2px;
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+.mcp-timer-meta {
+    font-size: 11px;
+    color: var(--color-overcast);
+    letter-spacing: -0.11px;
+    margin-bottom: 10px;
+}
+
+.mcp-timer-track {
+    height: 2px;
+    background: var(--color-stone);
+    border-radius: 1px;
+    overflow: hidden;
+}
+
+.mcp-timer-fill {
+    height: 100%;
+    background: var(--color-action-blue);
+    border-radius: 1px;
+    transition: width 1s linear;
+}
+
+/* Duration presets */
+.mcp-duration-block {
+    padding: 14px 14px 12px;
+    border-bottom: 1px solid var(--color-stone);
+}
+
+.mcp-duration-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-overcast);
+    margin-bottom: 8px;
+}
+
+.mcp-duration-presets {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+}
+
+.mcp-preset {
+    flex: 1;
+    min-width: 0;
+    padding: 5px 2px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-carbon);
+    background: transparent;
+    border: 1px solid var(--color-stone);
+    border-radius: var(--radius-tags);
+    cursor: pointer;
+    transition:
+        background 0.1s,
+        border-color 0.1s,
+        color 0.1s;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.mcp-preset:hover {
+    background: var(--color-ash);
+    border-color: var(--color-slate);
+}
+
+.mcp-preset--on {
+    background: var(--color-ink);
+    color: var(--color-white);
+    border-color: var(--color-ink);
+}
+
+/* Action buttons */
+.mcp-actions {
+    display: flex;
+    gap: 6px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--color-stone);
+}
+
+.mcp-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: var(--radius-buttons);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.13px;
+    cursor: pointer;
+    transition:
+        background 0.12s,
+        border-color 0.12s;
+    flex: 1;
+    justify-content: center;
+}
+
+.mcp-btn--start {
+    background: var(--color-ink);
+    color: var(--color-white);
+    border: 1px solid var(--color-ink);
+}
+
+.mcp-btn--start:hover {
+    background: #000;
+}
+
+.mcp-btn--pause {
+    background: var(--color-white);
+    color: var(--color-carbon);
+    border: 1px solid var(--color-slate);
+}
+
+.mcp-btn--pause:hover {
+    background: var(--color-ash);
+    border-color: var(--color-lead);
+}
+
+.mcp-btn--done {
+    background: var(--color-white);
+    color: var(--color-success-green);
+    border: 1px solid var(--color-stone);
+}
+
+.mcp-btn--done:hover {
+    background: var(--color-ash);
+}
+
+/* Sections inside task panel */
+.mcp:not(.mcp--ambient) .mcp-section {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--color-stone);
+}
+
+.mcp-section--budget .mcp-budget-track {
+    margin-top: 4px;
+}
+
+/* Dependency rows */
+.mcp-dep-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--color-stone);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s;
+    border-radius: 2px;
+}
+
+.mcp-dep-row:last-child {
+    border-bottom: none;
+}
+
+.mcp-dep-row:hover {
+    background: var(--color-ash);
+}
+
+.mcp-dep-text {
+    flex: 1;
+    font-size: 12px;
+    color: var(--color-carbon);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: -0.12px;
+}
+
+.mcp-dep-arrow {
+    color: var(--color-lead);
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* ── TaskNode new states ───────────────────────────────────── */
+
+.tnode--paused {
+    border-left: 3px solid var(--color-warning-yellow);
+}
+
+.tnode--locked-cutoff {
+    border-top: 3px solid var(--color-warning-yellow);
+    background: var(--color-ash);
+}
+
+.tnode--locked-lunch {
+    opacity: 0.6;
+    background: var(--color-ash);
+    animation: tnode-lunch-fade 1.4s step-end infinite;
+}
+
+@keyframes tnode-lunch-fade {
+    0%,
+    100% {
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 0.4;
+    }
+}
+
+.tnode-status-icon--locked {
+    color: var(--color-warning-yellow);
+}
+
+.tnode-status-icon--paused {
+    color: var(--color-warning-yellow);
 }

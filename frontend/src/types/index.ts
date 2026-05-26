@@ -1,11 +1,4 @@
-export type Mode =
-  | "blocks"
-  | "today"
-  | "map"
-  | "review"
-  | "threads"
-  | "sources"
-  | "settings";
+export type Mode = "today" | "map" | "review" | "sources" | "settings";
 
 export interface Task {
   id: string;

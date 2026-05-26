@@ -24,8 +24,8 @@ describe("AppStore", () => {
   });
 
   it("switches modes", () => {
-    useAppStore.getState().setMode("blocks");
-    expect(useAppStore.getState().mode).toBe("blocks");
+    useAppStore.getState().setMode("map");
+    expect(useAppStore.getState().mode).toBe("map");
   });
 
   it("manages tasks", () => {

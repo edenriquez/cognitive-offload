@@ -22,7 +22,7 @@ import { api } from "./api/client";
 import "./styles/desktop.css";
 import "./styles/modes.css";
 import "./styles/block-budget.css";
-import "./styles/threads.css";
+
 import "./styles/map.css";
 
 // Lazy-load mode components — only the active mode is loaded
@@ -33,26 +33,21 @@ const ReviewMode = lazy(() => import("./components/modes/ReviewMode"));
 
 const SourcesMode = lazy(() => import("./components/modes/SourcesMode"));
 const SettingsMode = lazy(() => import("./components/modes/SettingsMode"));
-const BlockBudgetMode = lazy(
-  () => import("./components/modes/BlockBudgetMode"),
-);
-const ThreadsMode = lazy(() => import("./components/modes/ThreadsMode"));
+
 const MapMode = lazy(() => import("./components/modes/MapMode"));
 
 const MODES: { id: Mode; label: string }[] = [
-  { id: "blocks", label: "Blocks" },
   { id: "today", label: "Today" },
   { id: "map", label: "Map" },
 
   { id: "review", label: "Review" },
-  { id: "threads", label: "Threads" },
   { id: "sources", label: "Sources" },
   { id: "settings", label: "Settings" },
 ];
 
 function suggestedMode(hour: number): Mode {
   if (hour < 9) return "review";
-  if (hour < 17) return "blocks";
+  if (hour < 17) return "map";
   if (hour < 20) return "review";
   return "today";
 }
@@ -65,6 +60,7 @@ export default function App() {
     setTasks,
     setBandwidth,
     focus,
+    tickFocus,
     toast,
     setToast,
     now,
@@ -80,6 +76,13 @@ export default function App() {
     const t = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(t);
   }, [setNow]);
+
+  // Focus timer — runs globally so any tab can show the countdown
+  useEffect(() => {
+    if (!focus.task || focus.isPaused) return;
+    const t = setInterval(() => tickFocus(), 1000);
+    return () => clearInterval(t);
+  }, [focus.task, focus.isPaused, tickFocus]);
 
   // Claude status
   const [claudeOnline, setClaudeOnline] = useState(false);
@@ -177,13 +180,11 @@ export default function App() {
         if (e.key === "Escape") setMode("today");
         return;
       }
-      if (e.key === "1") setMode("blocks");
-      if (e.key === "2") setMode("today");
+      if (e.key === "1") setMode("today");
       if (e.key === "3") setMode("map");
       if (e.key === "4") setMode("review");
-      if (e.key === "5") setMode("threads");
-      if (e.key === "6") setMode("sources");
-      if (e.key === "7") setMode("settings");
+      if (e.key === "5") setMode("sources");
+      if (e.key === "6") setMode("settings");
       if (e.key === "Escape") setMode("today");
     };
     window.addEventListener("keydown", onKey);
@@ -313,7 +314,23 @@ export default function App() {
   return (
     <div className="app-shell">
       {/* Top nav — sits under native titlebar overlay area */}
-      <div className="topnav" data-tauri-drag-region="">
+      <div
+        className="topnav"
+        data-tauri-drag-region=""
+        onMouseDown={(e) => {
+          // Only drag on left-button clicks directly on the topnav
+          // (not on buttons, inputs, or other interactive children)
+          if (
+            e.button === 0 &&
+            e.target === e.currentTarget &&
+            (window as any).__TAURI_INTERNALS__
+          ) {
+            (window as any).__TAURI_INTERNALS__
+              .invoke("plugin:window|start_dragging")
+              .catch(() => {});
+          }
+        }}
+      >
         <div className="nav-brand">
           <i>c</i>Cogload
         </div>
@@ -327,9 +344,6 @@ export default function App() {
               onMouseEnter={(e) => handleNavHover(m.id, e)}
             >
               {m.label}
-              {m.id === "threads" && sig.active_threads > 0 && (
-                <span className="nav-thread-badge">{sig.active_threads}</span>
-              )}
             </button>
           ))}
         </div>
@@ -489,13 +503,11 @@ export default function App() {
                 </div>
               }
             >
-              {mode === "blocks" && <BlockBudgetMode />}
               {mode === "today" && <TodayMode />}
               {mode === "map" && <MapMode />}
 
               {mode === "review" && <ReviewMode />}
 
-              {mode === "threads" && <ThreadsMode />}
               {mode === "sources" && <SourcesMode />}
               {mode === "settings" && <SettingsMode />}
             </Suspense>
@@ -528,17 +540,6 @@ export default function App() {
           ev/h
         </span>
         <div className="sb-spacer"></div>
-        {toast && (
-          <span
-            className="sb-link"
-            onClick={() => {
-              setToast(null);
-              setMode("threads");
-            }}
-          >
-            Triage threads →
-          </span>
-        )}
         <span>{offline ? "⚠ offline" : "v0.5 · synced"}</span>
       </div>
 
@@ -558,9 +559,7 @@ export default function App() {
             onClick={() => {
               const kind = toast.actionKind;
               setToast(null);
-              if (kind === "orphans") {
-                setMode("threads");
-              } else if (kind === "split") {
+              if (kind === "split") {
                 // Navigate to Today and open the split/estimate panel for the active focus task
                 setPendingAction({
                   kind: "split",

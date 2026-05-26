@@ -79,10 +79,7 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 		r.Post("/tomorrow/rollover", h.rolloverTomorrow)
 
 		// Sessions
-		r.Get("/sessions", h.listSessions)
 		r.Post("/sessions/{id}/close", h.closeSession)
-		r.Post("/sessions", h.createSession)
-		r.Put("/sessions/{id}", h.updateSession)
 
 		// Interventions
 		r.Get("/interventions", h.listInterventions)
@@ -780,23 +777,6 @@ func (h *handler) rolloverTomorrow(w http.ResponseWriter, r *http.Request) {
 
 // ---------- Sessions ----------
 
-func (h *handler) listSessions(w http.ResponseWriter, r *http.Request) {
-	day := r.URL.Query().Get("day")
-	if day == "" {
-		day = today()
-	}
-	sessions, err := h.db.SessionsByDay(r.Context(), day)
-	if err != nil {
-		slog.Error("list sessions", "error", err)
-		http.Error(w, "internal error", 500)
-		return
-	}
-	if sessions == nil {
-		sessions = []models.Session{}
-	}
-	writeJSON(w, 200, sessions)
-}
-
 func (h *handler) closeSession(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.db.CloseSession(r.Context(), id); err != nil {
@@ -805,51 +785,6 @@ func (h *handler) closeSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]string{"status": "closed"})
-}
-
-type createSessionReq struct {
-	Label string `json:"label"`
-}
-
-func (h *handler) createSession(w http.ResponseWriter, r *http.Request) {
-	var req createSessionReq
-	if err := readJSON(r, &req); err != nil || req.Label == "" {
-		http.Error(w, "bad request", 400)
-		return
-	}
-	s := models.Session{
-		ID:        fmt.Sprintf("s-%d", time.Now().UnixNano()),
-		Label:     req.Label,
-		StartedAt: time.Now(),
-		Status:    "open",
-		Day:       today(),
-	}
-	if err := h.db.CreateSession(r.Context(), s); err != nil {
-		slog.Error("create session", "error", err)
-		http.Error(w, "internal error", 500)
-		return
-	}
-	writeJSON(w, 201, s)
-}
-
-type updateSessionReq struct {
-	Label  string `json:"label"`
-	Status string `json:"status"`
-}
-
-func (h *handler) updateSession(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	var req updateSessionReq
-	if err := readJSON(r, &req); err != nil {
-		http.Error(w, "bad request", 400)
-		return
-	}
-	if err := h.db.UpdateSession(r.Context(), id, req.Label, req.Status); err != nil {
-		slog.Error("update session", "error", err)
-		http.Error(w, "internal error", 500)
-		return
-	}
-	writeJSON(w, 200, map[string]string{"status": "updated"})
 }
 
 // ---------- Interventions ----------
