@@ -186,6 +186,12 @@ export const api = {
       ignore_dirs: string[];
       max_watch_dirs: number;
       disabled_rules: string[];
+      email?: {
+        imap_server: string;
+        username: string;
+        password: string;
+        tls: boolean;
+      };
     }>("GET", "/api/v1/config"),
 
   updateConfig: (updates: Record<string, unknown>) =>
@@ -306,6 +312,49 @@ export const api = {
       "GET",
       `/api/v1/map/ready${day ? `?day=${day}` : ""}`,
     ),
+
+  // ── Email Watch ──────────────────────────────────────────────────────────
+  listAllEmailWatches: () =>
+    request<import("../types").EmailWatch[]>("GET", "/api/v1/email/watches"),
+  listEmailWatches: (taskId: string) =>
+    request<import("../types").EmailWatchesResponse>(
+      "GET",
+      `/api/v1/tasks/${taskId}/watches`,
+    ),
+  createEmailWatch: (
+    taskId: string,
+    fromFilter: string,
+    subjectFilter: string,
+    checkEverySec: number,
+  ) =>
+    request<import("../types").EmailWatch>(
+      "POST",
+      `/api/v1/tasks/${taskId}/watches`,
+      {
+        from_filter: fromFilter,
+        subject_filter: subjectFilter,
+        check_every_sec: checkEverySec,
+      },
+    ),
+  deleteEmailWatch: (watchId: string) =>
+    request<{ status: string }>("DELETE", `/api/v1/email/watches/${watchId}`),
+  pauseEmailWatch: (watchId: string) =>
+    request<{ status: string }>(
+      "PATCH",
+      `/api/v1/email/watches/${watchId}/pause`,
+    ),
+  testEmailConnection: (
+    imapServer: string,
+    username: string,
+    password: string,
+    tls: boolean,
+  ) =>
+    request<{ ok: boolean; error?: string }>("POST", "/api/v1/email/test", {
+      imap_server: imapServer,
+      username,
+      password,
+      tls,
+    }),
 
   // ── Task Notes ────────────────────────────────────────────────────────
   getTaskNote: (taskId: string) =>

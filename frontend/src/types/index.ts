@@ -334,6 +334,35 @@ export interface DayBlock {
   notes: string;
 }
 
+// ── Email Watch System ──────────────────────────────────────────────────────
+
+export interface EmailWatch {
+  id: string;
+  task_id: string;
+  from_filter: string;
+  subject_filter: string;
+  check_every_sec: number;
+  status: "active" | "paused" | "matched" | "done";
+  created_at: number;
+  last_checked_at: number;
+  matched_at?: number;
+}
+
+export interface EmailMatch {
+  id: string;
+  watch_id: string;
+  task_id: string;
+  from_addr: string;
+  subject: string;
+  received_at: number;
+  message_id: string;
+}
+
+export interface EmailWatchesResponse {
+  watches: EmailWatch[];
+  matches: EmailMatch[];
+}
+
 // ── Task Notes ──────────────────────────────────────────────────────────────
 
 export interface TaskNote {

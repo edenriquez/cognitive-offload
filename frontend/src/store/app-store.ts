@@ -1,9 +1,22 @@
 import { create } from "zustand";
 import type { Mode, Task, Bandwidth, SignalSnapshot, Capture } from "../types";
 
-interface FocusState {
-  task: string | null;
+// ── Parallel focus sessions ───────────────────────────────────────────────────
+
+export interface ParallelSession {
+  taskId: string;
+  taskText: string;
   remainingSecs: number;
+  durationSecs: number;
+  isPaused: boolean;
+}
+
+// ── Legacy single-focus shim (kept for toast/pendingAction compatibility) ─────
+
+export interface FocusState {
+  task: string | null; // text of the first running session, or null
+  remainingSecs: number;
+  totalSecs: number; // original duration of the current session
   isPaused: boolean;
   sessionId: string | null;
 }
@@ -12,8 +25,22 @@ interface AppState {
   mode: Mode;
   setMode: (m: Mode) => void;
 
-  // Focus
+  // ── Parallel focus sessions ─────────────────────────────────────────────────
+  activeSessions: ParallelSession[];
+  startSession: (
+    taskId: string,
+    taskText: string,
+    durationSecs: number,
+  ) => void;
+  pauseSession: (taskId: string) => void;
+  resumeSession: (taskId: string) => void;
+  stopSession: (taskId: string) => void;
+  tickSessions: () => void;
+
+  // Shim so existing callers (toast, App.tsx timer guard) still work
   focus: FocusState;
+
+  // Legacy kept for pendingAction (TodayMode) compat
   startFocus: (task: string, durationSecs?: number) => void;
   setFocusDuration: (secs: number) => void;
   pauseFocus: () => void;
@@ -56,9 +83,12 @@ interface AppState {
   dismissedRules: Set<string>;
   dismissRule: (rule: string) => void;
 
-  // Pending cross-mode action triggered from toast
   pendingAction: { kind: string; taskText?: string } | null;
   setPendingAction: (a: { kind: string; taskText?: string } | null) => void;
+
+  emailMatches: import("../types").EmailMatch[];
+  addEmailMatch: (m: import("../types").EmailMatch) => void;
+  clearEmailMatches: () => void;
 
   now: Date;
   setNow: (d: Date) => void;
@@ -71,78 +101,160 @@ interface AppState {
   ) => void;
 }
 
-const FOCUS_BLOCK_SECS = 90 * 60; // 90 minutes
+// Build the FocusState shim from the activeSessions array
+function shimFocus(sessions: ParallelSession[]): FocusState {
+  const first = sessions.find((s) => !s.isPaused) ?? sessions[0] ?? null;
+  if (!first) {
+    return {
+      task: null,
+      remainingSecs: 90 * 60,
+      totalSecs: 90 * 60,
+      isPaused: false,
+      sessionId: null,
+    };
+  }
+  return {
+    task: first.taskText,
+    remainingSecs: first.remainingSecs,
+    totalSecs: first.durationSecs,
+    isPaused: first.isPaused,
+    sessionId: null,
+  };
+}
 
 export const useAppStore = create<AppState>((set, get) => ({
   mode: "today",
   setMode: (m) => set({ mode: m }),
 
-  focus: {
-    task: null,
-    remainingSecs: FOCUS_BLOCK_SECS,
-    isPaused: false,
-    sessionId: null,
+  // ── Parallel sessions ────────────────────────────────────────────────────────
+
+  activeSessions: [],
+
+  startSession: (taskId, taskText, durationSecs) => {
+    set((s) => {
+      const existing = s.activeSessions.find((x) => x.taskId === taskId);
+      let next: ParallelSession[];
+      if (existing) {
+        // Resume if paused, or reset if same task
+        next = s.activeSessions.map((x) =>
+          x.taskId === taskId ? { ...x, isPaused: false } : x,
+        );
+      } else {
+        next = [
+          ...s.activeSessions,
+          {
+            taskId,
+            taskText,
+            remainingSecs: durationSecs,
+            durationSecs,
+            isPaused: false,
+          },
+        ];
+      }
+      return { activeSessions: next, focus: shimFocus(next) };
+    });
   },
+
+  pauseSession: (taskId) => {
+    set((s) => {
+      const next = s.activeSessions.map((x) =>
+        x.taskId === taskId ? { ...x, isPaused: true } : x,
+      );
+      return { activeSessions: next, focus: shimFocus(next) };
+    });
+  },
+
+  resumeSession: (taskId) => {
+    set((s) => {
+      const next = s.activeSessions.map((x) =>
+        x.taskId === taskId ? { ...x, isPaused: false } : x,
+      );
+      return { activeSessions: next, focus: shimFocus(next) };
+    });
+  },
+
+  stopSession: (taskId) => {
+    set((s) => {
+      const next = s.activeSessions.filter((x) => x.taskId !== taskId);
+      return { activeSessions: next, focus: shimFocus(next) };
+    });
+  },
+
+  tickSessions: () => {
+    set((s) => {
+      const next = s.activeSessions.map((x) =>
+        x.isPaused || x.remainingSecs <= 0
+          ? x
+          : { ...x, remainingSecs: x.remainingSecs - 1 },
+      );
+      return { activeSessions: next, focus: shimFocus(next) };
+    });
+  },
+
+  // Shim: derived from activeSessions, kept in sync by every mutation above
+  focus: shimFocus([]),
+
+  // Legacy focus actions (used by TodayMode pendingAction, toast handlers)
   startFocus: (task, durationSecs) => {
-    const current = get().focus;
-    const dur = durationSecs ?? FOCUS_BLOCK_SECS;
-    if (
-      current.task === task &&
-      current.remainingSecs > 0 &&
-      current.remainingSecs < dur
-    ) {
-      set({ focus: { ...current, isPaused: false } });
-    } else {
-      set({
-        focus: {
-          task,
-          remainingSecs: dur,
-          isPaused: false,
-          sessionId: null,
-        },
-      });
-    }
+    const dur = durationSecs ?? 90 * 60;
+    set((s) => {
+      const existing = s.activeSessions.find((x) => x.taskText === task);
+      let next: ParallelSession[];
+      if (existing) {
+        next = s.activeSessions.map((x) =>
+          x.taskText === task ? { ...x, isPaused: false } : x,
+        );
+      } else {
+        next = [
+          ...s.activeSessions,
+          {
+            taskId: `legacy-${Date.now()}`,
+            taskText: task,
+            remainingSecs: dur,
+            durationSecs: dur,
+            isPaused: false,
+          },
+        ];
+      }
+      return { activeSessions: next, focus: shimFocus(next) };
+    });
   },
   setFocusDuration: (secs) =>
-    set((s) => ({ focus: { ...s.focus, remainingSecs: secs } })),
+    set((s) => {
+      const next = s.activeSessions.map((x, i) =>
+        i === 0 ? { ...x, remainingSecs: secs } : x,
+      );
+      return { activeSessions: next, focus: shimFocus(next) };
+    }),
   pauseFocus: () => {
-    set((s) => ({ focus: { ...s.focus, isPaused: true } }));
+    set((s) => {
+      const first = s.activeSessions[0];
+      if (!first) return s;
+      const next = s.activeSessions.map((x, i) =>
+        i === 0 ? { ...x, isPaused: true } : x,
+      );
+      return { activeSessions: next, focus: shimFocus(next) };
+    });
   },
   resumeFocus: () => {
-    const f = get().focus;
-    if (f.task && f.remainingSecs > 0) {
-      set({ focus: { ...f, isPaused: false } });
-    }
+    set((s) => {
+      const first = s.activeSessions[0];
+      if (!first) return s;
+      const next = s.activeSessions.map((x, i) =>
+        i === 0 ? { ...x, isPaused: false } : x,
+      );
+      return { activeSessions: next, focus: shimFocus(next) };
+    });
   },
-  exitFocus: (outcome) => {
-    if (outcome === "done") {
-      // Reset fully
-      set({
-        focus: {
-          task: null,
-          remainingSecs: FOCUS_BLOCK_SECS,
-          isPaused: false,
-          sessionId: null,
-        },
-        mode: "today",
-      });
-    } else {
-      // Paused — keep timer state
-      set((s) => ({
-        focus: { ...s.focus, isPaused: true },
-        mode: "today",
-      }));
-    }
+  exitFocus: () => {
+    set((s) => {
+      const next = s.activeSessions.slice(1);
+      return { activeSessions: next, focus: shimFocus(next) };
+    });
   },
   tickFocus: () => {
-    set((s) => {
-      if (s.focus.isPaused || !s.focus.task || s.focus.remainingSecs <= 0) {
-        return s;
-      }
-      return {
-        focus: { ...s.focus, remainingSecs: s.focus.remainingSecs - 1 },
-      };
-    });
+    // Delegates to tickSessions for backward compat (App.tsx still calls this)
+    get().tickSessions();
   },
 
   tasks: [],
@@ -185,6 +297,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   pendingAction: null,
   setPendingAction: (a) => set({ pendingAction: a }),
+
+  emailMatches: [],
+  addEmailMatch: (m) => set((s) => ({ emailMatches: [...s.emailMatches, m] })),
+  clearEmailMatches: () => set({ emailMatches: [] }),
 
   now: new Date(),
   setNow: (d) => set({ now: d }),

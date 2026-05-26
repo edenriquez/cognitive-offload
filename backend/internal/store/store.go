@@ -210,6 +210,33 @@ func (d *DB) Migrate() error {
 		content    TEXT NOT NULL DEFAULT '',
 		updated_at INTEGER NOT NULL DEFAULT 0
 	);
+
+	CREATE TABLE IF NOT EXISTS email_watches (
+		id              TEXT PRIMARY KEY,
+		task_id         TEXT NOT NULL,
+		from_filter     TEXT NOT NULL DEFAULT '',
+		subject_filter  TEXT NOT NULL DEFAULT '',
+		check_every_sec INTEGER NOT NULL DEFAULT 300,
+		status          TEXT NOT NULL DEFAULT 'active',
+		created_at      INTEGER NOT NULL DEFAULT 0,
+		last_checked_at INTEGER NOT NULL DEFAULT 0,
+		matched_at      INTEGER,
+		FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+	);
+	CREATE INDEX IF NOT EXISTS idx_email_watches_task ON email_watches(task_id);
+	CREATE INDEX IF NOT EXISTS idx_email_watches_status ON email_watches(status);
+
+	CREATE TABLE IF NOT EXISTS email_matches (
+		id          TEXT PRIMARY KEY,
+		watch_id    TEXT NOT NULL,
+		task_id     TEXT NOT NULL,
+		from_addr   TEXT NOT NULL DEFAULT '',
+		subject     TEXT NOT NULL DEFAULT '',
+		received_at INTEGER NOT NULL DEFAULT 0,
+		message_id  TEXT NOT NULL DEFAULT '',
+		FOREIGN KEY (watch_id) REFERENCES email_watches(id) ON DELETE CASCADE
+	);
+	CREATE INDEX IF NOT EXISTS idx_email_matches_task ON email_matches(task_id);
 	`
 	_, err := d.db.Exec(schema)
 	if err != nil {
@@ -1335,4 +1362,126 @@ func (d *DB) UpsertTaskNote(ctx context.Context, taskID, content string) (models
 		return models.TaskNote{}, err
 	}
 	return models.TaskNote{TaskID: taskID, Content: content, UpdatedAt: now}, nil
+}
+
+// ── Email Watches ─────────────────────────────────────────────────────────────
+
+func (d *DB) CreateEmailWatch(ctx context.Context, w models.EmailWatch) error {
+	_, err := d.db.ExecContext(ctx,
+		`INSERT INTO email_watches (id, task_id, from_filter, subject_filter, check_every_sec, status, created_at, last_checked_at)
+		 VALUES (?, ?, ?, ?, ?, 'active', ?, 0)`,
+		w.ID, w.TaskID, w.FromFilter, w.SubjectFilter, w.CheckEverySec, w.CreatedAt)
+	return err
+}
+
+func (d *DB) EmailWatchesByTask(ctx context.Context, taskID string) ([]models.EmailWatch, error) {
+	rows, err := d.db.QueryContext(ctx,
+		`SELECT id, task_id, from_filter, subject_filter, check_every_sec, status,
+		        created_at, last_checked_at, matched_at
+		 FROM email_watches WHERE task_id = ? ORDER BY created_at DESC`, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanEmailWatches(rows)
+}
+
+func (d *DB) ActiveEmailWatches(ctx context.Context) ([]models.EmailWatch, error) {
+	rows, err := d.db.QueryContext(ctx,
+		`SELECT id, task_id, from_filter, subject_filter, check_every_sec, status,
+		        created_at, last_checked_at, matched_at
+		 FROM email_watches WHERE status = 'active' ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanEmailWatches(rows)
+}
+
+func scanEmailWatches(rows *sql.Rows) ([]models.EmailWatch, error) {
+	var out []models.EmailWatch
+	for rows.Next() {
+		var w models.EmailWatch
+		var matchedAt sql.NullInt64
+		if err := rows.Scan(&w.ID, &w.TaskID, &w.FromFilter, &w.SubjectFilter,
+			&w.CheckEverySec, &w.Status, &w.CreatedAt, &w.LastCheckedAt, &matchedAt); err != nil {
+			return nil, err
+		}
+		if matchedAt.Valid {
+			v := matchedAt.Int64
+			w.MatchedAt = &v
+		}
+		out = append(out, w)
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) UpdateEmailWatchStatus(ctx context.Context, id, status string) error {
+	_, err := d.db.ExecContext(ctx,
+		`UPDATE email_watches SET status = ? WHERE id = ?`, status, id)
+	return err
+}
+
+func (d *DB) MarkEmailWatchChecked(ctx context.Context, id string, now int64) error {
+	_, err := d.db.ExecContext(ctx,
+		`UPDATE email_watches SET last_checked_at = ? WHERE id = ?`, now, id)
+	return err
+}
+
+func (d *DB) MarkEmailWatchMatched(ctx context.Context, id string, matchedAt int64) error {
+	_, err := d.db.ExecContext(ctx,
+		`UPDATE email_watches SET status = 'matched', matched_at = ? WHERE id = ?`, matchedAt, id)
+	return err
+}
+
+func (d *DB) GetEmailWatch(ctx context.Context, id string) (*models.EmailWatch, error) {
+	row := d.db.QueryRowContext(ctx,
+		`SELECT id, task_id, from_filter, subject_filter, check_every_sec, status,
+		        created_at, last_checked_at, matched_at
+		 FROM email_watches WHERE id = ?`, id)
+	var w models.EmailWatch
+	var matchedAt sql.NullInt64
+	if err := row.Scan(&w.ID, &w.TaskID, &w.FromFilter, &w.SubjectFilter,
+		&w.CheckEverySec, &w.Status, &w.CreatedAt, &w.LastCheckedAt, &matchedAt); err != nil {
+		return nil, err
+	}
+	if matchedAt.Valid {
+		v := matchedAt.Int64
+		w.MatchedAt = &v
+	}
+	return &w, nil
+}
+
+func (d *DB) DeleteEmailWatch(ctx context.Context, id string) error {
+	_, err := d.db.ExecContext(ctx, `DELETE FROM email_watches WHERE id = ?`, id)
+	return err
+}
+
+// ── Email Matches ─────────────────────────────────────────────────────────────
+
+func (d *DB) InsertEmailMatch(ctx context.Context, m models.EmailMatch) error {
+	_, err := d.db.ExecContext(ctx,
+		`INSERT OR IGNORE INTO email_matches (id, watch_id, task_id, from_addr, subject, received_at, message_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		m.ID, m.WatchID, m.TaskID, m.FromAddr, m.Subject, m.ReceivedAt, m.MessageID)
+	return err
+}
+
+func (d *DB) EmailMatchesByTask(ctx context.Context, taskID string) ([]models.EmailMatch, error) {
+	rows, err := d.db.QueryContext(ctx,
+		`SELECT id, watch_id, task_id, from_addr, subject, received_at, message_id
+		 FROM email_matches WHERE task_id = ? ORDER BY received_at DESC`, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.EmailMatch
+	for rows.Next() {
+		var m models.EmailMatch
+		if err := rows.Scan(&m.ID, &m.WatchID, &m.TaskID, &m.FromAddr, &m.Subject, &m.ReceivedAt, &m.MessageID); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
 }

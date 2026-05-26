@@ -75,6 +75,193 @@ const DEFAULT_CONFIG: Config = {
 };
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Email Settings sub-component
+// ---------------------------------------------------------------------------
+function EmailSettings() {
+  const [server, setServer] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [tls, setTls] = useState(true);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    ok: boolean;
+    error?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    api
+      .getConfig()
+      .then((cfg) => {
+        if (cfg.email) {
+          setServer(cfg.email.imap_server ?? "");
+          setUsername(cfg.email.username ?? "");
+          setPassword(cfg.email.password ?? "");
+          setTls(cfg.email.tls ?? true);
+        }
+      })
+      .catch(() => {
+        /* ignore — fields stay blank */
+      });
+  }, []);
+
+  const handleTest = async () => {
+    if (!server.trim() || !username.trim() || !password.trim()) return;
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await api.testEmailConnection(
+        server.trim(),
+        username.trim(),
+        password.trim(),
+        tls,
+      );
+      setTestResult(res);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const isNetworkError =
+        msg.includes("Failed to fetch") ||
+        msg.includes("NetworkError") ||
+        msg.includes("ECONNREFUSED") ||
+        msg.includes("502") ||
+        msg.includes("503");
+      setTestResult({
+        ok: false,
+        error: isNetworkError
+          ? "Cannot reach the Cogload backend. Make sure it is running (go run ./cmd/cogload)."
+          : msg,
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!server.trim() || !username.trim() || !password.trim()) return;
+    // Save email config via updateConfig
+    await api.updateConfig({
+      email: {
+        imap_server: server.trim(),
+        username: username.trim(),
+        password: password.trim(),
+        tls,
+      },
+    } as any);
+  };
+
+  return (
+    <div className="settings-section">
+      <div className="settings-section-title">Email Watch</div>
+      <p
+        className="settings-desc"
+        style={{
+          margin: "0 0 14px",
+          fontSize: 12,
+          color: "var(--color-overcast)",
+        }}
+      >
+        IMAP credentials for inbox polling. Use an app-specific password, not
+        your account password. Gmail: Settings → See all settings → Forwarding
+        and POP/IMAP → Enable IMAP.
+      </p>
+
+      <div className="settings-row">
+        <div className="settings-label-group">
+          <span className="settings-label">IMAP server</span>
+          <span className="settings-desc">e.g. imap.gmail.com:993</span>
+        </div>
+        <input
+          className="settings-input"
+          value={server}
+          onChange={(e) => setServer(e.target.value)}
+          placeholder="imap.gmail.com:993"
+        />
+      </div>
+
+      <div className="settings-row">
+        <div className="settings-label-group">
+          <span className="settings-label">Username</span>
+          <span className="settings-desc">Your email address</span>
+        </div>
+        <input
+          className="settings-input"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          placeholder="you@gmail.com"
+          autoComplete="off"
+        />
+      </div>
+
+      <div className="settings-row">
+        <div className="settings-label-group">
+          <span className="settings-label">App password</span>
+          <span className="settings-desc">Not your account password</span>
+        </div>
+        <input
+          className="settings-input"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="xxxx xxxx xxxx xxxx"
+          autoComplete="new-password"
+        />
+      </div>
+
+      <div className="settings-row">
+        <div className="settings-label-group">
+          <span className="settings-label">Use TLS</span>
+        </div>
+        <label className="settings-toggle">
+          <input
+            type="checkbox"
+            checked={tls}
+            onChange={(e) => setTls(e.target.checked)}
+          />
+          <span className="settings-toggle-track" />
+        </label>
+      </div>
+
+      <div className="settings-row" style={{ gap: 8 }}>
+        <button
+          className="settings-add-btn"
+          onClick={handleTest}
+          disabled={
+            testing || !server.trim() || !username.trim() || !password.trim()
+          }
+        >
+          {testing ? "Testing…" : "Test connection"}
+        </button>
+        <button
+          className="settings-add-btn"
+          onClick={handleSave}
+          disabled={!server.trim() || !username.trim() || !password.trim()}
+        >
+          Save
+        </button>
+      </div>
+
+      {testResult && (
+        <div
+          style={{
+            fontSize: 12,
+            padding: "6px 10px",
+            borderRadius: "var(--radius-tags)",
+            background: testResult.ok ? "rgba(7,90,57,0.08)" : "#fef2f2",
+            color: testResult.ok
+              ? "var(--color-success-green)"
+              : "var(--color-danger-red)",
+            marginTop: 8,
+          }}
+        >
+          {testResult.ok
+            ? "Connected successfully"
+            : (testResult.error ?? "Connection failed")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Component
 // ---------------------------------------------------------------------------
 export default function SettingsMode() {
@@ -811,6 +998,9 @@ export default function SettingsMode() {
             })}
           </div>
         </div>
+
+        {/* ---- Email Watch ---- */}
+        <EmailSettings />
 
         {/* ---- About ---- */}
         <div className="settings-section">

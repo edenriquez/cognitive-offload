@@ -60,7 +60,7 @@ func main() {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	defer ctxCancel()
 
-	coord, err := ingest.NewCoordinator(db, cfg)
+	coord, err := ingest.NewCoordinator(db, hub, cfg)
 	if err != nil {
 		slog.Error("failed to create coordinator", "error", err)
 	} else {

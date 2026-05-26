@@ -2,14 +2,19 @@ package ingest
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/emersion/go-imap/v2/imapclient"
+
 	"github.com/cogload/backend/internal/config"
+	"github.com/cogload/backend/internal/models"
 	"github.com/cogload/backend/internal/store"
+	"github.com/cogload/backend/internal/ws"
 )
 
 type SourceStatus struct {
@@ -23,6 +28,7 @@ type SourceStatus struct {
 type Coordinator struct {
 	db             *store.DB
 	cfg            config.Config
+	hub            *ws.Hub
 	fsw            *FSWatcher
 	git            *GitMonitor
 	idle           *IdleDetector
@@ -30,9 +36,10 @@ type Coordinator struct {
 	claudeProjects *ClaudeProjectScanner
 	zed            *ZedWatcher
 	aggregator     *Aggregator
+	emailWatcher   *EmailWatcher
 }
 
-func NewCoordinator(db *store.DB, cfg config.Config) (*Coordinator, error) {
+func NewCoordinator(db *store.DB, hub *ws.Hub, cfg config.Config) (*Coordinator, error) {
 	idle := NewIdleDetector(db, 5*time.Minute)
 
 	fsw, err := NewFSWatcher(db, cfg.WatchPaths, cfg.IgnoreDirs, cfg.MaxWatchDirs)
@@ -45,10 +52,17 @@ func NewCoordinator(db *store.DB, cfg config.Config) (*Coordinator, error) {
 	claudeProjects := NewClaudeProjectScanner(db)
 	zed := NewZedWatcher(db, idle.RecordActivity)
 	agg := NewAggregator(db)
+	// Re-read config from disk on every call so credentials saved after startup are picked up
+	emailCfg := func() *models.EmailConfig {
+		live := config.Load()
+		return live.Email
+	}
+	emailW := NewEmailWatcher(db, hub, emailCfg)
 
 	return &Coordinator{
 		db:             db,
 		cfg:            cfg,
+		hub:            hub,
 		fsw:            fsw,
 		git:            git,
 		idle:           idle,
@@ -56,6 +70,7 @@ func NewCoordinator(db *store.DB, cfg config.Config) (*Coordinator, error) {
 		claudeProjects: claudeProjects,
 		zed:            zed,
 		aggregator:     agg,
+		emailWatcher:   emailW,
 	}, nil
 }
 
@@ -69,6 +84,7 @@ func (c *Coordinator) Start(ctx context.Context) error {
 	c.claudeProjects.Start(ctx)
 	c.zed.Start(ctx)
 	c.aggregator.Start(ctx)
+	c.emailWatcher.Start(ctx)
 
 	slog.Info("coordinator: all watchers started")
 	return nil
@@ -97,6 +113,33 @@ func (c *Coordinator) Stop() {
 	if c.aggregator != nil {
 		c.aggregator.Stop()
 	}
+	if c.emailWatcher != nil {
+		c.emailWatcher.Stop()
+	}
+}
+
+// TestEmailConnection dials an IMAP server, authenticates, then immediately
+// logs out. Returns nil on success, or an error describing the failure.
+func (c *Coordinator) TestEmailConnection(server, username, password string, useTLS bool) error {
+	var client *imapclient.Client
+	var err error
+	if useTLS {
+		client, err = imapclient.DialTLS(server, &imapclient.Options{
+			TLSConfig: &tls.Config{InsecureSkipVerify: false},
+		})
+	} else {
+		client, err = imapclient.DialStartTLS(server, nil)
+	}
+	if err != nil {
+		return fmt.Errorf("dial: %w", err)
+	}
+	defer client.Close()
+
+	if err := client.Login(username, password).Wait(); err != nil {
+		return fmt.Errorf("login: %w", err)
+	}
+	_ = client.Logout().Wait()
+	return nil
 }
 
 // RecordActivity passes activity signals to the idle detector.

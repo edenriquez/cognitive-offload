@@ -59,8 +59,13 @@ function connect() {
   socket.onmessage = (event) => {
     try {
       const raw = JSON.parse(event.data);
+      // Email match event
+      if (raw && raw.type === "email_match" && raw.match) {
+        useAppStore.getState().addEmailMatch(raw.match);
+        return;
+      }
+      // Signal snapshot
       if (isValidSnapshot(raw)) {
-        // Ensure arrays are never null
         const snapshot: SignalSnapshot = {
           ...raw,
           interventions: Array.isArray(raw.interventions)

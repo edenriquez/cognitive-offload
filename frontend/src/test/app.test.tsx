@@ -48,6 +48,7 @@ beforeEach(() => {
     focus: {
       task: null,
       remainingSecs: 90 * 60,
+      totalSecs: 90 * 60,
       isPaused: false,
       sessionId: null,
     },

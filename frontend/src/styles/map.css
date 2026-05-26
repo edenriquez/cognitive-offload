@@ -267,6 +267,32 @@
     box-shadow: 0 0 0 2px rgba(64, 127, 242, 0.15);
 }
 
+/* Watching inbox — dashed border, subtle scan animation */
+.tnode--watching {
+    border: 1.5px dashed var(--color-carbon);
+    background: var(--color-white);
+    animation: tnode-watching-scan 2s ease-in-out infinite;
+}
+
+@keyframes tnode-watching-scan {
+    0%,
+    100% {
+        border-color: var(--color-stone);
+        box-shadow: none;
+    }
+    50% {
+        border-color: var(--color-carbon);
+        box-shadow: 0 0 0 3px rgba(80, 89, 103, 0.12);
+    }
+}
+
+/* Email matched — green accent */
+.tnode--email-matched {
+    border-color: rgba(7, 90, 57, 0.4);
+    background: rgba(7, 90, 57, 0.03);
+    box-shadow: 0 0 0 2px rgba(7, 90, 57, 0.08);
+}
+
 /* Done — heavily muted */
 .tnode--done {
     opacity: 0.4;
@@ -301,6 +327,11 @@
 /* Active node kind label is blue */
 .tnode--active .tnode-kind {
     color: var(--color-action-blue);
+}
+
+/* Email matched kind label is green */
+.tnode--email-matched .tnode-kind {
+    color: var(--color-success-green);
 }
 
 /* Status icons */
@@ -1189,20 +1220,51 @@
     flex-shrink: 0;
 }
 
-.mcp-back {
-    display: flex;
+/* Unified header icon buttons — back, email, done, delete */
+.mcp-icon-btn {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
     align-items: center;
+    justify-content: center;
     color: var(--color-lead);
+    background: transparent;
+    border: none;
     border-radius: var(--radius-tags);
-    padding: 2px;
+    cursor: pointer;
+    padding: 0;
     transition:
         color 0.12s,
         background 0.12s;
 }
 
-.mcp-back:hover {
-    color: var(--color-carbon);
+.mcp-icon-btn:hover {
+    color: var(--color-ink);
     background: var(--color-ash);
+}
+
+.mcp-icon-btn--done:hover,
+.mcp-icon-btn--done.is-active {
+    color: var(--color-success-green);
+}
+
+.mcp-icon-btn--danger:hover {
+    color: var(--color-danger-red);
+    background: #fef2f2;
+}
+
+.mcp-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    margin-left: auto;
+}
+
+.mcp-kind-status {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--color-success-green);
+    letter-spacing: -0.05px;
 }
 
 .mcp-kind {
@@ -1227,25 +1289,6 @@
     color: var(--color-carbon);
 }
 
-.mcp-delete-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: var(--radius-tags);
-    color: var(--color-lead);
-    margin-left: auto;
-    transition:
-        color 0.12s,
-        background 0.12s;
-}
-
-.mcp-delete-btn:hover {
-    color: var(--color-danger-red);
-    background: #fef2f2;
-}
-
 .mcp-task-name {
     font-size: 14px;
     font-weight: 500;
@@ -1254,6 +1297,44 @@
     line-height: 1.4;
     padding: 12px 14px;
     word-break: break-word;
+    transition:
+        color 0.2s,
+        text-decoration-color 0.2s;
+}
+
+.mcp-task-name--done {
+    color: var(--color-overcast);
+    text-decoration: line-through;
+    text-decoration-color: var(--color-lead);
+}
+
+/* Done card — shown in place of focus controls when task is done */
+.mcp-done-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 22px 14px 24px;
+    border-bottom: 1px solid var(--color-stone);
+}
+
+.mcp-done-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--color-success-green);
+    color: var(--color-white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mcp-done-text {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-overcast);
 }
 
 /* Lock cards */
@@ -1283,16 +1364,26 @@
 }
 
 /* Timer block */
+/* Running / paused: countdown + inline play button */
 .mcp-timer-block {
-    padding: 16px 14px 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 14px;
     border-bottom: 1px solid var(--color-stone);
 }
 
+.mcp-timer-info {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Shared display numeric size — countdown / finish-by time / selected duration */
 .mcp-countdown {
     font-family: var(--font-inter);
-    font-size: 40px;
+    font-size: 28px;
     font-weight: 500;
-    letter-spacing: -2px;
+    letter-spacing: -0.8px;
     color: var(--color-ink);
     font-variant-numeric: tabular-nums;
     line-height: 1;
@@ -1320,111 +1411,228 @@
     transition: width 1s linear;
 }
 
-/* Duration presets */
+/* Idle: tab strip + active-tab content */
 .mcp-duration-block {
-    padding: 14px 14px 12px;
+    padding: 0 14px 14px;
     border-bottom: 1px solid var(--color-stone);
 }
 
-.mcp-duration-label {
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--color-overcast);
-    margin-bottom: 8px;
-}
-
-.mcp-duration-presets {
+/* Tab strip: "Finish by" · "Duration" */
+.mcp-tab-strip {
     display: flex;
-    gap: 3px;
-    flex-wrap: wrap;
+    gap: 18px;
+    border-bottom: 1px solid var(--color-stone);
+    margin: 0 -14px 14px;
+    padding: 0 14px;
 }
 
-.mcp-preset {
-    flex: 1;
-    min-width: 0;
-    padding: 5px 2px;
+.mcp-tab {
+    position: relative;
+    background: transparent;
+    border: none;
+    padding: 9px 0 8px;
     font-size: 11px;
     font-weight: 500;
-    color: var(--color-carbon);
-    background: transparent;
-    border: 1px solid var(--color-stone);
-    border-radius: var(--radius-tags);
+    letter-spacing: -0.05px;
+    color: var(--color-overcast);
     cursor: pointer;
-    transition:
-        background 0.1s,
-        border-color 0.1s,
-        color 0.1s;
-    text-align: center;
-    white-space: nowrap;
+    transition: color 0.12s;
 }
 
-.mcp-preset:hover {
+.mcp-tab:hover {
+    color: var(--color-carbon);
+}
+
+.mcp-tab--on {
+    color: var(--color-ink);
+}
+
+.mcp-tab--on::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: var(--color-ink);
+    border-radius: 1px;
+}
+
+/* Tab content row: content on the left (flex-1), play button on the right */
+.mcp-ends-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 96px;
+    padding: 6px 0;
+}
+
+/* ── Finish by tab ─ centered time ────────────────────── */
+.mcp-time-center {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mcp-time-big {
+    font-family: var(--font-inter);
+    font-size: 28px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.8px;
+    color: var(--color-ink);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-tags);
+    padding: 6px 14px;
+    cursor: pointer;
+    transition:
+        background 0.12s,
+        border-color 0.12s,
+        color 0.12s;
+}
+
+.mcp-time-big:hover {
     background: var(--color-ash);
+    border-color: var(--color-stone);
+}
+
+.mcp-time-big--warn {
+    color: var(--color-danger-red);
+}
+
+.mcp-time-edit {
+    font-family: var(--font-inter);
+    font-size: 28px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.8px;
+    color: var(--color-ink);
+    background: var(--color-ash);
+    border: 1px solid var(--color-ink);
+    border-radius: var(--radius-tags);
+    padding: 6px 14px;
+    outline: none;
+    text-align: center;
+}
+
+.mcp-time-edit--warn {
+    color: var(--color-danger-red);
+    border-color: var(--color-danger-red);
+}
+
+.mcp-time-edit::-webkit-inner-spin-button,
+.mcp-time-edit::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    display: none;
+}
+
+/* ── Duration tab ─ vertical list of full-width options ─────────────── */
+.mcp-duration-list {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mcp-duration-item {
+    width: 100%;
+    padding: 7px 12px;
+    font-family: var(--font-inter);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: -0.06px;
+    color: var(--color-ink);
+    background: var(--color-ash);
+    border: 1px solid var(--color-stone);
+    border-radius: var(--radius-tags);
+    text-align: center;
+    cursor: pointer;
+    transition:
+        background 0.12s,
+        border-color 0.12s;
+}
+
+.mcp-duration-item:hover {
+    background: var(--color-white);
     border-color: var(--color-slate);
 }
 
-.mcp-preset--on {
+.mcp-duration-item:active {
     background: var(--color-ink);
     color: var(--color-white);
     border-color: var(--color-ink);
 }
 
-/* Action buttons */
-.mcp-actions {
-    display: flex;
-    gap: 6px;
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--color-stone);
+/* Fade + scale-in for tab content transitions (list → selected, etc.) */
+@keyframes mcp-fade-in {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
-.mcp-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border-radius: var(--radius-buttons);
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: -0.13px;
-    cursor: pointer;
-    transition:
-        background 0.12s,
-        border-color 0.12s;
-    flex: 1;
-    justify-content: center;
+.mcp-fade-in {
+    animation: mcp-fade-in 0.18s var(--ease);
+    transform-origin: center;
 }
 
-.mcp-btn--start {
+/* .mcp-preset, .mcp-duration-presets, .mcp-actions removed — replaced by
+   .mcp-duration-list / .mcp-duration-item and inline play button */
+
+/* Primary circular action button — play / pause / resume */
+.mcp-play {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: 50%;
     background: var(--color-ink);
     color: var(--color-white);
-    border: 1px solid var(--color-ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    box-shadow:
+        0 1px 2px rgba(28, 29, 31, 0.12),
+        0 3px 8px rgba(28, 29, 31, 0.08);
+    transition:
+        transform 0.15s var(--ease),
+        background 0.15s var(--ease),
+        box-shadow 0.15s var(--ease);
 }
 
-.mcp-btn--start:hover {
-    background: #000;
+.mcp-play:hover:not(:disabled) {
+    transform: scale(1.05);
+    background: var(--color-abyss);
+    box-shadow:
+        0 2px 4px rgba(28, 29, 31, 0.18),
+        0 8px 18px rgba(28, 29, 31, 0.14);
 }
 
-.mcp-btn--pause {
-    background: var(--color-white);
-    color: var(--color-carbon);
-    border: 1px solid var(--color-slate);
+.mcp-play:active:not(:disabled) {
+    transform: scale(0.97);
+    transition-duration: 0.08s;
 }
 
-.mcp-btn--pause:hover {
-    background: var(--color-ash);
-    border-color: var(--color-lead);
+.mcp-play:disabled {
+    background: var(--color-stone);
+    color: var(--color-overcast);
+    box-shadow: none;
+    cursor: not-allowed;
 }
 
-.mcp-btn--done {
-    background: var(--color-white);
-    color: var(--color-success-green);
-    border: 1px solid var(--color-stone);
-}
-
-.mcp-btn--done:hover {
-    background: var(--color-ash);
+/* Optical centering for the play triangle */
+.mcp-play-glyph {
+    margin-left: 2px;
 }
 
 /* Sections inside task panel */
@@ -1509,6 +1717,613 @@
 
 .tnode-status-icon--paused {
     color: var(--color-warning-yellow);
+}
+
+/* ── Email watch node badge ────────────────────────── */
+
+.tnode-email-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 5px 1px 4px;
+    border-radius: 99px;
+    background: var(--color-ash);
+    border: 1px solid var(--color-stone);
+    color: var(--color-lead);
+    font-size: 9px;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+    cursor: default;
+    transition: border-color 0.12s;
+}
+
+.tnode-email-badge--matched {
+    background: rgba(7, 90, 57, 0.07);
+    border-color: rgba(7, 90, 57, 0.2);
+    color: var(--color-success-green);
+}
+
+.tnode-email-time {
+    font-size: 9px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-lead);
+}
+
+.tnode-email-time--matched {
+    color: var(--color-success-green);
+    font-weight: 600;
+}
+
+/* ── Email watch sidebar status row ────────────────── */
+
+.ewp-status-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-top: 1px solid var(--color-stone);
+    cursor: pointer;
+    transition: background 0.1s;
+    flex-shrink: 0;
+}
+
+.ewp-status-row:hover {
+    background: var(--color-ash);
+}
+
+.ewp-status-icon {
+    color: var(--color-lead);
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.ewp-status-text {
+    flex: 1;
+    font-size: 11px;
+    color: var(--color-carbon);
+    letter-spacing: -0.11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ewp-status-text--matched {
+    color: var(--color-success-green);
+    font-weight: 500;
+}
+
+.ewp-status-edit {
+    font-size: 10px;
+    color: var(--color-lead);
+    flex-shrink: 0;
+}
+
+/* ── Email watch modal (ewm) ──────────────────────── */
+
+.ewm-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 29, 31, 0.32);
+    z-index: 100;
+    animation: fadein 0.1s var(--ease);
+}
+
+.ewm-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 101;
+    background: var(--color-white);
+    border: 1px solid var(--color-stone);
+    border-radius: var(--radius-cards);
+    box-shadow:
+        0 20px 48px rgba(28, 29, 31, 0.18),
+        0 4px 12px rgba(28, 29, 31, 0.08);
+    width: 420px;
+    max-width: calc(100vw - 32px);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: fadein 0.12s var(--ease);
+}
+
+/* Modal header */
+.ewm-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--color-stone);
+    flex-shrink: 0;
+    gap: 10px;
+}
+
+.ewm-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.ewm-header-icon {
+    display: flex;
+    align-items: center;
+    color: var(--color-carbon);
+    flex-shrink: 0;
+}
+
+.ewm-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-ink);
+    letter-spacing: -0.14px;
+    line-height: 1.2;
+}
+
+.ewm-subtitle {
+    font-size: 11px;
+    color: var(--color-overcast);
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ewm-header-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.ewm-link-btn {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-action-blue);
+    padding: 3px 7px;
+    border-radius: var(--radius-tags);
+    border: 1px solid rgba(64, 127, 242, 0.25);
+    background: rgba(64, 127, 242, 0.06);
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.ewm-link-btn:hover {
+    background: rgba(64, 127, 242, 0.12);
+}
+
+.ewm-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-tags);
+    color: var(--color-lead);
+    transition:
+        color 0.1s,
+        background 0.1s;
+}
+
+.ewm-icon-btn:hover {
+    color: var(--color-carbon);
+    background: var(--color-ash);
+}
+
+/* Loading */
+.ewm-loading {
+    padding: 24px 16px;
+    font-size: 13px;
+    color: var(--color-overcast);
+}
+
+/* Body */
+.ewm-body {
+    overflow-y: auto;
+    padding: 14px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Watch card */
+.ewm-watch {
+    border: 1px solid var(--color-stone);
+    border-radius: var(--radius-cards);
+    background: var(--color-white);
+    overflow: hidden;
+}
+
+.ewm-watch--active {
+    border-color: var(--color-stone);
+}
+.ewm-watch--paused {
+    border-color: var(--color-slate);
+    opacity: 0.8;
+}
+.ewm-watch--matched {
+    border-color: rgba(7, 90, 57, 0.25);
+    background: rgba(7, 90, 57, 0.03);
+}
+
+.ewm-watch-body {
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ewm-watch-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.ewm-filter-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.ewm-filter-key {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-overcast);
+    min-width: 52px;
+    flex-shrink: 0;
+}
+
+.ewm-filter-val {
+    font-size: 13px;
+    color: var(--color-ink);
+    font-weight: 500;
+    letter-spacing: -0.13px;
+}
+
+.ewm-watch-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+}
+
+.ewm-status {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.ewm-status--active {
+    color: var(--color-action-blue);
+}
+.ewm-status--paused {
+    color: var(--color-overcast);
+}
+.ewm-status--matched {
+    color: var(--color-success-green);
+}
+
+.ewm-meta {
+    font-size: 11px;
+    color: var(--color-overcast);
+}
+.ewm-meta-sep {
+    color: var(--color-stone);
+    font-size: 11px;
+}
+
+.ewm-watch-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-top: 2px;
+}
+
+.ewm-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border-radius: var(--radius-buttons);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: -0.12px;
+    color: var(--color-carbon);
+    background: var(--color-ash);
+    border: 1px solid var(--color-stone);
+    cursor: pointer;
+    transition:
+        background 0.1s,
+        border-color 0.1s;
+}
+
+.ewm-action-btn:hover {
+    background: var(--color-stone);
+}
+
+.ewm-action-btn--danger {
+    color: var(--color-danger-red);
+    background: transparent;
+    border-color: transparent;
+}
+
+.ewm-action-btn--danger:hover {
+    background: #fef2f2;
+    border-color: #fca5a5;
+}
+
+/* Matched card */
+.ewm-matched-card {
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ewm-matched-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+}
+
+.ewm-matched-check {
+    color: var(--color-success-green);
+    display: flex;
+    align-items: center;
+}
+
+.ewm-matched-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-success-green);
+}
+
+.ewm-matched-subject {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-ink);
+    letter-spacing: -0.14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ewm-matched-from {
+    font-size: 12px;
+    color: var(--color-overcast);
+    margin-bottom: 8px;
+}
+
+.ewm-delete-watch {
+    font-size: 11px;
+    color: var(--color-danger-red);
+    align-self: flex-start;
+    padding: 2px 0;
+    transition: opacity 0.1s;
+}
+
+.ewm-delete-watch:hover {
+    opacity: 0.7;
+}
+
+/* Add form */
+.ewm-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    background: var(--color-ash);
+    border: 1px solid var(--color-stone);
+    border-radius: var(--radius-cards);
+}
+
+.ewm-form-intro {
+    font-size: 12px;
+    color: var(--color-carbon);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.ewm-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.ewm-field-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-carbon);
+    letter-spacing: -0.11px;
+}
+
+.ewm-field-hint {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--color-overcast);
+}
+
+.ewm-field-input {
+    font-family: var(--font-inter);
+    font-size: 13px;
+    color: var(--color-ink);
+    background: var(--color-white);
+    border: 1px solid var(--color-slate);
+    border-radius: var(--radius-inputs);
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.12s;
+}
+
+.ewm-field-input:focus {
+    border-color: var(--color-carbon);
+}
+.ewm-field-input::placeholder {
+    color: var(--color-lead);
+}
+
+.ewm-intervals {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.ewm-interval {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: var(--radius-buttons);
+    border: 1px solid var(--color-slate);
+    background: var(--color-white);
+    color: var(--color-carbon);
+    cursor: pointer;
+    transition:
+        background 0.1s,
+        border-color 0.1s,
+        color 0.1s;
+}
+
+.ewm-interval:hover {
+    background: var(--color-ash);
+}
+
+.ewm-interval--on {
+    background: var(--color-ink);
+    color: var(--color-white);
+    border-color: var(--color-ink);
+}
+
+.ewm-form-footer {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.ewm-submit {
+    font-family: var(--font-inter);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 9px 0;
+    border-radius: var(--radius-buttons);
+    background: var(--color-ink);
+    color: var(--color-white);
+    border: 1px solid var(--color-ink);
+    cursor: pointer;
+    flex: 1;
+    transition: background 0.12s;
+}
+
+.ewm-submit:hover {
+    background: #000;
+}
+.ewm-submit:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.ewm-cancel {
+    font-family: var(--font-inter);
+    font-size: 12px;
+    color: var(--color-overcast);
+    padding: 9px 12px;
+    border-radius: var(--radius-buttons);
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    transition:
+        color 0.1s,
+        background 0.1s;
+}
+
+.ewm-cancel:hover {
+    color: var(--color-carbon);
+    background: var(--color-ash);
+}
+
+.ewm-add-another {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-action-blue);
+    padding: 0;
+    align-self: flex-start;
+    transition: opacity 0.1s;
+}
+
+.ewm-add-another:hover {
+    opacity: 0.7;
+}
+
+/* Gmail instructions */
+.ewm-instructions {
+    background: var(--color-ash);
+    border-top: 1px solid var(--color-stone);
+    padding: 14px 16px;
+    flex-shrink: 0;
+}
+
+.ewm-instructions-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.ewm-instructions-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-ink);
+    letter-spacing: -0.12px;
+}
+
+.ewm-steps {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ewm-steps li {
+    font-size: 12px;
+    color: var(--color-carbon);
+    line-height: 1.5;
+}
+
+.ewm-steps li strong {
+    color: var(--color-ink);
+    display: block;
+    margin-bottom: 2px;
+}
+
+.ewm-steps p {
+    margin: 2px 0 0;
+    font-size: 11px;
+    color: var(--color-overcast);
+    line-height: 1.5;
+}
+
+.ewm-steps code {
+    font-family: var(--font-inter);
+    font-size: 10px;
+    background: var(--color-white);
+    border: 1px solid var(--color-stone);
+    border-radius: 3px;
+    padding: 0 4px;
+    color: var(--color-ink);
+}
+
+.ewm-note {
+    color: var(--color-warning-yellow) !important;
+    font-weight: 500;
 }
 
 /* ── Sidebar wrap + resize + collapse ──────────────────── */

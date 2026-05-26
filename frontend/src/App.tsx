@@ -60,7 +60,8 @@ export default function App() {
     setTasks,
     setBandwidth,
     focus,
-    tickFocus,
+    activeSessions,
+    tickSessions,
     toast,
     setToast,
     now,
@@ -77,12 +78,13 @@ export default function App() {
     return () => clearInterval(t);
   }, [setNow]);
 
-  // Focus timer — runs globally so any tab can show the countdown
+  // Global timer — ticks all active sessions simultaneously
+  const hasRunning = activeSessions.some((s) => !s.isPaused);
   useEffect(() => {
-    if (!focus.task || focus.isPaused) return;
-    const t = setInterval(() => tickFocus(), 1000);
+    if (!hasRunning) return;
+    const t = setInterval(() => tickSessions(), 1000);
     return () => clearInterval(t);
-  }, [focus.task, focus.isPaused, tickFocus]);
+  }, [hasRunning, tickSessions]);
 
   // Claude status
   const [claudeOnline, setClaudeOnline] = useState(false);

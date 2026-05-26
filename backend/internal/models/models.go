@@ -359,3 +359,44 @@ type TaskNote struct {
 	Content   string `json:"content"`
 	UpdatedAt int64  `json:"updated_at"`
 }
+
+// ── Email Watch System ──────────────────────────────────────────────────────
+
+// EmailConfig holds IMAP credentials stored in the config file (not the DB).
+type EmailConfig struct {
+	IMAPServer string `json:"imap_server"` // e.g. "imap.gmail.com:993"
+	Username   string `json:"username"`
+	Password   string `json:"password,omitempty"` // app-specific password
+	TLS        bool   `json:"tls"`
+}
+
+// EmailWatch is a polling rule attached to a task.
+type EmailWatch struct {
+	ID            string `json:"id"`
+	TaskID        string `json:"task_id"`
+	FromFilter    string `json:"from_filter"`    // partial sender match
+	SubjectFilter string `json:"subject_filter"` // partial subject match
+	CheckEverySec int    `json:"check_every_sec"`
+	Status        string `json:"status"` // active | paused | matched | done
+	CreatedAt     int64  `json:"created_at"`
+	LastCheckedAt int64  `json:"last_checked_at"`
+	MatchedAt     *int64 `json:"matched_at,omitempty"`
+}
+
+// EmailMatch is a confirmed match stored when the email arrives.
+type EmailMatch struct {
+	ID         string `json:"id"`
+	WatchID    string `json:"watch_id"`
+	TaskID     string `json:"task_id"`
+	FromAddr   string `json:"from_addr"`
+	Subject    string `json:"subject"`
+	ReceivedAt int64  `json:"received_at"`
+	MessageID  string `json:"message_id"`
+}
+
+// EmailMatchEvent is broadcast over WebSocket when a match is found.
+type EmailMatchEvent struct {
+	Type  string     `json:"type"` // "email_match"
+	Match EmailMatch `json:"match"`
+	Watch EmailWatch `json:"watch"`
+}

@@ -2,6 +2,11 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dagre from "@dagrejs/dagre";
 import NoteEditor from "../shared/NoteEditor";
 import {
+  EmailWatchModal,
+  EmailWatchStatus,
+  IconEnvelope,
+} from "../shared/EmailWatchPanel";
+import {
   ReactFlow,
   Background,
   Controls,
@@ -16,7 +21,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { api } from "../../api/client";
-import { useAppStore } from "../../store/app-store";
+import { useAppStore, type ParallelSession } from "../../store/app-store";
 import type { Task, TaskEdge, TaskGraph } from "../../types";
 import TaskNode, { type TaskNodeType } from "../shared/TaskNode";
 
@@ -567,41 +572,192 @@ function AmbientSidebar({
   );
 }
 
-// ── Task control panel (node selected) ────────────────────────────────────────────────────────────
+// ── Primary action button ─ circular play / pause / resume ────────────────
+
+function PlayButton({
+  isRunning,
+  isPaused,
+  finishIsValid,
+  onClick,
+}: {
+  isRunning: boolean;
+  isPaused: boolean;
+  finishIsValid: boolean;
+  onClick: () => void;
+}) {
+  const label = isRunning
+    ? "Pause"
+    : isPaused
+      ? "Resume"
+      : !finishIsValid
+        ? "Set a future finish time"
+        : "Start focus";
+  return (
+    <button
+      className={`mcp-play${isRunning ? " mcp-play--running" : ""}`}
+      disabled={!isRunning && !isPaused && !finishIsValid}
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+    >
+      {isRunning ? (
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <rect x="7" y="5" width="3.5" height="14" rx="1" />
+          <rect x="13.5" y="5" width="3.5" height="14" rx="1" />
+        </svg>
+      ) : (
+        <svg
+          className="mcp-play-glyph"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path d="M8 5.5v13a1 1 0 0 0 1.55.83l9.5-6.5a1 1 0 0 0 0-1.66l-9.5-6.5A1 1 0 0 0 8 5.5z" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+// ── Task control panel (node selected) ───────────────────────────────────────────
 
 function TaskControlPanel({
   task,
   edges,
   tasks,
   allTasks,
-  focus,
+  session,
   blockConfig,
   locked,
   onStartFocus,
   onPauseFocus,
   onCompleteFocus,
+  onToggleTaskDone,
   onDeleteTask,
   onSelectTask,
   onClose,
+  onWatchChange,
 }: {
   task: Task;
   edges: TaskEdge[];
   tasks: Task[];
   allTasks: Task[];
-  focus: { task: string | null; remainingSecs: number; isPaused: boolean };
+  session: ParallelSession | null;
   blockConfig: BlockConfigShape | null;
   locked: "lunch" | "cutoff" | null;
   onStartFocus: (taskId: string, durationSecs: number) => void;
-  onPauseFocus: () => void;
+  onPauseFocus: (taskId: string) => void;
   onCompleteFocus: (taskId: string) => void;
+  onToggleTaskDone: (taskId: string) => void;
   onDeleteTask: (taskId: string) => void;
   onSelectTask: (id: string) => void;
   onClose: () => void;
+  onWatchChange: () => void;
 }) {
-  const [durIdx, setDurIdx] = useState(4); // default 1.5h = index 4
-  const isThisTaskFocused = focus.task === task.text;
-  const isRunning = isThisTaskFocused && !focus.isPaused;
-  const isPaused = isThisTaskFocused && focus.isPaused;
+  // Default finish time: now + 90 min
+  const [finishH, setFinishH] = useState(() => {
+    const t = new Date(Date.now() + 90 * 60_000);
+    return t.getHours();
+  });
+  const [finishM, setFinishM] = useState(() => {
+    const t = new Date(Date.now() + 90 * 60_000);
+    return t.getMinutes();
+  });
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [isEditingTime, setIsEditingTime] = useState(false);
+  const [durationTab, setDurationTab] = useState<"finish_by" | "duration">(
+    "finish_by",
+  );
+  // Which duration preset is currently selected (null = show the list)
+  const [selectedDurationSecs, setSelectedDurationSecs] = useState<
+    number | null
+  >(null);
+  const timeInputRef = useRef<HTMLInputElement>(null);
+  const isRunning = !!session && !session.isPaused;
+  const isPaused = !!session && session.isPaused;
+  const isDone = task.done;
+
+  // Focus the time input (and try to open the native picker) when entering edit mode
+  useEffect(() => {
+    if (isEditingTime && timeInputRef.current) {
+      timeInputRef.current.focus();
+      try {
+        (
+          timeInputRef.current as HTMLInputElement & { showPicker?: () => void }
+        ).showPicker?.();
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [isEditingTime]);
+
+  // 12-hour locale-friendly format: "2:50 PM"
+  const format12h = (h: number, m: number) => {
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 || 12;
+    return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+  };
+
+  // Unified primary-action handler (start / pause / resume)
+  const handlePrimaryAction = () => {
+    if (isRunning) {
+      onPauseFocus(task.id);
+    } else if (isPaused) {
+      onStartFocus(task.id, 0); // duration is ignored on resume
+    } else {
+      onStartFocus(task.id, getStartDuration());
+    }
+  };
+
+  // Header ✓ button: do the contextually-right thing
+  const handleHeaderDone = () => {
+    if (isDone) {
+      onToggleTaskDone(task.id); // undo
+    } else if (session) {
+      onCompleteFocus(task.id); // stop session + mark done
+    } else {
+      onToggleTaskDone(task.id); // just mark done
+    }
+  };
+
+  // HH:MM string for the native time input
+  const finishTimeValue = `${String(finishH).padStart(2, "0")}:${String(finishM).padStart(2, "0")}`;
+
+  const handleFinishTimeChange = (v: string) => {
+    const [hs, ms] = v.split(":");
+    const h = parseInt(hs, 10);
+    const m = parseInt(ms, 10);
+    if (!isNaN(h) && !isNaN(m)) {
+      setFinishH(h);
+      setFinishM(m);
+      // Editing the time directly invalidates any preset selection
+      setSelectedDurationSecs(null);
+    }
+  };
+
+  const getFinishBySecs = (): number => {
+    const now = new Date();
+    const target = new Date(now);
+    target.setHours(finishH, finishM, 0, 0);
+    return Math.max(60, Math.round((target.getTime() - now.getTime()) / 1000));
+  };
+
+  const finishTargetMs = (() => {
+    const t = new Date();
+    t.setHours(finishH, finishM, 0, 0);
+    return t.getTime();
+  })();
+  const finishIsValid = finishTargetMs > Date.now() + 60_000;
+
+  const getStartDuration = (): number => getFinishBySecs();
 
   const taskMap = Object.fromEntries(tasks.map((t) => [t.id, t]));
   const blockedBy = edges.filter(
@@ -627,17 +783,20 @@ function TaskControlPanel({
   const budgetPct =
     catTotal > 0 ? Math.min(100, (catDone / catTotal) * 100) : 0;
 
-  const totalDur = DURATION_PRESETS[durIdx]?.secs ?? 5400;
-  const elapsed = isThisTaskFocused ? totalDur - focus.remainingSecs : 0;
-  const progressPct = isThisTaskFocused
-    ? Math.min(100, (elapsed / totalDur) * 100)
-    : 0;
+  const totalDur = session ? session.durationSecs : getFinishBySecs();
+  const remainingSecs = session?.remainingSecs ?? totalDur;
+  const elapsed = session ? totalDur - remainingSecs : 0;
+  const progressPct = session ? Math.min(100, (elapsed / totalDur) * 100) : 0;
 
   return (
     <div className="mcp">
-      {/* Header */}
+      {/* Header — back, kind, [email · done · delete] */}
       <div className="mcp-header">
-        <button className="mcp-back" onClick={onClose}>
+        <button
+          className="mcp-icon-btn mcp-icon-btn--back"
+          onClick={onClose}
+          title="Back to map"
+        >
           <svg
             width="13"
             height="13"
@@ -652,31 +811,98 @@ function TaskControlPanel({
           </svg>
         </button>
         <span className={`mcp-kind mcp-kind--${task.kind}`}>{task.kind}</span>
-        <button
-          className="mcp-delete-btn"
-          onClick={() => onDeleteTask(task.id)}
-          title="Delete task"
-        >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        {isDone && <span className="mcp-kind-status">· done</span>}
+
+        <div className="mcp-header-actions">
+          <button
+            className="mcp-icon-btn"
+            onClick={() => setShowEmailModal(true)}
+            title="Watch inbox for email"
           >
-            <path d="M3 4h10M6 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1" />
-            <path d="M5 4l.5 9h5l.5-9" />
-          </svg>
-        </button>
+            <IconEnvelope size={13} />
+          </button>
+          <button
+            className={`mcp-icon-btn mcp-icon-btn--done${isDone ? " is-active" : ""}`}
+            onClick={handleHeaderDone}
+            title={isDone ? "Mark not done" : "Mark done"}
+          >
+            {isDone ? (
+              // undo arrow
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 8a5 5 0 1 0 1.5-3.5" />
+                <path d="M3 3v3h3" />
+              </svg>
+            ) : (
+              // checkmark
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 8l4 4 6-7" />
+              </svg>
+            )}
+          </button>
+          <button
+            className="mcp-icon-btn mcp-icon-btn--danger"
+            onClick={() => onDeleteTask(task.id)}
+            title="Delete task"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3 4h10M6 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1" />
+              <path d="M5 4l.5 9h5l.5-9" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <div className="mcp-task-name">{task.text}</div>
+      <div className={`mcp-task-name${isDone ? " mcp-task-name--done" : ""}`}>
+        {task.text}
+      </div>
 
-      {/* Lunch lock */}
-      {locked === "lunch" && (
+      {/* Body — one of: done card, lock card, or focus controls */}
+      {isDone ? (
+        <div className="mcp-done-card">
+          <div className="mcp-done-icon">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3 8l4 4 6-7" />
+            </svg>
+          </div>
+          <div className="mcp-done-text">Completed</div>
+        </div>
+      ) : locked === "lunch" ? (
         <div className="mcp-lock-card mcp-lock-card--lunch">
           <svg
             width="13"
@@ -693,10 +919,7 @@ function TaskControlPanel({
           </svg>
           Paused for lunch break
         </div>
-      )}
-
-      {/* Cutoff lock */}
-      {locked === "cutoff" && (
+      ) : locked === "cutoff" ? (
         <div className="mcp-lock-card mcp-lock-card--cutoff">
           <svg
             width="13"
@@ -713,106 +936,128 @@ function TaskControlPanel({
           </svg>
           Work time ended — switch to personal tasks
         </div>
-      )}
-
-      {/* Timer block */}
-      {!locked && (
+      ) : (
         <>
-          {isThisTaskFocused ? (
+          {isRunning || isPaused ? (
+            // ── Running / paused ─ countdown + inline play button ──
             <div className="mcp-timer-block">
-              <div className="mcp-countdown">
-                {fmtSecs(focus.remainingSecs)}
+              <div className="mcp-timer-info">
+                <div className="mcp-countdown">{fmtSecs(remainingSecs)}</div>
+                <div className="mcp-timer-meta">
+                  {isPaused ? "paused" : "remaining"}
+                </div>
+                <div className="mcp-timer-track">
+                  <div
+                    className="mcp-timer-fill"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
               </div>
-              <div className="mcp-timer-meta">
-                remaining of {DURATION_PRESETS[durIdx]?.label ?? "—"}
-              </div>
-              <div className="mcp-timer-track">
-                <div
-                  className="mcp-timer-fill"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
+              <PlayButton
+                isRunning={isRunning}
+                isPaused={isPaused}
+                finishIsValid={finishIsValid}
+                onClick={handlePrimaryAction}
+              />
             </div>
           ) : (
+            // ── Idle ─ tabs: [Finish by | Duration] + inline play ──
             <div className="mcp-duration-block">
-              <div className="mcp-duration-label">Focus duration</div>
-              <div className="mcp-duration-presets">
-                {DURATION_PRESETS.map((p, i) => (
-                  <button
-                    key={p.secs}
-                    className={`mcp-preset${durIdx === i ? " mcp-preset--on" : ""}`}
-                    onClick={() => setDurIdx(i)}
-                  >
-                    {p.label}
-                  </button>
-                ))}
+              <div className="mcp-tab-strip">
+                <button
+                  className={`mcp-tab${durationTab === "finish_by" ? " mcp-tab--on" : ""}`}
+                  onClick={() => setDurationTab("finish_by")}
+                >
+                  Finish by
+                </button>
+                <button
+                  className={`mcp-tab${durationTab === "duration" ? " mcp-tab--on" : ""}`}
+                  onClick={() => setDurationTab("duration")}
+                >
+                  Duration
+                </button>
+              </div>
+
+              <div className="mcp-ends-row">
+                {durationTab === "finish_by" ? (
+                  <div className="mcp-time-center">
+                    {isEditingTime ? (
+                      <input
+                        ref={timeInputRef}
+                        type="time"
+                        className={`mcp-time-edit${
+                          finishIsValid ? "" : " mcp-time-edit--warn"
+                        }`}
+                        value={finishTimeValue}
+                        onChange={(e) => handleFinishTimeChange(e.target.value)}
+                        onBlur={() => setIsEditingTime(false)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === "Escape") {
+                            setIsEditingTime(false);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className={`mcp-time-big${
+                          finishIsValid ? "" : " mcp-time-big--warn"
+                        }`}
+                        onClick={() => setIsEditingTime(true)}
+                        title="Click to change"
+                      >
+                        {format12h(finishH, finishM)}
+                      </button>
+                    )}
+                  </div>
+                ) : selectedDurationSecs === null ? (
+                  // No preset chosen yet — show the list
+                  <div className="mcp-duration-list mcp-fade-in" key="list">
+                    {DURATION_PRESETS.map((p) => (
+                      <button
+                        key={p.secs}
+                        className="mcp-duration-item"
+                        onClick={() => {
+                          const t = new Date(Date.now() + p.secs * 1000);
+                          setFinishH(t.getHours());
+                          setFinishM(t.getMinutes());
+                          setSelectedDurationSecs(p.secs);
+                        }}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  // Preset selected — show its label centered, mirroring "Finish by"
+                  <div className="mcp-time-center mcp-fade-in" key="selected">
+                    <button
+                      type="button"
+                      className="mcp-time-big"
+                      onClick={() => setSelectedDurationSecs(null)}
+                      title="Change duration"
+                    >
+                      {DURATION_PRESETS.find(
+                        (p) => p.secs === selectedDurationSecs,
+                      )?.label ?? ""}
+                    </button>
+                  </div>
+                )}
+                {/* Play button hidden until a duration is explicitly picked */}
+                {(durationTab === "finish_by" ||
+                  selectedDurationSecs !== null) && (
+                  <div className="mcp-fade-in" key="play">
+                    <PlayButton
+                      isRunning={isRunning}
+                      isPaused={isPaused}
+                      finishIsValid={finishIsValid}
+                      onClick={handlePrimaryAction}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
-
-          {/* Action button */}
-          <div className="mcp-actions">
-            {isRunning ? (
-              <>
-                <button
-                  className="mcp-btn mcp-btn--pause"
-                  onClick={onPauseFocus}
-                >
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  >
-                    <path d="M5 3v10M11 3v10" />
-                  </svg>
-                  Pause
-                </button>
-                <button
-                  className="mcp-btn mcp-btn--done"
-                  onClick={() => onCompleteFocus(task.id)}
-                >
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M3 8l4 4 6-7" />
-                  </svg>
-                  Done
-                </button>
-              </>
-            ) : (
-              <button
-                className="mcp-btn mcp-btn--start"
-                onClick={() =>
-                  onStartFocus(task.id, DURATION_PRESETS[durIdx]?.secs ?? 5400)
-                }
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M4 2l10 6-10 6V2z" />
-                </svg>
-                {isPaused ? "Resume" : "Start"}
-              </button>
-            )}
-          </div>
         </>
       )}
 
@@ -902,6 +1147,25 @@ function TaskControlPanel({
 
       {/* Notes — document-style, scrollable, markdown */}
       <NoteEditor taskId={task.id} />
+
+      {/* Email watch — compact status row, full modal on button click */}
+      <EmailWatchStatus
+        taskId={task.id}
+        onOpenModal={() => setShowEmailModal(true)}
+      />
+
+      {/* Email watch modal */}
+      {showEmailModal && (
+        <EmailWatchModal
+          taskId={task.id}
+          taskName={task.text}
+          onClose={() => {
+            setShowEmailModal(false);
+            onWatchChange();
+          }}
+          onWatchChange={() => onWatchChange()}
+        />
+      )}
     </div>
   );
 }
@@ -977,7 +1241,17 @@ function AddTaskPanel({
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function MapMode(): JSX.Element {
-  const { focus, startFocus, pauseFocus, exitFocus } = useAppStore();
+  const {
+    activeSessions,
+    startSession,
+    pauseSession,
+    resumeSession,
+    stopSession,
+    emailMatches,
+    // keep focus shim for auto-pause-on-lunch
+    focus,
+    pauseFocus,
+  } = useAppStore();
 
   const [graph, setGraph] = useState<TaskGraph | null>(null);
   const [readyIds, setReadyIds] = useState<Set<string>>(new Set());
@@ -1044,6 +1318,7 @@ export default function MapMode(): JSX.Element {
             isFocused: focusTask === task.text,
             isPaused: false,
             locked: null,
+            emailWatch: null,
           },
         }),
       ),
@@ -1117,18 +1392,16 @@ export default function MapMode(): JSX.Element {
 
   useEffect(() => {
     const h = currentTime.getHours() + currentTime.getMinutes() / 60;
-    if (h >= lunchStart && h < lunchEnd && focus.task && !focus.isPaused) {
-      pauseFocus();
-      api.stopFocus("paused").catch(() => {});
+    if (h >= lunchStart && h < lunchEnd) {
+      // Pause all running sessions during lunch
+      activeSessions
+        .filter((s) => !s.isPaused)
+        .forEach((s) => {
+          pauseSession(s.taskId);
+          api.stopFocus("paused").catch(() => {});
+        });
     }
-  }, [
-    currentTime,
-    lunchStart,
-    lunchEnd,
-    focus.task,
-    focus.isPaused,
-    pauseFocus,
-  ]);
+  }, [currentTime, lunchStart, lunchEnd, activeSessions, pauseSession]);
 
   // ── Lock states per task ────────────────────────────────────────────────────────────────────
 
@@ -1141,20 +1414,74 @@ export default function MapMode(): JSX.Element {
     return result;
   }, [currentTime, rawTasks, lunchStart, lunchEnd, cutoffHour]);
 
-  // Keep node data in sync with lock states and focus
+  // ── Email watch state for all tasks ────────────────────────────────────────
+  // Keyed by task_id → { status, lastCheckedAt, matched }
+  const [emailWatchByTask, setEmailWatchByTask] = useState<
+    Record<string, { status: string; lastCheckedAt: number; matched: boolean }>
+  >({});
+
+  const refreshEmailWatches = useCallback(async () => {
+    try {
+      const watches = await api.listAllEmailWatches();
+      const map: Record<
+        string,
+        { status: string; lastCheckedAt: number; matched: boolean }
+      > = {};
+      watches.forEach((w) => {
+        map[w.task_id] = {
+          status: w.status,
+          lastCheckedAt: w.last_checked_at,
+          matched: w.status === "matched",
+        };
+      });
+      // Also merge in real-time WS matches
+      emailMatches.forEach((m) => {
+        map[m.task_id] = {
+          status: "matched",
+          lastCheckedAt: map[m.task_id]?.lastCheckedAt ?? 0,
+          matched: true,
+        };
+      });
+      setEmailWatchByTask(map);
+    } catch {
+      /* ignore */
+    }
+  }, [emailMatches]);
+
+  // Load on mount and refresh every 30s
+  useEffect(() => {
+    refreshEmailWatches();
+    const t = setInterval(refreshEmailWatches, 30_000);
+    return () => clearInterval(t);
+  }, [refreshEmailWatches]);
+
+  // Build per-task session lookup for node sync
+  const sessionByTaskId = useMemo(() => {
+    const map: Record<string, ParallelSession> = {};
+    activeSessions.forEach((s) => {
+      map[s.taskId] = s;
+    });
+    return map;
+  }, [activeSessions]);
+
+  // Keep node data in sync with lock states, active sessions, and email watches
   useEffect(() => {
     setNodes((prev) =>
-      prev.map((n) => ({
-        ...n,
-        data: {
-          ...n.data,
-          locked: lockedStates[n.id] ?? null,
-          isFocused: focus.task === (n.data.task as Task).text,
-          isPaused: focus.isPaused && focus.task === (n.data.task as Task).text,
-        },
-      })),
+      prev.map((n) => {
+        const session = sessionByTaskId[n.id];
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            locked: lockedStates[n.id] ?? null,
+            isFocused: !!session && !session.isPaused,
+            isPaused: !!session && session.isPaused,
+            emailWatch: emailWatchByTask[n.id] ?? null,
+          },
+        };
+      }),
     );
-  }, [lockedStates, focus.task, focus.isPaused, setNodes]);
+  }, [lockedStates, sessionByTaskId, emailWatchByTask, setNodes]);
 
   // ── Position persistence ───────────────────────────────────────────────────
 
@@ -1235,6 +1562,7 @@ export default function MapMode(): JSX.Element {
             isFocused: false,
             isPaused: false,
             locked: null,
+            emailWatch: null,
           },
         };
         setNodes((prev) => [...prev, newNode]);
@@ -1312,6 +1640,7 @@ export default function MapMode(): JSX.Element {
             isFocused: false,
             isPaused: false,
             locked: null,
+            emailWatch: null,
           },
         };
 
@@ -1337,38 +1666,30 @@ export default function MapMode(): JSX.Element {
     [insertOnEdge, setNodes, setEdges],
   );
 
-  // ── Focus handlers ────────────────────────────────────────────────────────────────────
+  // ── Focus handlers (parallel) ───────────────────────────────────────────────────────────
 
   const handleStartFocus = useCallback(
     (taskId: string, durationSecs: number) => {
       const task = rawTasks.find((t) => t.id === taskId);
       if (!task) return;
-      api.startFocus(taskId).catch(() => {});
-      startFocus(task.text, durationSecs);
-      setNodes((prev) =>
-        prev.map((n) =>
-          n.id === taskId
-            ? { ...n, data: { ...n.data, isFocused: true, isPaused: false } }
-            : { ...n, data: { ...n.data, isFocused: false } },
-        ),
-      );
+      const existing = activeSessions.find((s) => s.taskId === taskId);
+      if (existing?.isPaused) {
+        resumeSession(taskId);
+      } else if (!existing) {
+        api.startFocus(taskId).catch(() => {});
+        startSession(taskId, task.text, durationSecs);
+      }
     },
-    [rawTasks, startFocus, setNodes],
+    [rawTasks, activeSessions, startSession, resumeSession],
   );
 
-  const handlePauseFocus = useCallback(() => {
-    pauseFocus();
-    api.stopFocus("paused").catch(() => {});
-    setNodes((prev) =>
-      prev.map((n) => ({
-        ...n,
-        data: {
-          ...n.data,
-          isPaused: n.data.isFocused ? true : n.data.isPaused,
-        },
-      })),
-    );
-  }, [pauseFocus, setNodes]);
+  const handlePauseFocus = useCallback(
+    (taskId: string) => {
+      pauseSession(taskId);
+      api.stopFocus("paused").catch(() => {});
+    },
+    [pauseSession],
+  );
 
   const handleCompleteFocus = useCallback(
     async (taskId: string) => {
@@ -1376,14 +1697,12 @@ export default function MapMode(): JSX.Element {
         await api.stopFocus("done");
         await api.toggleTask(taskId);
       } catch {}
-      exitFocus("done");
+      stopSession(taskId);
       setNodes((prev) =>
         prev.map((n) => ({
           ...n,
           data: {
             ...n.data,
-            isFocused: false,
-            isPaused: false,
             task:
               n.id === taskId
                 ? { ...(n.data.task as Task), done: true }
@@ -1397,10 +1716,49 @@ export default function MapMode(): JSX.Element {
       setSelectedTaskId(null);
       api.getReadyTasks().then((r) => setReadyIds(new Set(r.ready)));
     },
-    [exitFocus, setNodes],
+    [stopSession, setNodes],
   );
 
-  // ── Delete task ─────────────────────────────────────────────────────────────────
+  // ── Toggle task done (no session ceremony) ─────────────────────────────
+
+  const handleToggleTaskDone = useCallback(
+    async (taskId: string) => {
+      const t = rawTasks.find((x) => x.id === taskId);
+      if (!t) return;
+      const newDone = !t.done;
+
+      // If marking done while a session is active, stop the session first
+      const sess = activeSessions.find((s) => s.taskId === taskId);
+      if (newDone && sess) {
+        api.stopFocus("done").catch(() => {});
+        stopSession(taskId);
+      }
+      api.toggleTask(taskId).catch(() => {});
+
+      setRawTasks((prev) =>
+        prev.map((x) => (x.id === taskId ? { ...x, done: newDone } : x)),
+      );
+      setNodes((prev) =>
+        prev.map((n) => ({
+          ...n,
+          data: {
+            ...n.data,
+            task:
+              n.id === taskId
+                ? { ...(n.data.task as Task), done: newDone }
+                : n.data.task,
+          },
+        })),
+      );
+      if (newDone) {
+        setSelectedTaskId(null);
+        api.getReadyTasks().then((r) => setReadyIds(new Set(r.ready)));
+      }
+    },
+    [rawTasks, activeSessions, stopSession, setNodes],
+  );
+
+  // ── Delete task ──────────────────────────────────────────────────────────────────
 
   const handleDeleteTask = useCallback(
     async (taskId: string) => {
@@ -1724,15 +2082,17 @@ export default function MapMode(): JSX.Element {
                     edges={rawEdges}
                     tasks={rawTasks}
                     allTasks={rawTasks}
-                    focus={focus}
+                    session={sessionByTaskId[selectedTask.id] ?? null}
                     blockConfig={blockConfig}
                     locked={lockedStates[selectedTask.id] ?? null}
                     onStartFocus={handleStartFocus}
                     onPauseFocus={handlePauseFocus}
                     onCompleteFocus={handleCompleteFocus}
+                    onToggleTaskDone={handleToggleTaskDone}
                     onDeleteTask={handleDeleteTask}
                     onSelectTask={(id) => setSelectedTaskId(id)}
                     onClose={() => setSelectedTaskId(null)}
+                    onWatchChange={refreshEmailWatches}
                   />
                 ) : (
                   <AmbientSidebar

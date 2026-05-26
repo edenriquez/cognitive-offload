@@ -154,6 +154,15 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 		r.Post("/map/edges", h.createEdge)
 		r.Delete("/map/edges/{id}", h.deleteEdge)
 		r.Get("/map/ready", h.getReadyTasks)
+
+		// Email watches
+		r.Get("/tasks/{id}/watches", h.listEmailWatches)
+		r.Post("/tasks/{id}/watches", h.createEmailWatch)
+		r.Get("/email/watches", h.listAllActiveEmailWatches)
+		r.Delete("/email/watches/{id}", h.deleteEmailWatch)
+		r.Patch("/email/watches/{id}/pause", h.pauseEmailWatch)
+		r.Get("/email/matches", h.listEmailMatches)
+		r.Post("/email/test", h.testEmailConnection)
 	})
 
 	return r
@@ -882,6 +891,9 @@ func (h *handler) updateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	if updates.DisabledRules != nil {
 		cfg.DisabledRules = updates.DisabledRules
+	}
+	if updates.Email != nil {
+		cfg.Email = updates.Email
 	}
 	config.Save(cfg)
 	slog.Info("config updated", "cutoff", cfg.CutoffHour, "lunch", cfg.LunchStart)
@@ -1827,4 +1839,146 @@ func (h *handler) getReadyTasks(w http.ResponseWriter, r *http.Request) {
 		ids = []string{}
 	}
 	writeJSON(w, 200, map[string][]string{"ready": ids})
+}
+
+// ── Email Watch Handlers ─────────────────────────────────────────────────────
+
+func (h *handler) listEmailWatches(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "id")
+	watches, err := h.db.EmailWatchesByTask(r.Context(), taskID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if watches == nil {
+		watches = []models.EmailWatch{}
+	}
+	matches, err := h.db.EmailMatchesByTask(r.Context(), taskID)
+	if err != nil {
+		matches = []models.EmailMatch{}
+	}
+	if matches == nil {
+		matches = []models.EmailMatch{}
+	}
+	writeJSON(w, 200, map[string]any{
+		"watches": watches,
+		"matches": matches,
+	})
+}
+
+type createWatchReq struct {
+	FromFilter    string `json:"from_filter"`
+	SubjectFilter string `json:"subject_filter"`
+	CheckEverySec int    `json:"check_every_sec"`
+}
+
+func (h *handler) createEmailWatch(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "id")
+	var req createWatchReq
+	if err := readJSON(r, &req); err != nil {
+		http.Error(w, "invalid body", 400)
+		return
+	}
+	if req.FromFilter == "" && req.SubjectFilter == "" {
+		http.Error(w, "at least one of from_filter or subject_filter is required", 400)
+		return
+	}
+	if req.CheckEverySec < 60 {
+		req.CheckEverySec = 300 // default 5 min, minimum 60s
+	}
+
+	watch := models.EmailWatch{
+		ID:            fmt.Sprintf("ew-%d", time.Now().UnixNano()),
+		TaskID:        taskID,
+		FromFilter:    req.FromFilter,
+		SubjectFilter: req.SubjectFilter,
+		CheckEverySec: req.CheckEverySec,
+		Status:        "active",
+		CreatedAt:     time.Now().Unix(),
+	}
+	if err := h.db.CreateEmailWatch(r.Context(), watch); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 201, watch)
+}
+
+func (h *handler) deleteEmailWatch(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.db.DeleteEmailWatch(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "deleted"})
+}
+
+func (h *handler) pauseEmailWatch(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	watch, err := h.db.GetEmailWatch(r.Context(), id)
+	if err != nil {
+		http.Error(w, "watch not found", 404)
+		return
+	}
+	newStatus := "paused"
+	if watch.Status != "active" {
+		newStatus = "active"
+	}
+	if err := h.db.UpdateEmailWatchStatus(r.Context(), id, newStatus); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": newStatus})
+}
+
+func (h *handler) listAllActiveEmailWatches(w http.ResponseWriter, r *http.Request) {
+	watches, err := h.db.ActiveEmailWatches(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if watches == nil {
+		watches = []models.EmailWatch{}
+	}
+	writeJSON(w, 200, watches)
+}
+
+func (h *handler) listEmailMatches(w http.ResponseWriter, r *http.Request) {
+	taskID := r.URL.Query().Get("task_id")
+	if taskID == "" {
+		http.Error(w, "task_id required", 400)
+		return
+	}
+	matches, err := h.db.EmailMatchesByTask(r.Context(), taskID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if matches == nil {
+		matches = []models.EmailMatch{}
+	}
+	writeJSON(w, 200, matches)
+}
+
+type testEmailReq struct {
+	IMAPServer string `json:"imap_server"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	TLS        bool   `json:"tls"`
+}
+
+func (h *handler) testEmailConnection(w http.ResponseWriter, r *http.Request) {
+	var req testEmailReq
+	if err := readJSON(r, &req); err != nil {
+		http.Error(w, "invalid body", 400)
+		return
+	}
+	if h.coord == nil {
+		http.Error(w, "coordinator not available", 503)
+		return
+	}
+	if err := h.coord.TestEmailConnection(req.IMAPServer, req.Username, req.Password, req.TLS); err != nil {
+		writeJSON(w, 200, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true})
 }

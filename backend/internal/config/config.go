@@ -19,6 +19,7 @@ type Config struct {
 	DisabledRules []string            `json:"disabled_rules"`
 	AnthropicKey  string              `json:"anthropic_key,omitempty"`
 	BlockConfig   *models.BlockConfig `json:"block_config,omitempty"`
+	Email         *models.EmailConfig `json:"email,omitempty"`
 }
 
 func DefaultConfig() Config {
