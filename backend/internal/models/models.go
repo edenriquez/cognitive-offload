@@ -352,3 +352,10 @@ type TaskGraph struct {
 	Tasks []Task     `json:"tasks"`
 	Edges []TaskEdge `json:"edges"`
 }
+
+// TaskNote holds markdown notes attached to a task.
+type TaskNote struct {
+	TaskID    string `json:"task_id"`
+	Content   string `json:"content"`
+	UpdatedAt int64  `json:"updated_at"`
+}

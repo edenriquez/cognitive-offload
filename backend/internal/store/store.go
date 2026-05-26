@@ -204,6 +204,12 @@ func (d *DB) Migrate() error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_task_edges_source ON task_edges(source_id);
 	CREATE INDEX IF NOT EXISTS idx_task_edges_target ON task_edges(target_id);
+
+	CREATE TABLE IF NOT EXISTS task_notes (
+		task_id    TEXT PRIMARY KEY,
+		content    TEXT NOT NULL DEFAULT '',
+		updated_at INTEGER NOT NULL DEFAULT 0
+	);
 	`
 	_, err := d.db.Exec(schema)
 	if err != nil {
@@ -1304,4 +1310,29 @@ func (d *DB) ReadyTaskIDs(ctx context.Context, day string) ([]string, error) {
 		}
 	}
 	return ready, nil
+}
+
+// ── Task Notes ───────────────────────────────────────────────────────────────
+
+func (d *DB) GetTaskNote(ctx context.Context, taskID string) (models.TaskNote, error) {
+	var n models.TaskNote
+	err := d.db.QueryRowContext(ctx,
+		`SELECT task_id, content, updated_at FROM task_notes WHERE task_id = ?`, taskID,
+	).Scan(&n.TaskID, &n.Content, &n.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return models.TaskNote{TaskID: taskID, Content: "", UpdatedAt: 0}, nil
+	}
+	return n, err
+}
+
+func (d *DB) UpsertTaskNote(ctx context.Context, taskID, content string) (models.TaskNote, error) {
+	now := time.Now().Unix()
+	_, err := d.db.ExecContext(ctx,
+		`INSERT INTO task_notes (task_id, content, updated_at) VALUES (?, ?, ?)
+		 ON CONFLICT(task_id) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at`,
+		taskID, content, now)
+	if err != nil {
+		return models.TaskNote{}, err
+	}
+	return models.TaskNote{TaskID: taskID, Content: content, UpdatedAt: now}, nil
 }

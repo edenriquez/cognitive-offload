@@ -334,6 +334,14 @@ export interface DayBlock {
   notes: string;
 }
 
+// ── Task Notes ──────────────────────────────────────────────────────────────
+
+export interface TaskNote {
+  task_id: string;
+  content: string;
+  updated_at: number;
+}
+
 // ── Task Dependency Graph ───────────────────────────────────────────────────
 
 export interface TaskEdge {

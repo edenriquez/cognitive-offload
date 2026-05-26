@@ -10,7 +10,7 @@ const CELL = 12;
 const GAP = 2;
 const STEP = CELL + GAP;
 const ROWS = 7;
-const COLS = 52;
+
 const LABEL_W = 28;
 const TOP_PAD = 18;
 
@@ -71,7 +71,7 @@ export default function ContributionCalendar({
   }, [data]);
 
   // Build grid from Jan 1 of current year to today
-  const { cells, monthLabels, todayStr, totalCols } = useMemo(() => {
+  const { cells, monthLabels, totalCols } = useMemo(() => {
     const today = new Date();
     const todayStr = formatDate(today);
 
@@ -130,7 +130,7 @@ export default function ContributionCalendar({
       if (cursor > today && cursor.getDay() === 1) break;
     }
 
-    return { cells, monthLabels, todayStr, totalCols: col };
+    return { cells, monthLabels, totalCols: col };
   }, [lookup]);
 
   const svgW = LABEL_W + totalCols * STEP;

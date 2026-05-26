@@ -145,6 +145,10 @@ func NewRouter(db *store.DB, hub *ws.Hub, eng *engine.Engine, coord *ingest.Coor
 		r.Post("/blocks/{id}/complete", h.completeBlock)
 		r.Post("/blocks/{id}/skip", h.skipBlock)
 
+		// Task notes
+		r.Get("/tasks/{id}/note", h.getTaskNote)
+		r.Put("/tasks/{id}/note", h.upsertTaskNote)
+
 		// Task dependency map
 		r.Get("/map", h.getTaskGraph)
 		r.Post("/map/edges", h.createEdge)
@@ -1778,6 +1782,35 @@ func (h *handler) deleteEdge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]string{"status": "deleted"})
+}
+
+func (h *handler) getTaskNote(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	note, err := h.db.GetTaskNote(r.Context(), id)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, note)
+}
+
+type upsertNoteReq struct {
+	Content string `json:"content"`
+}
+
+func (h *handler) upsertTaskNote(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var req upsertNoteReq
+	if err := readJSON(r, &req); err != nil {
+		http.Error(w, "invalid body", 400)
+		return
+	}
+	note, err := h.db.UpsertTaskNote(r.Context(), id, req.Content)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, note)
 }
 
 func (h *handler) getReadyTasks(w http.ResponseWriter, r *http.Request) {

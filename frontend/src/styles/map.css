@@ -1510,3 +1510,278 @@
 .tnode-status-icon--paused {
     color: var(--color-warning-yellow);
 }
+
+/* ── Sidebar wrap + resize + collapse ──────────────────── */
+
+.map-sidebar-wrap {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    min-height: 0;
+    overflow: hidden;
+    /* width set via inline style */
+}
+
+/* Drag handle — thin strip on the left edge of the sidebar */
+.map-sidebar-resize {
+    width: 4px;
+    flex-shrink: 0;
+    background: transparent;
+    cursor: col-resize;
+    transition: background 0.15s;
+    position: relative;
+    z-index: 10;
+}
+
+.map-sidebar-resize:hover,
+.map-sidebar-resize:active {
+    background: var(--color-action-blue);
+}
+
+/* Collapse toggle tab — small button that sits between canvas and sidebar */
+.map-sidebar-collapse-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    flex-shrink: 0;
+    align-self: center;
+    height: 40px;
+    background: var(--color-ash);
+    border: 1px solid var(--color-stone);
+    border-radius: 0 var(--radius-tags) var(--radius-tags) 0;
+    color: var(--color-lead);
+    cursor: pointer;
+    transition:
+        background 0.12s,
+        color 0.12s,
+        border-color 0.12s;
+    margin-left: -1px; /* overlap the sidebar border */
+    z-index: 10;
+}
+
+.map-sidebar-collapse-btn:hover {
+    background: var(--color-stone);
+    color: var(--color-carbon);
+    border-color: var(--color-slate);
+}
+
+/* Override mcp width when inside sidebar-wrap (width from inline style) */
+.map-sidebar-wrap .mcp {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* ── Note Editor ────────────────────────────────────────── */
+
+.note-editor {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--color-stone);
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.note-editor--loading {
+    padding: 12px 14px;
+    font-size: 12px;
+    color: var(--color-overcast);
+}
+
+/* Bar: label + status + mode toggle */
+.note-editor-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px 6px;
+    flex-shrink: 0;
+}
+
+.note-editor-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-overcast);
+}
+
+.note-editor-status {
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.note-saving {
+    font-size: 10px;
+    color: var(--color-lead);
+    font-variant-numeric: tabular-nums;
+}
+
+.note-hint {
+    font-size: 10px;
+    color: var(--color-lead);
+}
+
+.note-mode-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-tags);
+    color: var(--color-lead);
+    transition:
+        color 0.1s,
+        background 0.1s;
+    flex-shrink: 0;
+}
+
+.note-mode-btn:hover {
+    color: var(--color-carbon);
+    background: var(--color-ash);
+}
+
+/* Textarea — plain, no chrome */
+.note-textarea {
+    font-family: var(--font-inter);
+    font-size: 12px;
+    line-height: 1.6;
+    letter-spacing: -0.12px;
+    color: var(--color-ink);
+    background: var(--color-white);
+    border: none;
+    outline: none;
+    resize: none;
+    padding: 8px 14px 14px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    tab-size: 2;
+}
+
+.note-textarea::placeholder {
+    color: var(--color-lead);
+    line-height: 1.8;
+}
+
+/* Preview area */
+.note-preview {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px 14px 14px;
+    cursor: text;
+    outline: none;
+}
+
+.note-preview--empty {
+    display: flex;
+    align-items: flex-start;
+}
+
+.note-empty-hint {
+    font-size: 12px;
+    color: var(--color-lead);
+    font-style: italic;
+}
+
+/* Markdown output — minimal, tokens-only */
+.note-md {
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--color-carbon);
+    letter-spacing: -0.12px;
+    word-break: break-word;
+}
+
+.note-md h1,
+.note-md h2,
+.note-md h3 {
+    font-family: var(--font-inter);
+    font-weight: 600;
+    color: var(--color-ink);
+    margin: 10px 0 4px;
+    letter-spacing: -0.2px;
+}
+
+.note-md h1 {
+    font-size: 14px;
+}
+.note-md h2 {
+    font-size: 13px;
+}
+.note-md h3 {
+    font-size: 12px;
+}
+
+.note-md p {
+    margin: 0 0 6px;
+}
+
+.note-md ul,
+.note-md ol {
+    padding-left: 16px;
+    margin: 0 0 6px;
+}
+
+.note-md li {
+    margin-bottom: 2px;
+}
+
+.note-md code {
+    font-family: var(--font-inter);
+    font-size: 11px;
+    background: var(--color-ash);
+    border: 1px solid var(--color-stone);
+    border-radius: 3px;
+    padding: 0 4px;
+    color: var(--color-ink);
+}
+
+.note-md pre {
+    background: var(--color-ash);
+    border: 1px solid var(--color-stone);
+    border-radius: var(--radius-tags);
+    padding: 8px 10px;
+    overflow-x: auto;
+    margin: 0 0 6px;
+}
+
+.note-md pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 11px;
+}
+
+.note-md blockquote {
+    margin: 0 0 6px;
+    padding-left: 10px;
+    border-left: 2px solid var(--color-slate);
+    color: var(--color-overcast);
+}
+
+.note-md strong {
+    color: var(--color-ink);
+    font-weight: 600;
+}
+.note-md em {
+    font-style: italic;
+}
+
+.note-md a {
+    color: var(--color-action-blue);
+    text-decoration: none;
+}
+.note-md a:hover {
+    text-decoration: underline;
+}
+
+.note-md hr {
+    border: none;
+    border-top: 1px solid var(--color-stone);
+    margin: 8px 0;
+}

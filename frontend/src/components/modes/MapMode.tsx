@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dagre from "@dagrejs/dagre";
+import NoteEditor from "../shared/NoteEditor";
 import {
   ReactFlow,
   Background,
@@ -17,10 +18,7 @@ import "@xyflow/react/dist/style.css";
 import { api } from "../../api/client";
 import { useAppStore } from "../../store/app-store";
 import type { Task, TaskEdge, TaskGraph } from "../../types";
-import TaskNode, {
-  type TaskNodeData,
-  type TaskNodeType,
-} from "../shared/TaskNode";
+import TaskNode, { type TaskNodeType } from "../shared/TaskNode";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -31,26 +29,6 @@ const nodeTypes = { task: TaskNode } as const;
 type LayoutDirection = "free" | "LR";
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
-
-function IconLayout() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="1" y="1" width="6" height="6" rx="1" />
-      <rect x="9" y="1" width="6" height="6" rx="1" />
-      <rect x="1" y="9" width="6" height="6" rx="1" />
-      <rect x="9" y="9" width="6" height="6" rx="1" />
-    </svg>
-  );
-}
 
 function IconClear() {
   return (
@@ -135,30 +113,7 @@ function IconSubtask() {
   );
 }
 
-function IconUnlink() {
-  return (
-    <svg
-      width="11"
-      height="11"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 11l6-6" strokeDasharray="2 2" />
-      <path d="M3 13l2-2M11 3l2-2" />
-    </svg>
-  );
-}
-
 // ── Time helpers ─────────────────────────────────────────────────────────────
-
-function nowHour(): number {
-  const n = new Date();
-  return n.getHours() + n.getMinutes() / 60;
-}
 
 function isTaskLocked(
   task: { kind: string },
@@ -188,12 +143,6 @@ function fmtHour(h: number): string {
     : `${display} ${ampm}`;
 }
 
-function fmtAccum(secs: number): string {
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
-
 const DURATION_PRESETS = [
   { label: "15m", secs: 900 },
   { label: "30m", secs: 1800 },
@@ -208,24 +157,6 @@ const CATEGORY_FOR_KIND: Record<string, string> = {
   personal: "side_project",
   small: "work",
 };
-
-// sessionStorage time accumulator
-const TIME_STORAGE_KEY = "cogload_time_today";
-
-function loadAccumulated(): Record<string, number> {
-  try {
-    const raw = sessionStorage.getItem(TIME_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, number>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveAccumulated(acc: Record<string, number>) {
-  try {
-    sessionStorage.setItem(TIME_STORAGE_KEY, JSON.stringify(acc));
-  } catch {}
-}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -427,165 +358,7 @@ function EdgePopover({
   );
 }
 
-// ── Detail panel ───────────────────────────────────────────────────────────────
-
-function DetailPanel({
-  task,
-  edges,
-  tasks,
-  onDeleteEdge,
-  onClose,
-}: {
-  task: Task;
-  edges: TaskEdge[];
-  tasks: Task[];
-  onDeleteEdge: (id: string) => void;
-  onClose: () => void;
-}) {
-  const taskMap = Object.fromEntries(tasks.map((t) => [t.id, t]));
-  const blockedBy = edges.filter(
-    (e) => e.target_id === task.id && e.kind === "blocks",
-  );
-  const blocking = edges.filter(
-    (e) => e.source_id === task.id && e.kind === "blocks",
-  );
-  const subtasks = edges.filter(
-    (e) => e.source_id === task.id && e.kind === "subtask",
-  );
-  const parentOf = edges.filter(
-    (e) => e.target_id === task.id && e.kind === "subtask",
-  );
-  const hasEdges =
-    blockedBy.length + blocking.length + subtasks.length + parentOf.length > 0;
-
-  return (
-    <div className="map-detail">
-      <div className="map-detail-header">
-        <span className={`map-detail-kind map-detail-kind--${task.kind}`}>
-          {task.kind}
-        </span>
-        <button className="map-detail-close" onClick={onClose}>
-          <IconClose />
-        </button>
-      </div>
-
-      <p
-        className={`map-detail-text${task.done ? " map-detail-text--done" : ""}`}
-      >
-        {task.text}
-      </p>
-
-      {blockedBy.length > 0 && (
-        <div className="map-detail-section">
-          <div className="map-detail-section-label">
-            <span className="map-detail-section-icon">
-              <IconArrowRight />
-            </span>
-            Blocked by
-          </div>
-          {blockedBy.map((e) => (
-            <div key={e.id} className="map-detail-edge-row">
-              <span className="map-detail-edge-text">
-                {taskMap[e.source_id]?.text ?? "—"}
-              </span>
-              <button
-                className="map-detail-edge-delete"
-                onClick={() => onDeleteEdge(e.id)}
-                title="Remove"
-              >
-                <IconUnlink />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {blocking.length > 0 && (
-        <div className="map-detail-section">
-          <div className="map-detail-section-label">
-            <span className="map-detail-section-icon">
-              <IconArrowRight />
-            </span>
-            Blocks
-          </div>
-          {blocking.map((e) => (
-            <div key={e.id} className="map-detail-edge-row">
-              <span className="map-detail-edge-text">
-                {taskMap[e.target_id]?.text ?? "—"}
-              </span>
-              <button
-                className="map-detail-edge-delete"
-                onClick={() => onDeleteEdge(e.id)}
-                title="Remove"
-              >
-                <IconUnlink />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {subtasks.length > 0 && (
-        <div className="map-detail-section">
-          <div className="map-detail-section-label">
-            <span className="map-detail-section-icon">
-              <IconSubtask />
-            </span>
-            Subtasks
-          </div>
-          {subtasks.map((e) => (
-            <div key={e.id} className="map-detail-edge-row">
-              <span className="map-detail-edge-text">
-                {taskMap[e.target_id]?.text ?? "—"}
-              </span>
-              <button
-                className="map-detail-edge-delete"
-                onClick={() => onDeleteEdge(e.id)}
-                title="Remove"
-              >
-                <IconUnlink />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {parentOf.length > 0 && (
-        <div className="map-detail-section">
-          <div className="map-detail-section-label">
-            <span className="map-detail-section-icon">
-              <IconSubtask />
-            </span>
-            Subtask of
-          </div>
-          {parentOf.map((e) => (
-            <div key={e.id} className="map-detail-edge-row">
-              <span className="map-detail-edge-text">
-                {taskMap[e.source_id]?.text ?? "—"}
-              </span>
-              <button
-                className="map-detail-edge-delete"
-                onClick={() => onDeleteEdge(e.id)}
-                title="Remove"
-              >
-                <IconUnlink />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!hasEdges && (
-        <div className="map-detail-empty">
-          No links yet. Drag from the handle on the right edge of a node to
-          connect.
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Insert intermediate task popover ──────────────────────────────────────────
+// ── Insert intermediate task popover ───────────────────────────────────────────────────────────────────
 
 function InsertOnEdgePopover({
   x,
@@ -683,7 +456,6 @@ type BlockConfigShape = {
 };
 
 function AmbientSidebar({
-  accumulated,
   blockConfig,
   allTasks,
   now,
@@ -692,7 +464,6 @@ function AmbientSidebar({
   cutoffHour,
   onSelectHint,
 }: {
-  accumulated: Record<string, number>;
   blockConfig: BlockConfigShape | null;
   allTasks: Task[];
   now: Date;
@@ -704,11 +475,6 @@ function AmbientSidebar({
   const nowH = now.getHours() + now.getMinutes() / 60;
   const isLunch = nowH >= lunchStart && nowH < lunchEnd;
   const isPastCutoff = nowH >= cutoffHour;
-
-  const workdayHours = blockConfig
-    ? blockConfig.workday_end_hour - blockConfig.workday_start_hour
-    : 8;
-  const workdaySecs = workdayHours * 3600;
 
   const allocs = blockConfig?.allocations ?? [
     { category: "work", label: "Work", color: "#6b8cce", pct: 60 },
@@ -809,13 +575,11 @@ function TaskControlPanel({
   tasks,
   allTasks,
   focus,
-  accumulated,
   blockConfig,
   locked,
   onStartFocus,
   onPauseFocus,
   onCompleteFocus,
-  onDeleteEdge,
   onDeleteTask,
   onSelectTask,
   onClose,
@@ -825,13 +589,11 @@ function TaskControlPanel({
   tasks: Task[];
   allTasks: Task[];
   focus: { task: string | null; remainingSecs: number; isPaused: boolean };
-  accumulated: Record<string, number>;
   blockConfig: BlockConfigShape | null;
   locked: "lunch" | "cutoff" | null;
   onStartFocus: (taskId: string, durationSecs: number) => void;
   onPauseFocus: () => void;
   onCompleteFocus: (taskId: string) => void;
-  onDeleteEdge: (id: string) => void;
   onDeleteTask: (taskId: string) => void;
   onSelectTask: (id: string) => void;
   onClose: () => void;
@@ -1137,6 +899,9 @@ function TaskControlPanel({
           })}
         </div>
       )}
+
+      {/* Notes — document-style, scrollable, markdown */}
+      <NoteEditor taskId={task.id} />
     </div>
   );
 }
@@ -1211,7 +976,7 @@ function AddTaskPanel({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function MapMode() {
+export default function MapMode(): JSX.Element {
   const { focus, startFocus, pauseFocus, exitFocus } = useAppStore();
 
   const [graph, setGraph] = useState<TaskGraph | null>(null);
@@ -1233,6 +998,11 @@ export default function MapMode() {
   } | null>(null);
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [layoutDir, setLayoutDir] = useState<LayoutDirection>("LR");
+  const [sidebarWidth, setSidebarWidth] = useState(260);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const resizingRef = useRef(false);
+  const resizeStartX = useRef(0);
+  const resizeStartW = useRef(0);
   const [insertOnEdge, setInsertOnEdge] = useState<{
     edgeId: string;
     sourceId: string;
@@ -1244,8 +1014,6 @@ export default function MapMode() {
 
   // ── New state: time tracking, config, clock ──────────────────────────────────────────
 
-  const [accumulated, setAccumulated] =
-    useState<Record<string, number>>(loadAccumulated);
   const [blockConfig, setBlockConfig] = useState<BlockConfigShape | null>(null);
   const [lunchStart, setLunchStart] = useState(12.5);
   const [lunchEnd, setLunchEnd] = useState(13.5);
@@ -1345,23 +1113,6 @@ export default function MapMode() {
     return () => clearInterval(t);
   }, []);
 
-  // ── Time accumulator ────────────────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!focus.task || focus.isPaused) return;
-    const runningTask = rawTasks.find((t) => t.text === focus.task);
-    if (!runningTask) return;
-    const category = CATEGORY_FOR_KIND[runningTask.kind] ?? "work";
-    const t = setInterval(() => {
-      setAccumulated((prev) => {
-        const next = { ...prev, [category]: (prev[category] ?? 0) + 1 };
-        saveAccumulated(next);
-        return next;
-      });
-    }, 1000);
-    return () => clearInterval(t);
-  }, [focus.task, focus.isPaused, rawTasks]);
-
   // ── Auto-pause on lunch ───────────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -1455,22 +1206,6 @@ export default function MapMode() {
       }
     },
     [pendingConn, setEdges],
-  );
-
-  // ── Edge deletion ──────────────────────────────────────────────────────────
-
-  const handleDeleteEdge = useCallback(
-    async (id: string) => {
-      try {
-        await api.deleteEdge(id);
-        setRawEdges((prev) => prev.filter((e) => e.id !== id));
-        setEdges((prev) => prev.filter((e) => e.id !== id));
-        api.getReadyTasks().then((r) => setReadyIds(new Set(r.ready)));
-      } catch {
-        /* ignore */
-      }
-    },
-    [setEdges],
   );
 
   // ── Task creation ──────────────────────────────────────────────────────────
@@ -1732,7 +1467,34 @@ export default function MapMode() {
     );
   }, [setNodes]);
 
-  // ── Keyboard ───────────────────────────────────────────────────────────────
+  // ── Sidebar resize ──────────────────────────────────────────────────────────────
+
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      resizingRef.current = true;
+      resizeStartX.current = e.clientX;
+      resizeStartW.current = sidebarWidth;
+
+      const onMove = (ev: MouseEvent) => {
+        if (!resizingRef.current) return;
+        // Drag leftward = wider sidebar (handle is on left edge of sidebar)
+        const delta = resizeStartX.current - ev.clientX;
+        const next = Math.min(480, Math.max(200, resizeStartW.current + delta));
+        setSidebarWidth(next);
+      };
+      const onUp = () => {
+        resizingRef.current = false;
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    },
+    [sidebarWidth],
+  );
+
+  // ── Keyboard ────────────────────────────────────────────────────────────────────
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -1918,36 +1680,74 @@ export default function MapMode() {
         )}
 
         {/* Right sidebar — always visible when no add panel */}
-        {!showAddPanel &&
-          (selectedTask ? (
-            <TaskControlPanel
-              task={selectedTask}
-              edges={rawEdges}
-              tasks={rawTasks}
-              allTasks={rawTasks}
-              focus={focus}
-              accumulated={accumulated}
-              blockConfig={blockConfig}
-              locked={lockedStates[selectedTask.id] ?? null}
-              onStartFocus={handleStartFocus}
-              onPauseFocus={handlePauseFocus}
-              onCompleteFocus={handleCompleteFocus}
-              onDeleteEdge={handleDeleteEdge}
-              onDeleteTask={handleDeleteTask}
-              onSelectTask={(id) => setSelectedTaskId(id)}
-              onClose={() => setSelectedTaskId(null)}
-            />
-          ) : (
-            <AmbientSidebar
-              accumulated={accumulated}
-              blockConfig={blockConfig}
-              allTasks={rawTasks}
-              now={currentTime}
-              lunchStart={lunchStart}
-              lunchEnd={lunchEnd}
-              cutoffHour={cutoffHour}
-            />
-          ))}
+        {!showAddPanel && (
+          <>
+            {/* Resize handle — drag to widen/narrow */}
+            {!sidebarCollapsed && (
+              <div
+                className="map-sidebar-resize"
+                onMouseDown={handleResizeStart}
+                title="Drag to resize"
+              />
+            )}
+
+            {/* Collapse toggle tab */}
+            <button
+              className="map-sidebar-collapse-btn"
+              onClick={() => setSidebarCollapsed((v) => !v)}
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                {sidebarCollapsed ? (
+                  <path d="M10 3L5 8l5 5" />
+                ) : (
+                  <path d="M6 3l5 5-5 5" />
+                )}
+              </svg>
+            </button>
+
+            {/* Sidebar content */}
+            {!sidebarCollapsed && (
+              <div className="map-sidebar-wrap" style={{ width: sidebarWidth }}>
+                {selectedTask ? (
+                  <TaskControlPanel
+                    task={selectedTask}
+                    edges={rawEdges}
+                    tasks={rawTasks}
+                    allTasks={rawTasks}
+                    focus={focus}
+                    blockConfig={blockConfig}
+                    locked={lockedStates[selectedTask.id] ?? null}
+                    onStartFocus={handleStartFocus}
+                    onPauseFocus={handlePauseFocus}
+                    onCompleteFocus={handleCompleteFocus}
+                    onDeleteTask={handleDeleteTask}
+                    onSelectTask={(id) => setSelectedTaskId(id)}
+                    onClose={() => setSelectedTaskId(null)}
+                  />
+                ) : (
+                  <AmbientSidebar
+                    blockConfig={blockConfig}
+                    allTasks={rawTasks}
+                    now={currentTime}
+                    lunchStart={lunchStart}
+                    lunchEnd={lunchEnd}
+                    cutoffHour={cutoffHour}
+                  />
+                )}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Insert intermediate task popover */}

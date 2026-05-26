@@ -307,6 +307,16 @@ export const api = {
       `/api/v1/map/ready${day ? `?day=${day}` : ""}`,
     ),
 
+  // ── Task Notes ────────────────────────────────────────────────────────
+  getTaskNote: (taskId: string) =>
+    request<import("../types").TaskNote>("GET", `/api/v1/tasks/${taskId}/note`),
+  upsertTaskNote: (taskId: string, content: string) =>
+    request<import("../types").TaskNote>(
+      "PUT",
+      `/api/v1/tasks/${taskId}/note`,
+      { content },
+    ),
+
   // ── Block Budget ────────────────────────────────────────────────────────
   getBlockConfig: () => request<BlockConfig>("GET", "/api/v1/blocks/config"),
   updateBlockConfig: (cfg: BlockConfig) =>
