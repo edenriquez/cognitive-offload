@@ -182,10 +182,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   tickSessions: () => {
     set((s) => {
+      // `remainingSecs` is allowed to go negative — the UI shows overtime in red.
       const next = s.activeSessions.map((x) =>
-        x.isPaused || x.remainingSecs <= 0
-          ? x
-          : { ...x, remainingSecs: x.remainingSecs - 1 },
+        x.isPaused ? x : { ...x, remainingSecs: x.remainingSecs - 1 },
       );
       return { activeSessions: next, focus: shimFocus(next) };
     });

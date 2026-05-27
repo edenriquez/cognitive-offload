@@ -133,9 +133,12 @@ function isTaskLocked(
 }
 
 function fmtSecs(s: number): string {
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  // Supports negative values for overtime display (e.g. "-00:42").
+  const abs = Math.abs(s);
+  const m = Math.floor(abs / 60);
+  const sec = abs % 60;
+  const sign = s < 0 ? "-" : "";
+  return `${sign}${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
 function fmtHour(h: number): string {
@@ -467,7 +470,6 @@ function AmbientSidebar({
   lunchStart,
   lunchEnd,
   cutoffHour,
-  onSelectHint,
 }: {
   blockConfig: BlockConfigShape | null;
   allTasks: Task[];
@@ -475,18 +477,22 @@ function AmbientSidebar({
   lunchStart: number;
   lunchEnd: number;
   cutoffHour: number;
-  onSelectHint?: string;
 }) {
   const nowH = now.getHours() + now.getMinutes() / 60;
   const isLunch = nowH >= lunchStart && nowH < lunchEnd;
   const isPastCutoff = nowH >= cutoffHour;
 
   const allocs = blockConfig?.allocations ?? [
-    { category: "work", label: "Work", color: "#6b8cce", pct: 60 },
+    {
+      category: "work",
+      label: "Work",
+      color: "var(--color-action-blue)",
+      pct: 60,
+    },
     {
       category: "side_project",
       label: "Side project",
-      color: "#ce6b8c",
+      color: "var(--color-success-green)",
       pct: 40,
     },
   ];
@@ -565,9 +571,7 @@ function AmbientSidebar({
       </div>
 
       {/* Hint */}
-      <div className="mcp-hint">
-        {onSelectHint ?? "Select a task to start focusing"}
-      </div>
+      <div className="mcp-hint">Select a task to start focusing</div>
     </div>
   );
 }
@@ -811,7 +815,6 @@ function TaskControlPanel({
           </svg>
         </button>
         <span className={`mcp-kind mcp-kind--${task.kind}`}>{task.kind}</span>
-        {isDone && <span className="mcp-kind-status">· done</span>}
 
         <div className="mcp-header-actions">
           <button
@@ -863,14 +866,15 @@ function TaskControlPanel({
             title="Delete task"
           >
             <svg
-              width="12"
-              height="12"
+              width="13"
+              height="13"
               viewBox="0 0 16 16"
               fill="none"
               stroke="currentColor"
               strokeWidth="1.8"
               strokeLinecap="round"
               strokeLinejoin="round"
+              aria-hidden="true"
             >
               <path d="M3 4h10M6 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1" />
               <path d="M5 4l.5 9h5l.5-9" />
@@ -941,15 +945,23 @@ function TaskControlPanel({
           {isRunning || isPaused ? (
             // ── Running / paused ─ countdown + inline play button ──
             <div className="mcp-timer-block">
-              <div className="mcp-timer-info">
+              <div
+                className={`mcp-timer-info${
+                  remainingSecs < 0 ? " mcp-timer-info--overtime" : ""
+                }`}
+              >
                 <div className="mcp-countdown">{fmtSecs(remainingSecs)}</div>
                 <div className="mcp-timer-meta">
-                  {isPaused ? "paused" : "remaining"}
+                  {remainingSecs < 0
+                    ? "overtime"
+                    : isPaused
+                      ? "paused"
+                      : "remaining"}
                 </div>
                 <div className="mcp-timer-track">
                   <div
                     className="mcp-timer-fill"
-                    style={{ width: `${progressPct}%` }}
+                    style={{ width: `${Math.min(100, progressPct)}%` }}
                   />
                 </div>
               </div>
@@ -1089,20 +1101,22 @@ function TaskControlPanel({
             return t ? (
               <button
                 key={e.id}
+                type="button"
                 className="mcp-dep-row"
                 onClick={() => onSelectTask(t.id)}
               >
                 <span className="mcp-dep-text">{t.text}</span>
                 <span className="mcp-dep-arrow">
                   <svg
-                    width="10"
-                    height="10"
+                    width="11"
+                    height="11"
                     viewBox="0 0 16 16"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
+                    aria-hidden="true"
                   >
                     <path d="M3 8h10M9 4l4 4-4 4" />
                   </svg>
@@ -1121,20 +1135,22 @@ function TaskControlPanel({
             return t ? (
               <button
                 key={e.id}
+                type="button"
                 className="mcp-dep-row"
                 onClick={() => onSelectTask(t.id)}
               >
                 <span className="mcp-dep-text">{t.text}</span>
                 <span className="mcp-dep-arrow">
                   <svg
-                    width="10"
-                    height="10"
+                    width="11"
+                    height="11"
                     viewBox="0 0 16 16"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
+                    aria-hidden="true"
                   >
                     <path d="M3 8h10M9 4l4 4-4 4" />
                   </svg>
@@ -1250,7 +1266,6 @@ export default function MapMode(): JSX.Element {
     emailMatches,
     // keep focus shim for auto-pause-on-lunch
     focus,
-    pauseFocus,
   } = useAppStore();
 
   const [graph, setGraph] = useState<TaskGraph | null>(null);

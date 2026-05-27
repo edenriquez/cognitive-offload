@@ -13,6 +13,25 @@
     outline: none;
 }
 
+/* Keyboard focus ring — applies to every interactive element in the map.
+   The map-shell explicitly sets outline:none, so each button/input needs
+   its own :focus-visible style. Using --color-focus-blue from tokens. */
+.map-shell :focus-visible,
+.mcp :focus-visible,
+.ewm-modal :focus-visible {
+    outline: 2px solid var(--color-focus-blue);
+    outline-offset: 2px;
+}
+
+/* Inputs and the time picker get a subtler inline ring (no offset)
+   so the outline doesn't visually collide with their own border. */
+.map-shell input:focus-visible,
+.mcp input:focus-visible,
+.ewm-modal input:focus-visible {
+    outline: 2px solid var(--color-focus-blue);
+    outline-offset: 0;
+}
+
 .map-state {
     flex: 1;
     display: flex;
@@ -119,8 +138,8 @@
 }
 
 .map-btn--active:hover {
-    background: #000;
-    border-color: #000;
+    background: var(--color-abyss);
+    border-color: var(--color-abyss);
     color: var(--color-white);
 }
 
@@ -131,7 +150,7 @@
 
 .map-btn--ghost:hover {
     color: var(--color-danger-red);
-    background: #fef2f2;
+    background: var(--color-danger-bg);
     border-color: transparent;
 }
 
@@ -264,7 +283,7 @@
 /* Active / focused — blue accent */
 .tnode--active {
     border-color: var(--color-action-blue);
-    box-shadow: 0 0 0 2px rgba(64, 127, 242, 0.15);
+    box-shadow: 0 0 0 2px var(--color-action-border);
 }
 
 /* Watching inbox — dashed border, subtle scan animation */
@@ -288,9 +307,9 @@
 
 /* Email matched — green accent */
 .tnode--email-matched {
-    border-color: rgba(7, 90, 57, 0.4);
-    background: rgba(7, 90, 57, 0.03);
-    box-shadow: 0 0 0 2px rgba(7, 90, 57, 0.08);
+    border-color: var(--color-success-border);
+    background: var(--color-success-bg);
+    box-shadow: 0 0 0 2px var(--color-success-bg-strong);
 }
 
 /* Done — heavily muted */
@@ -304,15 +323,15 @@
 .tnode--selected,
 .tnode.selected {
     border-color: var(--color-action-blue) !important;
-    box-shadow: 0 0 0 2px rgba(64, 127, 242, 0.2) !important;
+    box-shadow: 0 0 0 2px var(--color-action-border) !important;
 }
 
 /* Header row */
 .tnode-header {
     display: flex;
     align-items: center;
-    gap: 5px;
-    margin-bottom: 5px;
+    gap: 6px;
+    margin-bottom: 6px;
 }
 
 .tnode-kind {
@@ -437,154 +456,6 @@
     background: var(--color-action-blue) !important;
 }
 
-/* ── Detail panel ─────────────────────────────────────────── */
-
-.map-detail {
-    width: 256px;
-    flex-shrink: 0;
-    border-left: 1px solid var(--color-stone);
-    background: var(--color-white);
-    padding: 14px 14px 20px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-}
-
-.map-detail-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
-}
-
-.map-detail-kind {
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 2px 7px;
-    border-radius: 99px;
-    background: var(--color-ash);
-    color: var(--color-carbon);
-}
-
-.map-detail-kind--must {
-    background: var(--color-ink);
-    color: var(--color-white);
-}
-.map-detail-kind--personal {
-    background: var(--color-action-blue);
-    color: var(--color-white);
-}
-.map-detail-kind--small {
-    background: var(--color-stone);
-    color: var(--color-carbon);
-}
-
-.map-detail-close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: var(--radius-tags);
-    color: var(--color-lead);
-    transition:
-        color 0.12s,
-        background 0.12s;
-}
-
-.map-detail-close:hover {
-    color: var(--color-carbon);
-    background: var(--color-ash);
-}
-
-.map-detail-text {
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1.5;
-    color: var(--color-ink);
-    letter-spacing: -0.13px;
-    margin: 0 0 14px;
-    word-break: break-word;
-}
-
-.map-detail-text--done {
-    text-decoration: line-through;
-    color: var(--color-lead);
-}
-
-.map-detail-section {
-    margin-bottom: 12px;
-}
-
-.map-detail-section-label {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--color-overcast);
-    margin-bottom: 5px;
-}
-
-.map-detail-section-icon {
-    display: flex;
-    align-items: center;
-    color: var(--color-lead);
-}
-
-.map-detail-edge-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 0;
-    border-bottom: 1px solid var(--color-stone);
-}
-
-.map-detail-edge-row:last-child {
-    border-bottom: none;
-}
-
-.map-detail-edge-text {
-    flex: 1;
-    font-size: 12px;
-    color: var(--color-carbon);
-    line-height: 1.4;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.map-detail-edge-delete {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    border-radius: var(--radius-tags);
-    color: var(--color-lead);
-    flex-shrink: 0;
-    transition:
-        color 0.12s,
-        background 0.12s;
-}
-
-.map-detail-edge-delete:hover {
-    color: var(--color-danger-red);
-    background: #fef2f2;
-}
-
-.map-detail-empty {
-    font-size: 12px;
-    color: var(--color-overcast);
-    line-height: 1.6;
-    margin-top: 4px;
-}
-
 /* ── Add task panel ───────────────────────────────────────── */
 
 .map-add-panel {
@@ -703,7 +574,7 @@
 }
 
 .map-add-submit:hover {
-    background: #000;
+    background: var(--color-abyss);
 }
 .map-add-submit:disabled {
     opacity: 0.4;
@@ -861,7 +732,7 @@
     background: var(--color-ash);
     border: 1px solid var(--color-stone);
     border-radius: var(--radius-inputs);
-    padding: 7px 9px;
+    padding: 8px 10px;
     outline: none;
     width: 100%;
     box-sizing: border-box;
@@ -880,7 +751,7 @@
     font-family: var(--font-inter);
     font-size: 12px;
     font-weight: 500;
-    padding: 7px 0;
+    padding: 8px 0;
     border-radius: var(--radius-buttons);
     background: var(--color-ink);
     color: var(--color-white);
@@ -892,7 +763,7 @@
 }
 
 .map-edge-insert-submit:hover {
-    background: #000;
+    background: var(--color-abyss);
 }
 .map-edge-insert-submit:disabled {
     opacity: 0.4;
@@ -922,9 +793,9 @@
 }
 
 .day-tl-band--lunch {
-    background: rgba(112, 85, 0, 0.06);
-    border-left: 1px solid rgba(112, 85, 0, 0.2);
-    border-right: 1px solid rgba(112, 85, 0, 0.2);
+    background: var(--color-warning-bg);
+    border-left: 1px solid var(--color-warning-border-strong);
+    border-right: 1px solid var(--color-warning-border-strong);
 }
 
 .day-tl-band--blink {
@@ -942,8 +813,8 @@
 }
 
 .day-tl-band--cutoff {
-    background: rgba(112, 85, 0, 0.04);
-    border-left: 1px dashed rgba(112, 85, 0, 0.25);
+    background: var(--color-warning-bg);
+    border-left: 1px dashed var(--color-warning-border-strong);
 }
 
 /* Hour ticks */
@@ -1069,8 +940,8 @@
 }
 
 .mcp-lunch-card {
-    background: rgba(112, 85, 0, 0.06);
-    border: 1px solid rgba(112, 85, 0, 0.18);
+    background: var(--color-warning-bg);
+    border: 1px solid var(--color-warning-border);
     animation: mcp-lunch-blink 1.4s step-end infinite;
 }
 
@@ -1250,21 +1121,14 @@
 
 .mcp-icon-btn--danger:hover {
     color: var(--color-danger-red);
-    background: #fef2f2;
+    background: var(--color-danger-bg);
 }
 
 .mcp-header-actions {
     display: flex;
     align-items: center;
-    gap: 1px;
+    gap: 2px;
     margin-left: auto;
-}
-
-.mcp-kind-status {
-    font-size: 10px;
-    font-weight: 500;
-    color: var(--color-success-green);
-    letter-spacing: -0.05px;
 }
 
 .mcp-kind {
@@ -1341,9 +1205,9 @@
 .mcp-lock-card {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     margin: 0 14px 12px;
-    padding: 9px 11px;
+    padding: 10px 12px;
     border-radius: var(--radius-cards);
     font-size: 12px;
     font-weight: 500;
@@ -1351,8 +1215,8 @@
 }
 
 .mcp-lock-card--lunch {
-    background: rgba(112, 85, 0, 0.06);
-    border: 1px solid rgba(112, 85, 0, 0.18);
+    background: var(--color-warning-bg);
+    border: 1px solid var(--color-warning-border);
     color: var(--color-warning-yellow);
     animation: mcp-lunch-blink 1.4s step-end infinite;
 }
@@ -1411,6 +1275,32 @@
     transition: width 1s linear;
 }
 
+/* Overtime — timer has gone past zero. Countdown shows a leading "-" and
+   everything turns red. Subtle pulse on the countdown to draw attention. */
+.mcp-timer-info--overtime .mcp-countdown {
+    color: var(--color-danger-red);
+    animation: mcp-overtime-pulse 1.2s var(--ease) infinite;
+}
+
+.mcp-timer-info--overtime .mcp-timer-meta {
+    color: var(--color-danger-red);
+    font-weight: 500;
+}
+
+.mcp-timer-info--overtime .mcp-timer-fill {
+    background: var(--color-danger-red);
+}
+
+@keyframes mcp-overtime-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.55;
+    }
+}
+
 /* Idle: tab strip + active-tab content */
 .mcp-duration-block {
     padding: 0 14px 14px;
@@ -1430,7 +1320,7 @@
     position: relative;
     background: transparent;
     border: none;
-    padding: 9px 0 8px;
+    padding: 10px 0;
     font-size: 11px;
     font-weight: 500;
     letter-spacing: -0.05px;
@@ -1540,7 +1430,7 @@
 
 .mcp-duration-item {
     width: 100%;
-    padding: 7px 12px;
+    padding: 8px 12px;
     font-family: var(--font-inter);
     font-size: 12px;
     font-weight: 500;
@@ -1724,8 +1614,8 @@
 .tnode-email-badge {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 1px 5px 1px 4px;
+    gap: 4px;
+    padding: 2px 6px;
     border-radius: 99px;
     background: var(--color-ash);
     border: 1px solid var(--color-stone);
@@ -1738,8 +1628,8 @@
 }
 
 .tnode-email-badge--matched {
-    background: rgba(7, 90, 57, 0.07);
-    border-color: rgba(7, 90, 57, 0.2);
+    background: var(--color-success-bg-strong);
+    border-color: var(--color-success-border);
     color: var(--color-success-green);
 }
 
@@ -1883,12 +1773,12 @@
     font-size: 11px;
     font-weight: 500;
     color: var(--color-action-blue);
-    padding: 3px 7px;
+    padding: 4px 8px;
     border-radius: var(--radius-tags);
-    border: 1px solid rgba(64, 127, 242, 0.25);
-    background: rgba(64, 127, 242, 0.06);
+    border: 1px solid var(--color-action-border);
+    background: var(--color-action-bg);
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background 0.12s;
 }
 
 .ewm-link-btn:hover {
@@ -1947,8 +1837,8 @@
     opacity: 0.8;
 }
 .ewm-watch--matched {
-    border-color: rgba(7, 90, 57, 0.25);
-    background: rgba(7, 90, 57, 0.03);
+    border-color: var(--color-success-border);
+    background: var(--color-success-bg);
 }
 
 .ewm-watch-body {
@@ -2056,8 +1946,8 @@
 }
 
 .ewm-action-btn--danger:hover {
-    background: #fef2f2;
-    border-color: #fca5a5;
+    background: var(--color-danger-bg);
+    border-color: var(--color-danger-border);
 }
 
 /* Matched card */
@@ -2212,7 +2102,7 @@
     font-family: var(--font-inter);
     font-size: 13px;
     font-weight: 500;
-    padding: 9px 0;
+    padding: 8px 0;
     border-radius: var(--radius-buttons);
     background: var(--color-ink);
     color: var(--color-white);
@@ -2223,7 +2113,7 @@
 }
 
 .ewm-submit:hover {
-    background: #000;
+    background: var(--color-abyss);
 }
 .ewm-submit:disabled {
     opacity: 0.4;
@@ -2234,7 +2124,7 @@
     font-family: var(--font-inter);
     font-size: 12px;
     color: var(--color-overcast);
-    padding: 9px 12px;
+    padding: 8px 12px;
     border-radius: var(--radius-buttons);
     border: 1px solid transparent;
     background: transparent;
