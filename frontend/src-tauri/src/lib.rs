@@ -1,6 +1,41 @@
+use std::sync::Mutex;
+
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::Manager;
+use tauri::{Manager, RunEvent};
+use tauri_plugin_shell::process::{CommandChild, CommandEvent};
+use tauri_plugin_shell::ShellExt;
+
+/// Holds the running Go backend child process so we can kill it on app exit.
+struct BackendProcess(Mutex<Option<CommandChild>>);
+
+/// Spawn the bundled Go backend as a sidecar. Logs stdout/stderr lines via
+/// `eprintln!` so they appear in the Tauri dev console (and Console.app for
+/// release builds).
+fn spawn_backend(app: &tauri::App) -> Result<CommandChild, Box<dyn std::error::Error>> {
+    let sidecar = app.shell().sidecar("cogload-backend")?;
+    let (mut rx, child) = sidecar.spawn()?;
+
+    tauri::async_runtime::spawn(async move {
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stdout(line) => {
+                    eprintln!("[backend] {}", String::from_utf8_lossy(&line).trim_end());
+                }
+                CommandEvent::Stderr(line) => {
+                    eprintln!("[backend] {}", String::from_utf8_lossy(&line).trim_end());
+                }
+                CommandEvent::Terminated(payload) => {
+                    eprintln!("[backend] exited: code={:?}", payload.code);
+                    break;
+                }
+                _ => {}
+            }
+        }
+    });
+
+    Ok(child)
+}
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -106,7 +141,7 @@ fn build_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![greet])
@@ -127,8 +162,31 @@ pub fn run() {
             // ── System tray ──────────────────────────────────────────
             build_tray(app).expect("failed to build system tray");
 
+            // ── Backend sidecar ──────────────────────────────────────
+            // Spawn the Go daemon bundled inside the app. If the binary is
+            // missing (e.g. running `cargo run` without first building the
+            // sidecar), log and continue so the UI still works with demo data.
+            match spawn_backend(app) {
+                Ok(child) => {
+                    app.manage(BackendProcess(Mutex::new(Some(child))));
+                }
+                Err(err) => {
+                    eprintln!("[backend] failed to spawn sidecar: {err}");
+                }
+            }
+
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if let RunEvent::ExitRequested { .. } = event {
+            if let Some(state) = app_handle.try_state::<BackendProcess>() {
+                if let Some(child) = state.0.lock().unwrap().take() {
+                    let _ = child.kill();
+                }
+            }
+        }
+    });
 }

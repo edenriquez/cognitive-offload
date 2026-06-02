@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "predev:sidecar": "bash ../scripts/build-backend-sidecar.sh",
+    "prebuild:sidecar": "bash ../scripts/build-backend-sidecar.sh --all"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

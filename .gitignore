@@ -4,7 +4,9 @@ node_modules/
 # Build outputs
 frontend/dist/
 frontend/src-tauri/target/
+frontend/src-tauri/binaries/
 backend/cogload
+backend/cogload-backend
 
 # IDE
 .idea/

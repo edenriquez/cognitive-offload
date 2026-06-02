@@ -6,6 +6,16 @@
     "core:default",
     "core:window:allow-start-dragging",
     "shell:allow-open",
-    "updater:default"
+    "updater:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "binaries/cogload-backend",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    }
   ]
 }

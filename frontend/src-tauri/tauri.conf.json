@@ -5,8 +5,8 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeDevCommand": "npm run predev:sidecar && npm run dev",
+    "beforeBuildCommand": "npm run prebuild:sidecar && npm run build"
   },
   "app": {
     "withGlobalTauri": true,
@@ -29,6 +29,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "externalBin": ["binaries/cogload-backend"],
     "icon": [
       "icons/icon.icns",
       "icons/icon.png",
